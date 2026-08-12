@@ -17,3 +17,4 @@ output/
 # Local scratch and benchmark data (not source code, may contain real candidate data)
 .tmp-*/
 tmp/
+.playwright-cli/
