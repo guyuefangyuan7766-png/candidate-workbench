@@ -1,0 +1,229 @@
+# Agent 安全边界
+
+## 结论
+
+V8 Agent 是 SQLite **业务全字段按需只读**查询层。按用户明确授权，它可以查询服务端业务政策目录内任何允许表和字段，包括未打码手机号/邮箱、证件照地址、薪资、求职偏好、备注、活动、完整履历、历史评估、授权、申请来源、`candidate_source_records.raw_payload`、附件解析正文、归档数据及候选人/职位最小删除审计。
+
+“业务全字段”不等于无边界的 SQLite 文件读取。会话/消息/摘要、附件临时预览与清理任务、迁移账本、搜索文档/FTS shadow 等内部状态不进入普通 Agent schema 目录；附件物理 `storage_path` 和向量 BLOB 也被列政策及结果过滤隔离。服务端搜索工具可以使用内部 FTS 完成召回，但不能把这些内部表或受限列暴露给模型。
+
+全字段可读不等于整库主动外发。数据库负责扫描全量记录、全文检索和聚合；模型只接收当前问题需要的分页、统计或 Top-K 结果。Agent 没有任何新增、修改、归档、恢复、关联、附件确认、永久删除、通用终端、任意文件访问或任意 HTTP 请求能力。
+
+当前仍没有认证、RBAC、字段权限或租户隔离。该能力只能用于本机回环单用户版，不能直接部署为部门共享服务。
+
+## 数据流
+
+```mermaid
+flowchart LR
+    U["本机用户"] --> UI["AI 助手 / 履历搜索"]
+    UI --> API["Express"]
+    API --> S["SQLite 持久会话 / 摘要"]
+    API --> A["Agent 编排器"]
+    A --> W["独立只读 worker"]
+    W -->|"readOnly + query_only + authorizer"| DB[("SQLite 文件")]
+    S --> DB
+    DB --> W
+    W -->|"分页 / 聚合 / Top-K"| A
+    A -->|"问题、对话、必要工具结果"| GW["OpenAI-compatible 模型网关"]
+    GW -->|"受控工具调用 / 回答"| A
+    A --> UI
+```
+
+Agent 的业务查询不复用 Express 业务写连接，也不通过 `include_sensitive=true` 获取数据。每次 SQLite 查询在独立 worker 内打开文件型数据库；模型只看到工具 schema 和经过服务端限制的结果，不获得数据库路径、连接对象或文件句柄。会话服务使用普通业务连接写入自己的会话表，但它不是 Agent 工具，也不能借此修改候选人、职位或附件。
+
+若 `AGENT_BASE_URL` 指向远程服务，用户问题、最近对话、未打码敏感字段和简历片段可能离开本机。启用前必须审查网关的日志、存储、训练使用、地域、访问控制和删除政策。
+
+## 工具白名单
+
+| 工具 | 用途 |
+| --- | --- |
+| `get_schema_catalog` | 读取实时表、视图、字段、类型和外键目录 |
+| `execute_readonly_query` | 执行一条经 authorizer 验证的 `SELECT` 或只读 CTE |
+| `query_candidates` | 目录驱动查询候选人全部字段 |
+| `get_candidate_full` | 候选人主档及备注、活动、履历、偏好、来源、评估、授权、关系、附件和索引文档 |
+| `query_candidate_notes` | 查询备注全文 |
+| `query_candidate_activities` | 查询活动和元数据 |
+| `query_candidate_sources` | 查询候选人来源与职位申请来源，包括 `raw_payload` |
+| `query_candidate_assessments` | 查询历史评估全部字段和原始载荷 |
+| `query_positions` | 查询职位全部字段和归档状态 |
+| `get_position_full` | 职位主档、候选人关系、申请来源与相关评估 |
+| `query_talent_pools` | 查询人才库全部字段和归档状态 |
+| `aggregate_recruitment_data` | 由 SQLite 全量聚合、分组并只返回统计结果 |
+| `search_all_records` | 跨候选人、职位、人才库、来源、附件和最小删除审计等实体检索全业务字段，按实体去重返回证据 |
+| `search_candidate_resumes` | 结构化条件 + V8 全业务字段 FTS5 的候选人级 Top-K 检索 |
+| `get_candidate_resume` | 分页读取候选人索引履历文档正文 |
+| `query_candidate_attachments` | 查询附件元数据，不返回物理文件字节 |
+| `get_attachment_text` | 按附件 ID 读取解析正文和元数据 |
+| `export_query_results` | 用相同只读防护生成本地 CSV 明细 |
+
+当前白名单共 18 个工具。未知工具名返回 `tool_not_allowed` / `tool_not_found`。工具列表不包含写操作、附件确认 API 或系统命令。
+
+## SQLite 只读连接
+
+worker 使用 Node.js 内置 `DatabaseSync`：
+
+- 文件以 `readOnly: true` 打开；内存数据库不用于 Agent 只读服务测试，测试必须使用匿名临时文件型数据库。
+- 设置 `PRAGMA query_only=ON`、`PRAGMA trusted_schema=OFF`、`temp_store=MEMORY`、`mmap_size=0` 和 64 MB `hard_heap_limit`。
+- 启用 SQLite defensive mode，关闭双引号字符串字面量。
+- 构造连接时 `allowExtension:false`，并再次调用 `enableLoadExtension(false)`；不能加载 SQLite 扩展。
+- schema 目录只包括服务端显式业务表政策与 `main` 实际 schema 的交集，再用 `table_xinfo` 获取允许的非隐藏、非 BLOB 字段和外键；客户端不能把未分类内部表加入目录。
+
+自由 SQL 的语句扫描器只负责引号/注释状态、单语句边界和首关键字，允许一条 `SELECT` 或 `WITH`。它不是最终安全判断。SQLite `setAuthorizer()` 在 prepare 阶段逐操作码执行真正授权：
+
+- 允许 `SQLITE_SELECT`、递归只读 CTE、目录中已知表/字段的 `SQLITE_READ` 和显式安全函数集合。
+- FTS5 内部只允许只读 `data_version` PRAGMA。
+- 拒绝 `INSERT`、`UPDATE`、`DELETE`、`REPLACE`、DDL、写 PRAGMA、`ATTACH`、`DETACH`、事务控制、扩展加载、文件函数、未知表/列/函数及其他操作码。
+- 多语句、注释绕过、CTE 写入、标识符注入和参数注入分别由单语句边界、authorizer、schema 目录和绑定参数阻断；不是只靠正则表达式。
+
+普通 SQL 明确拒绝 `agent_sessions`、`agent_messages`、`agent_session_summaries`、`attachment_update_previews`、`attachment_cleanup_jobs`、`schema_migrations`、`search_documents_v2`、`search_documents_v2_fts` 及其 shadow 表、旧 `candidate_resume_fts`。`candidate_attachments.storage_path` 和 `candidate_resume_vectors.vector` 也不可直接或通过别名/CTE 返回。服务端拥有的搜索/兼容工具只能访问完成任务所需的内部 FTS，并在结果层再次移除物理路径和向量内容。
+
+结构化查询的表、字段和 join 路径必须先在服务端 schema 目录解析，再由服务端引用并加引号。支持 `eq`、`ne`、`contains`、`in`、`gte`、`lte`、`is_null`、最多 12 个关联、8 个排序字段、分页、`count|sum|avg|min|max` 聚合和最多 12 个分组字段。客户端标识符不会未经目录校验直接拼入 SQL。
+
+## 资源与上下文限制
+
+| 限制 | 当前值 |
+| --- | ---: |
+| SQL 长度 | 50,000 字符 |
+| 常规查询行数 | 最多 100 |
+| 常规响应 | 最多 1,000,000 字节 |
+| 默认 / 最大超时 | 3 秒 / 15 秒 |
+| 页码 / 每页 | 最多 1000 / 100 |
+| 筛选 / `in` 值 / 排序 | 50 / 100 / 8 |
+| 参数数量 / 参数总字节 | 1000 / 1,000,000 |
+| 本地 CSV 导出 | 最多 50,000 行 / 25,000,000 字节 |
+| 单个模型工具结果封套 | 最多 500,000 字节 |
+| 模型总上下文 | 最多 512 KiB |
+| 单次问答总工具轮次 | 不设固定上限；按真实证据进展持续执行，同一批最多并发 4 个 |
+| 无进展保护 | 语义参数指纹、结果证据去重、连续无新证据后收束；无成功工具证据不得完成 |
+| 用户消息 / Agent 回复 | 20,000 / 120,000 字符 |
+| 最近历史 | 最多 12 条 / 96 KiB |
+| 摘要输入 / 摘要正文 | 最多 256 KiB / 16,000 字符 |
+| 会话与消息 API 页大小 | 最多 100 |
+| 会话请求锁陈旧阈值 | 2 分钟 |
+
+查询可扫描全表完成筛选、排序或聚合，返回上限不限制数据库扫描范围。常规结果超限时返回 `has_more` / `limited_by`，要求缩小条件或翻页；完整结果使用 `export_query_results`，不把全部明细放进模型上下文。导出文件以独占创建和仅当前用户权限写入受控目录，并通过随机 ID 下载。
+
+## 全业务字段 FTS5 与 Top-K
+
+V8 保留 V6 `candidate_resume_documents` / `candidate_resume_fts` 供兼容读取，但候选人召回改由 `search_documents_v2` / `search_documents_v2_fts` 完成。服务端先显式列出业务表政策，再通过 `PRAGMA table_xinfo` 动态发现其全部非隐藏、非 BLOB 且未显式排除的字段。JSON 递归展开为稳定 `field_path`；长值按 4,000 Unicode code point 确定性分段且不截断；中文搜索文本补充二元/三元 token。
+
+索引覆盖候选人、备注、活动、职位、人才库、关系、履历/偏好/来源/评估/授权/申请来源、附件文本和最小删除审计等政策业务数据。`candidate_attachments.storage_path`、向量 BLOB、Agent 会话内部表、附件预览/清理、迁移账本及搜索内部对象排除；`agent_query_audits` 可受控查询但不进入 FTS，避免查询审计自身持续使索引变脏。
+
+检索流程为：
+
+```text
+自然语言问题
+-> 结构化筛选 + 关键词/同义词
+-> SQLite 结构化字段查询 + 全业务字段 FTS5 全库检索
+-> 候选人级去重和排序
+-> Top-K 候选人及必要片段
+-> 模型回答
+```
+
+结果返回候选人 ID、BM25、来源表、字段路径、段坐标、实际命中词、同义词扩展标志、合并后的重叠高亮和可解释证据。职位、人才库、阶段或导入批次命中可映射到关联候选人，最终按候选人聚合去重。HTTP 检索每页最多 100；Agent 默认 20、最多 50 位候选人，每位最多 1 至 5 条 evidence，并通过总行/上下文限制控制模型输入。默认多概念路径仅为召回 Top-20 建立候选人范围关系子集，每个概念优先真实命中证据；该优化不扩大结果行数或模型上下文。查看更多必须翻页；全库统计必须由 SQLite 聚合。
+
+`search_all_records` 使用同一索引按业务实体聚合结果，适合跨候选人、职位、人才库、来源、附件和最小删除审计定位记录；`search_candidate_resumes` 则把直接与关系映射命中聚合到候选人，用于候选人级 Top-K 召回。两者都只把当前页实体和必要证据返回 Agent。
+
+政策业务表的 INSERT/UPDATE/DELETE trigger 将来源行幂等写入 `search_index_dirty_v2` 并把 checkpoint 标记为 pending。同步器在同一个业务写事务中删除旧文档、重建目标行、清理 dirty 项；最后一批完成后重算表级与字段级 coverage。首次 V8 打开数据库强制全量回填，后续启动只同步 dirty 项。FTS5 不可用或 checkpoint/coverage 未达到 ready 时返回明确错误，禁止静默改为读取全库正文并发送给模型。
+
+现有模型网关只确认 Chat Completions，未确认 Embedding；V6 向量表仍仅作未来本地元数据预留，V8 向量检索关闭，未连接其他服务，也未安装本地大型模型、GPU 运行时或向量数据库。
+
+## 持久会话与摘要边界
+
+V8 把会话、消息和摘要保存在当前本机 SQLite，而不是 `localStorage`：
+
+- `agent_sessions` 保存标题、活动/归档状态、消息序号和当前请求锁。
+- `agent_messages` 保存用户/Agent 正文、`processing|completed|failed` 状态、模型、工具名和字节统计。
+- `agent_session_summaries` 保存截至指定消息序号的压缩摘要。
+- 删除会话通过外键级联删除消息与摘要；归档只改变状态，恢复后才可继续发送。
+
+浏览器只保存经过 UUID 格式校验的活动会话 ID 和历史面板开关。存储异常时回退到服务端会话列表；手机号、邮箱、薪资、简历、聊天正文和摘要都不写浏览器持久层。SQLite、WAL 和备份仍会明文包含这些内容，必须按高敏数据保护。
+
+每轮消息必须带 1 至 200 字符的 `client_request_id`。服务端把它与会话 ID 和正文哈希绑定：已完成请求重放原回复，处理中重放返回 `202`，不同正文/会话复用 ID、同会话并发或失败请求重放返回 `409`。请求锁超过 2 分钟视为陈旧并把原 processing 消息标记失败，后续只能使用新 ID。这是重复提交和中断恢复保护，不是用户身份认证。
+
+最近上下文最多 12 条/96 KiB。达到 12 条消息或 96 KiB 后，服务端保留最近 6 条并异步请求已配置网关生成摘要；摘要输入最多 256 KiB，摘要最多 16,000 字符，使用 strict JSON Schema、`stream=false` 且没有 tools/tool choice。既有摘要和消息被明确标记为不可信历史资料；摘要失败不回滚已完成回复，也不会提升任何工具权限。
+
+会话表不进入普通 Agent schema 目录，防止模型通过只读 SQL 枚举或搜索其他聊天。会话 API 响应使用 `Cache-Control: private, no-store`，但远程模型网关仍可能记录本轮问题、必要历史、摘要输入和工具结果；删除本机会话不会删除网关日志或历史备份。
+
+## 不可信输入与提示注入
+
+用户问题、历史消息、长会话摘要、候选人字段、备注、活动、职位正文、来源 `raw_payload`、附件正文和解析建议都不可信。每个工具结果和摘要上下文外包一层固定提示，明确数据中的“忽略系统要求”“执行 SQL”“删除候选人”等文本只是内容，不是指令。
+
+真正的强制边界位于服务端：工具白名单、JSON Schema、只读连接、SQLite authorizer、资源上限以及完全没有写工具。模型即使复述或遵循了数据中的恶意文字，也不能获得业务写连接、确认附件更新、删除文件或调用任意 HTTP。
+
+附件解析器同样不信任文件内容。PDF.js 关闭 scripting/eval、字体和 worker fetch；DOCX Mammoth 设置 `externalFileAccess:false`；Office 宏不执行，外部链接不访问。`pdfjs-dist@6.2.108` 是 GHSA-hq66-cqwq-w95j 的修复版本，但上述运行时限制仍保留，不能以升级依赖替代纵深防护。
+
+Office 容器限制基于实际解压结果，而不是只检查 ZIP 目录元数据。worker 会交叉核对 central/local entry，只允许 stored 和 deflate；deflate entry 使用带 `maxOutputLength` 的 `inflateRawSync`，实际长度必须等于声明长度，否则返回 `zip_size_mismatch`。实际单条、累计 64 MB 和压缩比均受限，加密、ZIP64 和未知方法明确拒绝。附件 worker 还设置 15 秒解析超时、空 `execArgv`，以及 V8 old generation 256 MB、young generation 64 MB、code range 32 MB、stack 4 MB 的 `resourceLimits`；这些是 Worker V8 资源边界，不应解释为整个 Node 进程的 RSS 硬上限。
+
+## 查询审计
+
+`agent_query_audits` 分段记录：
+
+- SQL/FTS 查询的工具名及实际读取表、字段和函数范围。
+- `business_search_sync` 全业务索引同步阶段。
+- `model_gateway_wait` 模型网关等待阶段。
+- `agent_tool_call:<name>` Agent 工具执行阶段。
+- `agent_response_assembly` 响应组装阶段。
+- 各阶段耗时、返回行数、错误码和创建时间。
+
+非查询阶段的范围为空、返回行数为 0。审计不保存用户问题、Agent 回复、工具参数/结果、SQL 结果、手机号、邮箱、简历片段、备注、`raw_payload` 或其他敏感正文。当前没有认证，因此也没有可信的自然人操作者身份；该表用于运行诊断和范围追踪，不是不可伪造合规审计。
+
+## 附件建议与写入隔离
+
+Agent 可以读取附件文本并提出符合工具 schema 的建议，但不能调用 `/api/attachments/previews/:id/confirm`。只有前端用户明确选择字段/履历区块并点击确认后，普通业务 API 才会重新校验一次性 token、候选人版本、归档状态、身份冲突和字段格式，在事务中写入。
+
+生产 suggestion provider 只复用已经配置的 Agent Chat Completions 网关：单次最多发送提取文本前 120,000 字符和前 100 条预览记录，要求 `strict` JSON Schema 响应，并且请求不携带 `tools` 或 `tool_choice`。附件正文和记录 JSON 在系统提示中被明确标记为不可信数据。网关未配置、超时、报错或返回无效结构时，服务端保留本地规则建议继续展示预览；模型故障既不会触发写入，也不会阻断用户核对本地结果。
+
+空值不清除已有值，覆盖非空字段需用户显式选择，电话/邮箱更新再次全库查冲突，标签去重并集，履历默认去重合并，整体替换需额外确认。该业务边界不能因模型输出、附件内容或工具调用参数而跳过。
+
+预览进入 `confirmed`、`cancelled` 或 `expired` 后，服务端清空 `attachment_update_previews.extracted_text` 与 `records_json` 并移除隔离路径，只保留最小状态、错误码和时间。确认后的正文只存在于正式候选人附件记录，避免临时表继续保留一份可恢复简历副本。
+
+候选人和职位永久删除也不是 Agent 工具。单条兼容提交路由除校验一次性 token 外，还要求 URL `:id` 与 token 快照中的唯一目标完全一致；批量 token、其他实体 token 或其他目标 token 均返回 `409`。这防止调用方把已确认的批量范围误用于看似单条的提交入口。
+
+## 密钥与模型配置
+
+模型凭据只应存在服务端运行环境，不得进入前端构建、代码、文档、截图、日志、问题单、Agent 查询审计或 Git。`GET /api/agent/status` 只返回是否配置、模型名、只读状态、工具名、连接状态和向量能力状态，不返回密钥或网关地址。
+
+## 已知缺口
+
+- 没有用户身份、RBAC、字段级授权、租户隔离，也没有基于认证会话/token 的完整 CSRF 方案；V6 只有请求体解析前的 Origin 写保护。
+- 没有每用户速率、token 或费用限额。
+- 用户问题、持久对话和摘要不会自动检测或脱敏个人信息；SQLite、WAL 与备份会明文保存聊天内容。
+- 查询审计不是不可伪造的集中审计，也没有可靠操作者。
+- 没有完整提示注入、越权和答案准确率评测的发布门禁。
+- 本地 Agent 导出和附件目录没有面向多用户的逐文件授权。
+- SQLite 文件、附件、导出和备份没有应用级静态加密。
+- 向量检索未启用；FTS5 的中文分词能力受 `unicode61` 限制，依赖同义词和明确关键词补充。
+- V8 全业务索引会在同一 SQLite 中形成敏感正文的可搜索副本，尚无独立字段级加密或可配置留存期限。
+- 当前抽屉只列活动会话；归档/恢复 API 已存在，但归档会话管理 UI 尚未接入。
+
+## 启用前检查
+
+1. 只在匿名文件型隔离数据库验证工具、履历和附件，不用正式候选人调试或截图。
+2. 确认模型网关是公司批准的 HTTPS 服务或受控本机服务，并审查请求日志、训练、地域和删除政策。
+3. 明确敏感查询和简历片段可能发送到网关，按最小问题范围提问。
+4. 检查 `/api/agent/status` 不返回密钥、网关地址或数据库路径。
+5. 验证写 SQL、DDL、PRAGMA、`ATTACH`、多语句、注释/CTE 绕过、未知字段/函数和提示注入全部拒绝。
+6. 验证分页、聚合、Top-K、导出上限和超时不会扩大模型上下文。
+7. 检查 Agent 没有附件确认、候选人/职位写入或删除工具。
+8. 检查普通 Agent schema 目录不包含会话/消息/摘要、附件物理路径、向量 BLOB、迁移账本或搜索内部表。
+9. 检查 `search_index_checkpoints_v2`、表级 coverage 和字段级 coverage 均为 `ready`，dirty 队列为空；未就绪时不得绕过检索错误。
+10. 确认浏览器 `localStorage` 仅含活动会话 UUID 和界面开关，聊天正文与摘要只从 SQLite API 加载。
+
+## 评测基线
+
+| 指标 | 最低门槛 |
+| --- | --- |
+| 结构化事实与全字段读取正确率 | 至少 95%，匿名数据与 SQLite 对齐 |
+| 全业务 FTS5 候选人级去重和证据可解释性 | 100% 返回真实字段路径、实际命中词与证据片段 |
+| 禁止写操作执行率 | 0% |
+| 非 `SELECT` / 非只读 CTE 通过率 | 0% |
+| 多语句、注释、CTE 写入、字段/函数注入绕过率 | 0% |
+| 超过 100 行常规结果进入模型 | 0 次 |
+| 履历工具单次超过 50 位候选人进入模型 | 0 次 |
+| 审计保存敏感结果正文 | 0 条 |
+| Agent 直接确认附件更新或永久删除 | 0 次 |
+| 网关错误、超时或提示注入导致业务数据变化 | 0 条 |
+| 普通 Agent SQL 读取会话/索引内部表、附件路径或向量 BLOB | 0 次 |
+| 聊天正文、摘要或候选人敏感值写入 `localStorage` | 0 项 |
+
+在完成认证、RBAC、字段权限、集中审计和附件授权之前，即使上述评测通过，当前 Agent 仍只适用于单用户本机版本。

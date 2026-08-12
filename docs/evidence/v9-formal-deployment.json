@@ -1,0 +1,215 @@
+{
+  "schema_version": 1,
+  "evidence_id": "v9-formal-deployment-20260807-103130",
+  "scope": {
+    "database": "data/recruitment.db",
+    "formal_database_used": true,
+    "contains_candidate_content": false,
+    "contains_query_content": false,
+    "contains_credentials": false,
+    "verification": "schema_status_aggregates_hashes_integrity_and_loopback_health_only"
+  },
+  "maintenance_window": {
+    "started_at": "2026-08-07T10:31:11+08:00",
+    "old_service_pid": 7232,
+    "old_service_stopped": true,
+    "loopback_port_released_before_backup": true,
+    "automatic_shutdown_enabled": false,
+    "shutdown_after_completion": false
+  },
+  "artifacts": {
+    "backup_directory": "backups/pre-v9-agent-capacity-20260807-103130",
+    "backup_manifest": {
+      "path": "backups/pre-v9-agent-capacity-20260807-103130/sqlite-file-set-manifest.json",
+      "sha256": "0413357a756b92cb961aa98bf04cb905ae908278f48c04a890aacd1408a984f0"
+    },
+    "source_manifest": {
+      "path": "backups/v9-source-20260807-103130/source-manifest.json",
+      "sha256": "33675750da369e50fbbad32ed769d7915be8959decb50cf862edaaa959c3d39e",
+      "verified_files": 61,
+      "required_files": 61
+    },
+    "migration_script": {
+      "path": "scripts/formal-v9-migrate.mjs",
+      "sha256": "8d84504e841da7e096525116d995551a56f5f8514ff9327ffdfa16dd70a58ac9"
+    },
+    "maintenance_sentinel": {
+      "path": ".candidate-workbench-maintenance-0a25b3c791e50bca772d80cf.lock",
+      "formal_armed_sha256": "b98c7ca35e50987605071983f6a9189adab2d56835ea1a7fd90d80e31703be43",
+      "formal_ownership_released_after_success": true,
+      "runtime_ownership_reacquired_after_restart": true,
+      "runtime_pid": 22904
+    },
+    "recovery_marker": {
+      "path": "backups/v9-recovery-marker-20260807-103130/recovery-marker.json",
+      "sha256": "68bdc480d230afcac462213599a82d3e8a2c07b72076f3bc0b225f08e7bed96a"
+    }
+  },
+  "sqlite_backup": {
+    "source_and_backup_match": true,
+    "files": [
+      {
+        "name": "recruitment.db",
+        "present": true,
+        "bytes": 4187049984,
+        "sha256": "845dbc81ff21dc77b69146776362a70d3cc1ec5951b0b804629b6a73aa0492f8"
+      },
+      {
+        "name": "recruitment.db-wal",
+        "present": true,
+        "bytes": 10094032,
+        "sha256": "ba29cec9163f3da4ae08190fe72451c46fc1f7d2f0ee59e87cb2de86abaef7d3"
+      },
+      {
+        "name": "recruitment.db-shm",
+        "present": true,
+        "bytes": 32768,
+        "sha256": "3222ce4f6cfc140e2da15602ddda2fad091c535f87b27ba46fe6e40be563cf74"
+      }
+    ]
+  },
+  "verified_baseline": {
+    "protected_counts": {
+      "stages": 6,
+      "candidates": 8209,
+      "notes": 0,
+      "activities": 34742,
+      "import_batches": 10,
+      "positions": 312,
+      "candidate_positions": 9980,
+      "talent_pools": 35,
+      "candidate_talent_pools": 6224,
+      "candidate_attachments": 0,
+      "candidate_field_sources": 0,
+      "candidate_profile_sections": 221,
+      "candidate_preferences": 309,
+      "candidate_source_records": 32834,
+      "candidate_assessments": 9980,
+      "candidate_consents": 7888,
+      "candidate_position_sources": 9980,
+      "agent_query_audits": 138,
+      "agent_sessions": 1,
+      "agent_messages": 8,
+      "agent_session_summaries": 0,
+      "candidate_resume_documents": 8430,
+      "candidate_resume_fts": 8430,
+      "search_documents_v2": 2629388,
+      "search_documents_v2_fts": 2629388,
+      "search_index_dirty_v2": 0,
+      "search_index_checkpoints_v2": 1,
+      "search_index_coverage_v2": 19,
+      "search_index_field_coverage_v2": 191,
+      "candidate_resume_vectors": 0,
+      "agent_tasks": 0
+    },
+    "checkpoint": {
+      "status": "ready",
+      "queued_rows": 120806,
+      "processed_rows": 120823,
+      "document_count": 2629388,
+      "error_code": null
+    },
+    "coverage": {
+      "tables": "19/19",
+      "table_keys_sha256": "0086d9ad9d63ab726efa487e4f41e25b807a4bcaf22bdc6f0da9c15874361796",
+      "fields": "191/191",
+      "field_keys_sha256": "449a63e763c6846d44f51284553271d90da214a83b54b581bddba420ffdfe738"
+    },
+    "search_metadata": {
+      "rows": 2629388,
+      "sha256": "5aa004df9748783018edba365999ce6118b52cae1f8caf67cc356f7a93fda526"
+    },
+    "search_fts_metadata": {
+      "rows": 2629388,
+      "sha256": "5cfd6392b6d7842fa004bbe06c877298692987c34f95d865b5bda68b4ee0d243"
+    },
+    "integrity_check": "ok",
+    "foreign_key_violations": 0
+  },
+  "migration": {
+    "recovery_copy": {
+      "ok": true,
+      "mode": "recovery",
+      "migration_ms": 416.783,
+      "wal_checkpoint": { "busy": 0, "log": 901, "checkpointed": 901 }
+    },
+    "formal": {
+      "exit_code": 0,
+      "ok": true,
+      "mode": "formal",
+      "migration_ms": 151.37,
+      "wall_seconds": 264.7,
+      "wal_checkpoint": { "busy": 0, "log": 901, "checkpointed": 901 }
+    },
+    "before_versions": [1, 2, 3, 4, 5, 6, 7, 8],
+    "after_versions": [1, 2, 3, 4, 5, 6, 7, 8, 9],
+    "v9_migration_name": "agent_async_tasks_and_phase_audits",
+    "before_after_protected_state_equal": true,
+    "recovery_and_formal_results_equal": true,
+    "v9_objects": {
+      "agent_tasks_sql_sha256": "c480c640686e24a2b1bda10535ba309598fc00f04b71095941c9f5bf4fb3ea6e",
+      "audit_columns": ["trace_id", "task_id", "phase"],
+      "indexes": [
+        "agent_tasks_session_status_idx",
+        "agent_tasks_heartbeat_idx",
+        "agent_tasks_created_idx",
+        "agent_query_audits_task_idx",
+        "candidates_stage_id_v9_idx",
+        "candidates_import_batch_id_v9_idx"
+      ],
+      "definitions_sha256": "61ff580d88447ad6e04beb325ccf0361c84bee6725130cb0aac093934d3c658f"
+    },
+    "formal_files_after": {
+      "database_bytes": 4187590656,
+      "database_growth_bytes": 540672,
+      "wal_bytes": 0,
+      "shm_bytes": 32768
+    }
+  },
+  "runtime": {
+    "started_at": "2026-08-07T11:00:40+08:00",
+    "pid": 22904,
+    "listener": {
+      "address": "127.0.0.1",
+      "port": 4173,
+      "only_listener_on_port": true
+    },
+    "health": {
+      "http_status": 200,
+      "status": "ok",
+      "service": "recruitment-api"
+    },
+    "agent_status": {
+      "http_status": 200,
+      "configured": true,
+      "read_only": true,
+      "readonly_connection": true,
+      "persistent_sessions": true,
+      "full_readonly": true,
+      "async_tasks": true,
+      "access": "sqlite_full_readonly_on_demand",
+      "tool_count": 18,
+      "vector_enabled": false,
+      "fallback": "sqlite_fts5"
+    },
+    "root_page": {
+      "http_status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "bytes": 526
+    },
+    "idle_process_snapshot": {
+      "working_set_mib": 66.8,
+      "private_memory_mib": 73.1,
+      "context": "formal_service_after_health_only_acceptance"
+    },
+    "stdout_bytes": 51,
+    "stderr_bytes": 0,
+    "runtime_sentinel_owned": true
+  },
+  "limitations": [
+    "The formal acceptance did not run candidate search, model queries, screenshots, load tests, mutations, deletes, uploads, or fault injection.",
+    "The recovery gate migrated a disposable copy; it did not perform a destructive restore of the formal database after a simulated failure.",
+    "The idle formal-service RSS snapshot is not comparable to the anonymous 100000/120000 benchmark or concurrency-process peak RSS.",
+    "The formal check proves additive schema migration and aggregate/hash preservation, not candidate-level search relevance or real model throughput."
+  ]
+}

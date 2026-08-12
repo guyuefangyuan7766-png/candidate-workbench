@@ -1,0 +1,1908 @@
+import {
+  copyFileSync,
+  constants as fsConstants,
+  existsSync,
+  mkdirSync,
+  rmSync,
+  statSync,
+  unlinkSync,
+  writeFileSync
+} from 'node:fs'
+import { lstat, readFile as readFileAsync } from 'node:fs/promises'
+import { createHash, randomBytes, randomUUID } from 'node:crypto'
+import { basename, extname, isAbsolute, relative, resolve, sep } from 'node:path'
+import { CANDIDATE_FIELDS } from './constants.js'
+import { addActivity, now } from './database.js'
+import { synchronizeBusinessSearch } from './business-search.js'
+import { parseAttachment, sanitizeOriginalFilename, validateAttachmentFile } from './attachment-parser.js'
+import {
+  HEADER_ALIASES,
+  buildHeaderMapping,
+  mapImportedRow,
+  normalizeEmail,
+  normalizePhone,
+  sanitizeCandidateInput
+} from './validation.js'
+
+const PARSER_VERSION = 'local-resume-parser-v1'
+const DEFAULT_PREVIEW_TTL_MS = 15 * 60 * 1000
+const DEFAULT_PARSE_CONCURRENCY = 2
+const MAX_CONFIRM_RECORDS = 1000
+const ATTACHMENT_SUGGESTION_TIMEOUT_MS = 5_000
+const PARSE_FAILURE_MESSAGES = Object.freeze({
+  attachment_empty: '附件中没有可确认的候选人记录',
+  attachment_parse_failed: '附件内容提取失败，请确认文件完整且格式正确后重试',
+  attachment_record_limit: `附件中的候选人记录超过 ${MAX_CONFIRM_RECORDS} 条限制`,
+  attachment_staging_invalid: '附件隔离文件缺失或校验失败，请重新上传',
+  docx_no_text: 'DOCX 中没有可提取的简历文本',
+  docx_parse_failed: 'DOCX 已损坏、加密或无法提取文本',
+  encrypted_office_unsupported: '不支持加密或带密码的 Office 文件',
+  encrypted_pdf_unsupported: '不支持加密或带密码的 PDF',
+  invalid_csv_encoding: 'CSV 必须使用有效的 UTF-8 编码',
+  invalid_office_package: 'Office 文件结构不完整或已损坏',
+  invalid_zip: 'Office 文件结构不完整或已损坏',
+  multipart_zip_unsupported: '不支持跨卷或分段 Office 文件',
+  office_encrypted_or_invalid: '工作簿已加密、损坏或格式不正确',
+  parse_interrupted: '附件解析因服务重启而中断，请重新上传',
+  parse_timeout: '附件解析超时，请重试；若持续失败，请简化或拆分文件',
+  parser_unavailable: '附件解析服务暂时不可用，请稍后重试',
+  pdf_page_limit: 'PDF 页数超过解析限制',
+  pdf_no_text: 'PDF 中没有可提取文本；扫描件和需要 OCR 的文件暂不支持',
+  pdf_parse_failed: 'PDF 已损坏或无法提取文本',
+  signature_mismatch: '文件内容与扩展名不匹配或文件已损坏',
+  spreadsheet_column_limit: '工作表列数超过解析限制',
+  spreadsheet_empty: '工作表中没有可读取的候选人数据',
+  spreadsheet_row_limit: '工作表行数超过解析限制',
+  unsupported_attachment_type: '不支持该附件格式',
+  worksheet_limit: '工作簿中的工作表数量超过解析限制',
+  xls_encrypted_or_invalid: '无法读取该 .xls；仅支持未加密的 Excel 97-2003 BIFF8 工作簿',
+  xls_parse_failed: '解析 .xls 时发生错误',
+  zip64_unsupported: '不支持 ZIP64 Office 文件，请缩小文件后重试',
+  zip_compression_unsupported: 'Office 文件使用了不支持的压缩方式',
+  zip_crc_mismatch: 'Office 文件内部 CRC 校验失败，文件可能已损坏',
+  zip_duplicate_path: 'Office 文件包含重复的内部路径',
+  zip_entry_limit: 'Office 文件内部条目数量超过解析限制',
+  zip_entry_too_large: 'Office 文件包含超过解析限制的内容',
+  zip_ratio_limit: 'Office 文件压缩比异常，已阻止解析',
+  zip_size_mismatch: 'Office 文件内部大小校验失败，文件可能已损坏',
+  zip_uncompressed_limit: 'Office 文件解压后超过 64MB 限制',
+  unsafe_zip_path: 'Office 文件包含不安全的内部路径'
+})
+const RETRYABLE_PARSE_FAILURES = new Set([
+  'attachment_parse_failed',
+  'parse_interrupted',
+  'parse_timeout',
+  'parser_unavailable'
+])
+const ALLOWED_UPDATE_FIELDS = new Set([
+  'name', 'phone', 'email', 'current_company', 'current_title', 'location',
+  'years_experience', 'education', 'highest_school', 'highest_major',
+  'job_seeking_status', 'resume_updated_at', 'self_summary', 'source', 'owner',
+  'tags', 'expected_salary', 'desired_titles'
+])
+const FIELD_LIMITS = Object.freeze({
+  name: 200,
+  phone: 80,
+  email: 320,
+  current_company: 300,
+  current_title: 300,
+  location: 200,
+  education: 200,
+  highest_school: 300,
+  highest_major: 300,
+  job_seeking_status: 200,
+  resume_updated_at: 80,
+  self_summary: 20_000,
+  source: 200,
+  owner: 200,
+  expected_salary: 200,
+  desired_titles: 4_000
+})
+const ATTACHMENT_PREFERENCE_FIELD_ALIASES = Object.freeze({
+  desired_titles: [
+    'desired titles', 'desired_titles', 'intent position', 'desired position', 'target position',
+    '意向岗位', '求职意向', '目标岗位', '应聘岗位', '期望职位', '期望岗位'
+  ]
+})
+const RESUME_SECTION_DEFINITIONS = Object.freeze([
+  Object.freeze({
+    section_type: 'work_experience',
+    title: '工作经历',
+    aliases: ['工作经历', '工作经验', '职业经历', '任职经历', 'work experience', 'employment history']
+  }),
+  Object.freeze({
+    section_type: 'project_experience',
+    title: '项目经历',
+    aliases: ['项目经历', '项目经验', '项目实践', 'projects', 'project experience']
+  }),
+  Object.freeze({
+    section_type: 'education_experience',
+    title: '教育经历',
+    aliases: ['教育经历', '教育背景', '学历经历', '学习经历', 'education']
+  }),
+  Object.freeze({
+    section_type: 'self_summary',
+    title: '自我评价',
+    aliases: ['自我评价', '个人评价', '自我概述', '自我总结', '个人总结', 'self summary', 'summary']
+  }),
+  Object.freeze({
+    section_type: 'skills',
+    title: '技能/荣誉',
+    aliases: [
+      '技能/荣誉', '技能与荣誉', '技能及荣誉', '专业技能', '技能清单', '核心技能', '技能',
+      '荣誉证书', '证书/竞赛', '证书与竞赛', '证书及竞赛', '荣誉', '获奖经历',
+      'skills', 'technical skills', 'honors', 'awards', 'certificates'
+    ]
+  })
+])
+
+const BOUNDARY_ONLY_LABELS = Object.freeze([
+  '政治面貌', '民族', '籍贯', '婚姻状况', '到岗时间', '可入职时间'
+])
+
+const SECTION_TYPE_FAMILIES = Object.freeze({
+  work_experience: new Set(['work_experience', 'experience']),
+  project_experience: new Set(['project_experience', 'project']),
+  education_experience: new Set(['education_experience', 'education']),
+  self_summary: new Set(['self_summary']),
+  skills: new Set(['skills', 'skill', 'certificate', 'award'])
+})
+
+const SECTION_DEFINITION_BY_TYPE = new Map(
+  RESUME_SECTION_DEFINITIONS.map((definition) => [definition.section_type, definition])
+)
+
+function attachmentError(status, code, message, details) {
+  const error = new Error(message)
+  error.status = status
+  error.code = code
+  if (details !== undefined) error.details = details
+  return error
+}
+
+function publicParseFailure(error) {
+  const requestedCode = typeof error?.code === 'string' ? error.code : ''
+  const code = Object.prototype.hasOwnProperty.call(PARSE_FAILURE_MESSAGES, requestedCode)
+    ? requestedCode
+    : 'attachment_parse_failed'
+  return {
+    code,
+    message: PARSE_FAILURE_MESSAGES[code],
+    retryable: RETRYABLE_PARSE_FAILURES.has(code)
+  }
+}
+
+async function optionalSuggestionWithin(promise, timeoutMs = ATTACHMENT_SUGGESTION_TIMEOUT_MS, signal) {
+  let timer
+  let abortHandler
+  const timeout = new Promise((resolve) => {
+    timer = setTimeout(() => resolve(null), timeoutMs)
+    timer.unref()
+  })
+  const aborted = new Promise((resolve) => {
+    if (!signal) return
+    abortHandler = () => resolve(null)
+    signal.addEventListener('abort', abortHandler, { once: true })
+    if (signal.aborted) abortHandler()
+  })
+  try {
+    return await Promise.race([promise, timeout, aborted])
+  } finally {
+    clearTimeout(timer)
+    if (abortHandler) signal?.removeEventListener('abort', abortHandler)
+  }
+}
+
+function tokenHash(token) {
+  return createHash('sha256').update(token, 'utf8').digest('hex')
+}
+
+function parseJson(value, fallback) {
+  try {
+    return value ? JSON.parse(value) : fallback
+  } catch {
+    return fallback
+  }
+}
+
+function cleanValue(value, maximum = 20_000) {
+  if (value === null || value === undefined) return null
+  const text = String(value).replace(/\u0000/g, '').trim()
+  return text ? text.slice(0, maximum) : null
+}
+
+function nonEmpty(value) {
+  if (Array.isArray(value)) return value.length > 0
+  return value !== null && value !== undefined && String(value).trim() !== ''
+}
+
+function unique(values) {
+  return [...new Set(values.filter(Boolean))]
+}
+
+function isMissingIdentityValue(value) {
+  if (value === null || value === undefined) return true
+  const text = String(value).trim()
+  return text === '' || text === '未提取'
+}
+
+function normalizedIdentityCandidates(values, normalizer) {
+  const input = Array.isArray(values) ? values : [values]
+  return unique(input
+    .filter((value) => !isMissingIdentityValue(value))
+    .map((value) => normalizer(value)))
+}
+
+function normalizedIdentity(identity = {}) {
+  const phones = normalizedIdentityCandidates(
+    identity.phone_candidates ?? identity.phones ?? identity.phone,
+    normalizePhone
+  )
+  const emails = normalizedIdentityCandidates(
+    identity.email_candidates ?? identity.emails ?? identity.email,
+    normalizeEmail
+  )
+  return {
+    phone: phones.length === 1 ? phones[0] : null,
+    email: emails.length === 1 ? emails[0] : null,
+    phone_candidates: phones.slice(0, 20),
+    email_candidates: emails.slice(0, 20),
+    ambiguous: phones.length > 1 || emails.length > 1
+  }
+}
+
+function candidateView(row) {
+  if (!row) return undefined
+  return {
+    id: row.id,
+    name: row.name,
+    phone: row.phone,
+    email: row.email,
+    updated_at: row.updated_at
+  }
+}
+
+function normalizeHeader(value) {
+  return String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_\-—–./\\:：()（）\[\]【】]+/g, '')
+}
+
+function findHeaderValue(values, aliases) {
+  const aliasesNormalized = new Set(aliases.map(normalizeHeader))
+  for (const [header, value] of Object.entries(values ?? {})) {
+    if (aliasesNormalized.has(normalizeHeader(header)) && nonEmpty(value)) return value
+  }
+  return null
+}
+
+function extractTextIdentity(text, labeledData = extractLabeledCandidateData(text)) {
+  const labeledEmails = labeledData.candidates.email
+  const labeledPhones = labeledData.candidates.phone
+  const emails = labeledEmails.length ? labeledEmails : emailCandidates(text)
+  const phones = labeledPhones.length ? labeledPhones : phoneCandidates(text)
+  return normalizedIdentity({ phone_candidates: phones, email_candidates: emails })
+}
+
+function looksLikeResumeDate(value) {
+  const compact = String(value).replace(/\s/g, '')
+  const yearRange = /^(?:19|20)\d{2}(?:[./-]\d{1,2}){0,2}[-–—~](?:19|20)\d{2}(?:[./-]\d{1,2}){0,2}$/
+  const calendarDate = /^(?:19|20)\d{2}([./-])(?:0?[1-9]|1[0-2])\1(?:0?[1-9]|[12]\d|3[01])$/
+  const compactDate = /^(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])$/
+  return yearRange.test(compact) || calendarDate.test(compact) || compactDate.test(compact)
+}
+
+function extractRowIdentity(values) {
+  const phoneRaw = findHeaderValue(values, ['phone', 'mobile', 'telephone', '手机号', '手机号码', '电话', '联系电话'])
+  const emailRaw = findHeaderValue(values, ['email', 'e-mail', '邮箱', '电子邮箱', '邮箱地址'])
+  const phone = normalizePhone(phoneRaw)
+  const email = normalizeEmail(emailRaw)
+  return {
+    phone,
+    email,
+    phone_candidates: phone ? [phone] : [],
+    email_candidates: email ? [email] : [],
+    ambiguous: false
+  }
+}
+
+function normalizeLabel(value) {
+  return String(value ?? '').trim().toLocaleLowerCase().replace(/\s+/g, ' ')
+}
+
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+')
+}
+
+const LABEL_DESCRIPTORS = (() => {
+  const descriptors = new Map()
+  const descriptorFor = (alias) => {
+    const key = normalizeLabel(alias)
+    if (!descriptors.has(key)) descriptors.set(key, { alias, fields: new Set(), section: null })
+    return descriptors.get(key)
+  }
+  for (const [field, aliases] of Object.entries(HEADER_ALIASES)) {
+    for (const alias of aliases) descriptorFor(alias).fields.add(field)
+  }
+  for (const [field, aliases] of Object.entries(ATTACHMENT_PREFERENCE_FIELD_ALIASES)) {
+    for (const alias of aliases) descriptorFor(alias).fields.add(field)
+  }
+  for (const alias of BOUNDARY_ONLY_LABELS) descriptorFor(alias)
+  for (const definition of RESUME_SECTION_DEFINITIONS) {
+    for (const alias of definition.aliases) descriptorFor(alias).section = definition
+  }
+  return descriptors
+})()
+
+const LABEL_PATTERN = [...LABEL_DESCRIPTORS.values()]
+  .map((descriptor) => descriptor.alias)
+  .sort((left, right) => right.length - left.length)
+  .map(escapeRegex)
+  .join('|')
+const SECTION_ALIAS_ENTRIES = RESUME_SECTION_DEFINITIONS
+  .flatMap((definition) => definition.aliases.map((alias) => ({ alias, definition })))
+  .sort((left, right) => right.alias.length - left.alias.length)
+
+function scanColonMarkers(text) {
+  const source = String(text ?? '')
+  const matcher = new RegExp(`(^|[\\s|｜;；,，])(${LABEL_PATTERN})\\s*[:：]\\s*`, 'gimu')
+  const markers = []
+  let match
+  while ((match = matcher.exec(source))) {
+    const descriptor = LABEL_DESCRIPTORS.get(normalizeLabel(match[2]))
+    if (!descriptor) continue
+    markers.push({
+      start: match.index + match[1].length,
+      end: matcher.lastIndex,
+      label: match[2],
+      descriptor,
+      inline: true
+    })
+  }
+  return markers
+}
+
+function scanStandaloneSectionMarkers(text) {
+  const source = String(text ?? '')
+  const markers = []
+  const lineMatcher = /[^\r\n]+/g
+  let lineMatch
+  while ((lineMatch = lineMatcher.exec(source))) {
+    const rawLine = lineMatch[0]
+    const leading = rawLine.search(/\S/)
+    if (leading < 0) continue
+    const trimmed = rawLine.trim()
+    const label = trimmed.replace(/\s*[:：]\s*$/, '')
+    const descriptor = LABEL_DESCRIPTORS.get(normalizeLabel(label))
+    if (descriptor?.section) {
+      markers.push({
+        start: lineMatch.index + leading,
+        end: lineMatch.index + rawLine.length,
+        label,
+        descriptor,
+        inline: false
+      })
+      continue
+    }
+
+    const content = rawLine.slice(leading).trimEnd()
+    const inlineHeading = SECTION_ALIAS_ENTRIES.find(({ alias }) => (
+      content.slice(0, alias.length).toLocaleLowerCase() === alias.toLocaleLowerCase()
+      && /^[ \t]+/.test(content.slice(alias.length))
+    ))
+    if (!inlineHeading) continue
+    const separator = /^[ \t]+/.exec(content.slice(inlineHeading.alias.length))?.[0] ?? ''
+    markers.push({
+      start: lineMatch.index + leading,
+      end: lineMatch.index + leading + inlineHeading.alias.length + separator.length,
+      label: inlineHeading.alias,
+      descriptor: LABEL_DESCRIPTORS.get(normalizeLabel(inlineHeading.alias)),
+      inline: true
+    })
+  }
+  return markers
+}
+
+function uniqueMarkers(markers) {
+  const result = []
+  for (const marker of markers.sort((left, right) => left.start - right.start || right.end - left.end)) {
+    const previous = result.at(-1)
+    if (previous && previous.start === marker.start) {
+      if (marker.end > previous.end) result[result.length - 1] = marker
+      continue
+    }
+    result.push(marker)
+  }
+  return result
+}
+
+function looksLikeYearsField(text, marker) {
+  if (marker.descriptor.section?.section_type !== 'work_experience') return false
+  if (!marker.descriptor.fields.has('years_experience')) return false
+  const lineEnd = String(text).indexOf('\n', marker.end)
+  const tail = String(text).slice(marker.end, lineEnd < 0 ? undefined : lineEnd).trim()
+  return /^\d+(?:\.\d+)?\s*(?:年|years?)?(?:以上)?$/i.test(tail)
+}
+
+function scanSectionMarkers(text) {
+  return uniqueMarkers([
+    ...scanColonMarkers(text).filter((marker) => marker.descriptor.section && !looksLikeYearsField(text, marker)),
+    ...scanStandaloneSectionMarkers(text)
+  ])
+}
+
+function cleanExtractedSegment(value, maximum) {
+  const text = String(value ?? '')
+    .replace(/^[\s|｜;；,，]+/, '')
+    .replace(/[\s|｜;；,，]+$/, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .trim()
+  return text ? text.slice(0, maximum) : null
+}
+
+function phoneCandidates(value) {
+  return unique(
+    (String(value ?? '').match(/(?:\+|00)?(?:\d[\s().-]?){6,18}\d/g) ?? [])
+      .filter((candidate) => !looksLikeResumeDate(candidate))
+      .map(normalizePhone)
+  )
+}
+
+function emailCandidates(value) {
+  return unique(
+    (String(value ?? '').match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? [])
+      .map(normalizeEmail)
+  )
+}
+
+function normalizeExtractedField(field, rawValue) {
+  const maximum = FIELD_LIMITS[field] ?? (field === 'tags' ? 20_000 : 300)
+  const multiline = cleanExtractedSegment(rawValue, maximum)
+  if (!multiline) return null
+  if (field === 'phone') return phoneCandidates(multiline)[0] ?? null
+  if (field === 'email') return emailCandidates(multiline)[0] ?? null
+  if (field === 'years_experience') {
+    const match = multiline.match(/^(\d+(?:\.\d+)?)\s*(?:年|years?)?(?:以上)?$/i)
+    return match ? Number(match[1]) : null
+  }
+  if (field === 'tags' || field === 'desired_titles') {
+    const values = multiline
+      .split(/[\n,，;；|｜/、·•]+/)
+      .map((item) => item.replace(/^[-*–—]\s*/, '').replace(/\s+/g, ' ').trim())
+      .filter(Boolean)
+      .slice(0, field === 'tags' ? 50 : 20)
+    return values.length ? values : null
+  }
+  const value = field === 'self_summary'
+    ? multiline
+    : multiline.split(/\r?\n/, 1)[0].replace(/\s+/g, ' ').trim()
+  if (!value) return null
+  if (field === 'name') {
+    if (value.length > 80 || /[@]|(?:\+?\d[\d\s().-]{6,})/.test(value) || /[:：|｜;；]/.test(value)) return null
+  }
+  return cleanValue(value, maximum)
+}
+
+function extractLabeledCandidateData(text) {
+  const source = String(text ?? '')
+  const colonMarkers = scanColonMarkers(source)
+  const boundaries = uniqueMarkers([...colonMarkers, ...scanStandaloneSectionMarkers(source)])
+  const values = {}
+  const evidence = {}
+  const candidates = { phone: [], email: [] }
+  for (const marker of colonMarkers) {
+    const boundaryIndex = boundaries.findIndex((item) => item.start === marker.start)
+    const next = boundaryIndex >= 0 ? boundaries[boundaryIndex + 1] : null
+    const rawValue = source.slice(marker.end, next?.start ?? source.length)
+    for (const field of marker.descriptor.fields) {
+      if (field === 'phone') candidates.phone.push(...phoneCandidates(rawValue))
+      if (field === 'email') candidates.email.push(...emailCandidates(rawValue))
+      if (!ALLOWED_UPDATE_FIELDS.has(field) || Object.prototype.hasOwnProperty.call(values, field)) continue
+      const value = normalizeExtractedField(field, rawValue)
+      if (!nonEmpty(value)) continue
+      values[field] = value
+      evidence[field] = cleanExtractedSegment(source.slice(marker.start, next?.start ?? source.length), 1000)
+    }
+  }
+  return {
+    values,
+    evidence,
+    candidates: {
+      phone: unique(candidates.phone),
+      email: unique(candidates.email)
+    }
+  }
+}
+
+function textCandidateValues(text, identity, labeledData = extractLabeledCandidateData(text)) {
+  const values = {
+    ...labeledData.values,
+    phone: identity.phone,
+    email: identity.email
+  }
+  if (!nonEmpty(values.years_experience)) {
+    const years = String(text).match(/(\d+(?:\.\d+)?)\s*(?:年|years?)\s*(?:以上)?(?:工作|从业|开发|经验|experience)/i)
+    if (years) values.years_experience = Number(years[1])
+  }
+  return Object.fromEntries(Object.entries(values).filter(([, value]) => nonEmpty(value)))
+}
+
+function spreadsheetCandidateValues(values) {
+  const headers = Object.keys(values ?? {})
+  const { mapping } = buildHeaderMapping(headers)
+  const desiredTitles = normalizeExtractedField(
+    'desired_titles',
+    findHeaderValue(values, ATTACHMENT_PREFERENCE_FIELD_ALIASES.desired_titles)
+  )
+  return {
+    ...mapImportedRow(values, mapping),
+    ...(desiredTitles ? { desired_titles: desiredTitles } : {})
+  }
+}
+
+function sectionTitle(type) {
+  return {
+    work_experience: '工作经历',
+    project_experience: '项目经历',
+    education_experience: '教育经历',
+    self_summary: '自我评价',
+    skills: '技能/荣誉',
+    resume_summary: '简历正文'
+  }[type] ?? type
+}
+
+export function extractResumeSections(text) {
+  const source = String(text ?? '')
+  const markers = scanSectionMarkers(source)
+  const sections = []
+  for (const [index, marker] of markers.entries()) {
+    const next = markers[index + 1]
+    const content = cleanExtractedSegment(source.slice(marker.end, next?.start ?? source.length), 50_000)
+    if (!content) continue
+    const definition = marker.descriptor.section
+    sections.push({
+      section_id: randomUUID(),
+      section_type: definition.section_type,
+      title: definition.title,
+      content,
+      structured_data: {
+        parser: PARSER_VERSION,
+        source_order: sections.length,
+        source_heading: marker.label
+      },
+      confidence: marker.inline ? 'medium' : 'high',
+      evidence: content.slice(0, 240),
+      default_selected: true
+    })
+  }
+  if (sections.length) return sections.slice(0, 50)
+  const fallback = cleanValue(source, 50_000)
+  return fallback
+    ? [{
+        section_id: randomUUID(),
+        section_type: 'resume_summary',
+        title: '简历正文',
+        content: fallback,
+        structured_data: { parser: PARSER_VERSION },
+        confidence: 'low',
+        evidence: fallback.slice(0, 240),
+        default_selected: false
+      }]
+    : []
+}
+
+function queryIdentity(db, field, value) {
+  if (!value) return []
+  return db.prepare(`
+    SELECT id, name, phone, email, updated_at, archived_at
+    FROM candidates WHERE ${field} = ? ORDER BY id
+  `).all(value)
+}
+
+export function matchCandidateIdentity(db, identity) {
+  const normalized = normalizedIdentity(identity)
+  if (normalized.ambiguous) {
+    return { status: 'multiple_matches', reason: '附件中提取到多个手机号或邮箱，无法确定唯一身份' }
+  }
+  const phoneMatches = queryIdentity(db, 'phone', normalized.phone)
+  const emailMatches = queryIdentity(db, 'email', normalized.email)
+  if (phoneMatches.length > 1 || emailMatches.length > 1) {
+    return { status: 'multiple_matches', reason: '手机号或邮箱命中多位候选人，已阻断自动定位' }
+  }
+  const phoneMatch = phoneMatches[0]
+  const emailMatch = emailMatches[0]
+  if (phoneMatch?.archived_at || emailMatch?.archived_at) {
+    return { status: 'multiple_matches', reason: '身份字段命中已归档候选人，归档档案不能通过附件更新' }
+  }
+  if (phoneMatch && emailMatch && phoneMatch.id !== emailMatch.id) {
+    return { status: 'identity_conflict', reason: '手机号与邮箱命中不同候选人，已阻断自动定位' }
+  }
+  if (phoneMatch && emailMatch) {
+    return {
+      status: 'high_confidence',
+      candidate_id: phoneMatch.id,
+      candidate: candidateView(phoneMatch),
+      reason: '手机号与邮箱均精确命中同一候选人'
+    }
+  }
+  const single = phoneMatch ?? emailMatch
+  if (single) {
+    return {
+      status: 'single_identity',
+      candidate_id: single.id,
+      candidate: candidateView(single),
+      reason: phoneMatch ? '手机号唯一精确命中，仍需用户确认' : '邮箱唯一精确命中，仍需用户确认'
+    }
+  }
+  return {
+    status: 'not_found',
+    reason: normalized.phone || normalized.email
+      ? '手机号和邮箱均未命中现有候选人，请手工选择或取消'
+      : '未提取到可用手机号或邮箱，请手工选择或取消'
+  }
+}
+
+function fieldConfidence(field, sourceValues) {
+  if (['phone', 'email'].includes(field)) return 'high'
+  if (Object.prototype.hasOwnProperty.call(sourceValues, field)) return 'medium'
+  return 'low'
+}
+
+function candidateRawValue(candidate, field) {
+  if (!candidate) return null
+  if (field === 'tags' || field === 'desired_titles') return parseJson(candidate[field], [])
+  return candidate[field] ?? null
+}
+
+function sanitizeAttachmentPatch(input) {
+  const candidateInput = Object.fromEntries(
+    Object.entries(input ?? {}).filter(([field]) => field !== 'desired_titles')
+  )
+  const result = sanitizeCandidateInput(candidateInput, { partial: true })
+  const desiredTitles = Object.prototype.hasOwnProperty.call(input ?? {}, 'desired_titles')
+    ? normalizeExtractedField('desired_titles', input.desired_titles)
+    : null
+  return {
+    ...result,
+    value: {
+      ...result.value,
+      ...(desiredTitles ? { desired_titles: desiredTitles } : {})
+    }
+  }
+}
+
+function buildSuggestions(sourceValues, candidate, sourceEvidence = {}) {
+  const safeInput = Object.fromEntries(
+    Object.entries(sourceValues).filter(([field, value]) => ALLOWED_UPDATE_FIELDS.has(field) && nonEmpty(value))
+  )
+  const { value } = sanitizeAttachmentPatch(safeInput)
+  return Object.entries(value)
+    .filter(([field, suggested]) => ALLOWED_UPDATE_FIELDS.has(field) && nonEmpty(suggested))
+    .map(([field, suggested]) => {
+      const current = candidateRawValue(candidate, field)
+      const confidence = fieldConfidence(field, sourceValues)
+      return {
+        field,
+        value: suggested,
+        confidence,
+        evidence: cleanValue(sourceEvidence[field], 1000) ?? (field === 'phone' || field === 'email'
+          ? '从附件身份字段提取并按系统规则标准化'
+          : '从附件中的同名字段或明确标签提取'),
+        current_value: current,
+        default_selected: !nonEmpty(current) && confidence !== 'low'
+      }
+    })
+}
+
+function truncateAtKnownBoundary(value) {
+  if (typeof value !== 'string') return value
+  const markers = uniqueMarkers([...scanColonMarkers(value), ...scanStandaloneSectionMarkers(value)])
+  const boundary = markers.find((marker) => marker.start > 0) ?? markers.find((marker) => marker.start === 0)
+  if (!boundary) return value
+  return boundary.start === 0 ? null : value.slice(0, boundary.start)
+}
+
+function recordSourceCorpus(record) {
+  return [
+    ...Object.values(record.source_values ?? {}).flatMap((value) => (
+      Array.isArray(value) ? value.map(String) : [String(value ?? '')]
+    )),
+    ...(record.sections ?? []).map((section) => String(section.content ?? ''))
+  ].filter(Boolean).join('\n')
+}
+
+function sourceEvidence(corpus, value, proposedEvidence) {
+  const evidence = cleanValue(proposedEvidence, 1000)
+  if (evidence && corpus.includes(evidence)) return evidence
+  const needles = (Array.isArray(value) ? value : [value])
+    .map((item) => String(item ?? '').trim())
+    .filter(Boolean)
+  for (const needle of needles) {
+    const index = corpus.indexOf(needle)
+    if (index >= 0) {
+      return corpus.slice(Math.max(0, index - 80), Math.min(corpus.length, index + needle.length + 80)).trim()
+    }
+  }
+  return null
+}
+
+function mergeModelSuggestions(baseRecord, modelRecord) {
+  if (!modelRecord || typeof modelRecord !== 'object') return baseRecord
+  const corpus = recordSourceCorpus(baseRecord)
+  const suggestionsByField = new Map((baseRecord.suggestions ?? []).map((item) => [item.field, item]))
+  if (Array.isArray(modelRecord.suggestions)) {
+    for (const item of modelRecord.suggestions.slice(0, ALLOWED_UPDATE_FIELDS.size)) {
+      if (!item || !ALLOWED_UPDATE_FIELDS.has(item.field) || !nonEmpty(item.value)) continue
+      if (!['high', 'medium', 'low'].includes(item.confidence)) continue
+      if (suggestionsByField.has(item.field)) continue
+      const boundedValue = ['tags', 'desired_titles'].includes(item.field) && Array.isArray(item.value)
+        ? item.value
+        : truncateAtKnownBoundary(String(item.value))
+      if (!nonEmpty(boundedValue)) continue
+      const evidence = sourceEvidence(corpus, boundedValue, item.evidence)
+      if (!evidence) continue
+      const { value, errors } = sanitizeAttachmentPatch({ [item.field]: boundedValue })
+      const suggested = value[item.field]
+      if (errors.length || !nonEmpty(suggested)) continue
+      const current = baseRecord.current_values?.[item.field] ?? null
+      suggestionsByField.set(item.field, {
+        field: item.field,
+        value: suggested,
+        confidence: item.confidence,
+        evidence,
+        current_value: current,
+        default_selected: item.default_selected === true && !nonEmpty(current) && item.confidence !== 'low'
+      })
+    }
+  }
+  const suggestions = [...suggestionsByField.values()]
+  const baseSections = baseRecord.sections ?? []
+  const verifiedModelSections = Array.isArray(modelRecord.sections)
+    ? modelRecord.sections.flatMap((item) => {
+        const definition = SECTION_DEFINITION_BY_TYPE.get(item?.section_type)
+        if (!definition || typeof item.content !== 'string' || !item.content.trim()) return []
+        const bounded = cleanExtractedSegment(truncateAtKnownBoundary(item.content), 50_000)
+        if (!bounded) return []
+        const sourceOffset = corpus.indexOf(bounded)
+        if (sourceOffset < 0) return []
+        return [{
+          section_id: typeof item.section_id === 'string' ? item.section_id : randomUUID(),
+          section_type: definition.section_type,
+          title: definition.title,
+          content: bounded,
+          structured_data: { parser: PARSER_VERSION, source_offset: sourceOffset },
+          confidence: ['high', 'medium', 'low'].includes(item.confidence) ? item.confidence : 'low',
+          evidence: sourceEvidence(corpus, bounded, item.evidence) ?? bounded.slice(0, 240),
+          default_selected: item.default_selected === true && item.confidence !== 'low'
+        }]
+      }).slice(0, 50)
+    : []
+  const deterministicSections = baseSections.filter((section) => section.section_type !== 'resume_summary')
+  const sections = deterministicSections.length
+    ? deterministicSections
+    : (verifiedModelSections.length ? verifiedModelSections : baseSections)
+  sections.sort((left, right) => {
+    const leftOrder = Number(left.structured_data?.source_order)
+    const rightOrder = Number(right.structured_data?.source_order)
+    if (Number.isFinite(leftOrder) && Number.isFinite(rightOrder)) return leftOrder - rightOrder
+    const leftOffset = Number(left.structured_data?.source_offset)
+    const rightOffset = Number(right.structured_data?.source_offset)
+    return (Number.isFinite(leftOffset) ? leftOffset : Number.MAX_SAFE_INTEGER) -
+      (Number.isFinite(rightOffset) ? rightOffset : Number.MAX_SAFE_INTEGER)
+  })
+  sections.forEach((section, index) => {
+    section.structured_data = { ...section.structured_data, source_order: index }
+  })
+  const selfSummarySection = sections.find((section) => section.section_type === 'self_summary')
+  const selfSummarySuggestion = suggestions.find((suggestion) => suggestion.field === 'self_summary')
+  if (selfSummarySection && selfSummarySuggestion) {
+    selfSummarySuggestion.value = selfSummarySection.content
+    selfSummarySuggestion.evidence = selfSummarySection.evidence
+    selfSummarySection.default_selected = selfSummarySuggestion.default_selected
+  }
+  return { ...baseRecord, suggestions, sections }
+}
+
+function buildPreviewRecord(db, parsedRecord, index, format, requestedCandidateId) {
+  const values = parsedRecord?.values ?? {}
+  const rawText = cleanValue(values.raw_text, 2_000_000)
+  const labeledData = rawText ? extractLabeledCandidateData(rawText) : null
+  const identity = rawText ? extractTextIdentity(rawText, labeledData) : extractRowIdentity(values)
+  const match = matchCandidateIdentity(db, identity)
+  const requestedCandidate = requestedCandidateId
+    ? db.prepare('SELECT * FROM candidates WHERE id = ?').get(requestedCandidateId)
+    : null
+  const suggestionCandidate = match.candidate_id
+    ? db.prepare('SELECT * FROM candidates WHERE id = ?').get(match.candidate_id)
+    : requestedCandidate
+  const suggestionPreferences = suggestionCandidate
+    ? db.prepare('SELECT desired_titles FROM candidate_preferences WHERE candidate_id = ?').get(suggestionCandidate.id)
+    : null
+  const suggestionContext = suggestionCandidate
+    ? { ...suggestionCandidate, desired_titles: suggestionPreferences?.desired_titles ?? '[]' }
+    : null
+  const sections = rawText ? extractResumeSections(rawText) : []
+  const selfSummarySection = sections.find((section) => section.section_type === 'self_summary')
+  if (labeledData && selfSummarySection) {
+    labeledData.values.self_summary = selfSummarySection.content
+    labeledData.evidence.self_summary = selfSummarySection.evidence
+  }
+  const sourceValues = rawText
+    ? textCandidateValues(rawText, identity, labeledData)
+    : spreadsheetCandidateValues(values)
+  const sourceEvidence = rawText
+    ? {
+        ...labeledData.evidence,
+        phone: labeledData.evidence.phone ?? identity.phone,
+        email: labeledData.evidence.email ?? identity.email
+      }
+    : {}
+  const suggestions = buildSuggestions(sourceValues, suggestionContext, sourceEvidence)
+  const selfSummarySuggestion = suggestions.find((suggestion) => suggestion.field === 'self_summary')
+  for (const section of sections) {
+    if (section.section_type === 'self_summary') {
+      section.default_selected = selfSummarySuggestion?.default_selected === true
+    }
+  }
+  return {
+    record_id: randomUUID(),
+    row_number: Number.isInteger(parsedRecord?.row_number) ? parsedRecord.row_number : index + 1,
+    identity: { phone: identity.phone, email: identity.email },
+    identity_candidates: {
+      phones: identity.phone_candidates,
+      emails: identity.email_candidates,
+      ambiguous: identity.ambiguous
+    },
+    match,
+    suggestions,
+    sections,
+    source_values: sourceValues,
+    current_values: suggestionContext
+      ? Object.fromEntries([...ALLOWED_UPDATE_FIELDS].map((field) => [field, candidateRawValue(suggestionContext, field)]))
+      : {}
+  }
+}
+
+function publicRecord(record) {
+  return {
+    record_id: record.record_id,
+    row_number: record.row_number ?? null,
+    identity: {
+      phone: record.identity?.phone ?? '',
+      email: record.identity?.email ?? ''
+    },
+    match: record.match,
+    suggestions: record.suggestions ?? [],
+    sections: record.sections ?? []
+  }
+}
+
+function assertInside(root, candidatePath) {
+  const rootPath = resolve(root)
+  const path = resolve(candidatePath)
+  const relativePath = relative(rootPath, path)
+  const within = relativePath !== ''
+    && !isAbsolute(relativePath)
+    && relativePath !== '..'
+    && !relativePath.startsWith(`..${sep}`)
+  if (!within) throw attachmentError(500, 'unsafe_storage_path', '附件存储路径不在受控目录内')
+  return path
+}
+
+function attachmentExtension(format) {
+  return `.${format}`
+}
+
+function attachmentRow(row) {
+  return row ? {
+    id: row.id,
+    candidate_id: row.candidate_id,
+    original_filename: sanitizeOriginalFilename(row.original_filename),
+    mime_type: row.mime_type,
+    file_size: Number(row.file_size),
+    sha256: row.sha256,
+    attachment_type: row.attachment_type,
+    parse_status: row.parse_status,
+    parser_version: row.parser_version,
+    source: row.source,
+    import_batch_id: row.import_batch_id,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    download_url: `/api/attachments/${encodeURIComponent(row.id)}/download`
+  } : null
+}
+
+function safeJson(value) {
+  return JSON.stringify(value ?? null)
+}
+
+function sameValue(field, left, right) {
+  if (field === 'tags' || field === 'desired_titles') return safeJson(left ?? []) === safeJson(right ?? [])
+  return (left ?? null) === (right ?? null)
+}
+
+function mergeTags(current, incoming) {
+  return unique([...(Array.isArray(current) ? current : []), ...(Array.isArray(incoming) ? incoming : [])]).slice(0, 50)
+}
+
+function recordIdentity(record) {
+  const phones = record.identity_candidates?.phones ?? (record.identity?.phone ? [record.identity.phone] : [])
+  const emails = record.identity_candidates?.emails ?? (record.identity?.email ? [record.identity.email] : [])
+  return normalizedIdentity({ phone_candidates: phones, email_candidates: emails })
+}
+
+function revalidateIdentity(db, record, candidateId) {
+  const match = matchCandidateIdentity(db, recordIdentity(record))
+  if (['identity_conflict', 'multiple_matches'].includes(match.status)) {
+    throw attachmentError(409, match.status, match.reason, { record_id: record.record_id })
+  }
+  if (match.candidate_id && match.candidate_id !== candidateId) {
+    throw attachmentError(409, 'identity_conflict', '身份字段已精确命中其他候选人，整批未更新', {
+      record_id: record.record_id
+    })
+  }
+}
+
+function validateSelectedList(value, allowed, field) {
+  if (!Array.isArray(value)) throw attachmentError(422, 'validation_error', `${field} 必须是数组`)
+  const result = []
+  for (const [index, item] of value.entries()) {
+    if (typeof item !== 'string' || !allowed.has(item) || result.includes(item)) {
+      throw attachmentError(422, 'validation_error', `${field} 包含无效或重复值`, { field: `${field}.${index}` })
+    }
+    result.push(item)
+  }
+  return result
+}
+
+function sectionSignature(section) {
+  return createHash('sha256')
+    .update(`${section.section_type}\u0000${cleanValue(section.title, 300) ?? ''}\u0000${cleanValue(section.content, 50_000) ?? ''}`, 'utf8')
+    .digest('hex')
+}
+
+function existingSectionSignatures(db, candidateId) {
+  return new Set(db.prepare(`
+    SELECT section_type, title, content FROM candidate_profile_sections
+    WHERE candidate_id = ? AND archived_at IS NULL
+  `).all(candidateId).map(sectionSignature))
+}
+
+function semanticSectionTypes(sectionType) {
+  return SECTION_TYPE_FAMILIES[sectionType] ?? new Set([sectionType])
+}
+
+function isImportedSection(section) {
+  if (nonEmpty(section.source_record_id)) return true
+  const structured = parseJson(section.structured_data, {})
+  return nonEmpty(structured?.attachment_id)
+}
+
+function updateCandidateFields(db, candidate, record, selectedFields, attachmentId, timestamp) {
+  const suggestions = new Map((record.suggestions ?? []).map((item) => [item.field, item]))
+  const rawPatch = {}
+  for (const field of selectedFields) {
+    const value = suggestions.get(field)?.value
+    if (nonEmpty(value)) rawPatch[field] = value
+  }
+  const { value: sanitized, errors } = sanitizeAttachmentPatch(rawPatch)
+  if (errors.length) throw attachmentError(422, 'validation_error', '附件建议字段格式无效', errors)
+
+  const currentPreferences = db.prepare(`
+    SELECT expected_salary, desired_titles FROM candidate_preferences WHERE candidate_id = ?
+  `).get(candidate.id)
+  const current = {
+    ...candidate,
+    tags: parseJson(candidate.tags, []),
+    desired_titles: parseJson(currentPreferences?.desired_titles, [])
+  }
+  const patch = {}
+  for (const [field, suggested] of Object.entries(sanitized)) {
+    if (!ALLOWED_UPDATE_FIELDS.has(field) || !nonEmpty(suggested)) continue
+    patch[field] = field === 'tags' ? mergeTags(current.tags, suggested) : suggested
+  }
+
+  for (const field of ['phone', 'email']) {
+    if (!Object.prototype.hasOwnProperty.call(patch, field)) continue
+    const conflicts = queryIdentity(db, field, patch[field]).filter((row) => row.id !== candidate.id)
+    if (conflicts.length) {
+      throw attachmentError(409, 'identity_conflict', `${field === 'phone' ? '手机号' : '邮箱'}已属于其他候选人，整批未更新`, {
+        record_id: record.record_id,
+        field
+      })
+    }
+  }
+
+  const changed = Object.entries(patch).filter(([field, next]) => {
+    if (field !== 'expected_salary') return !sameValue(field, current[field], next)
+    return !sameValue(field, current[field], next) || (
+      currentPreferences && !sameValue(field, currentPreferences.expected_salary, next)
+    )
+  })
+  if (!changed.length) return []
+  const candidateChanges = changed.filter(([field]) => field !== 'desired_titles')
+  if (candidateChanges.length) {
+    const assignments = candidateChanges.map(([field]) => `${field} = ?`)
+    assignments.push('updated_at = ?')
+    db.prepare(`UPDATE candidates SET ${assignments.join(', ')} WHERE id = ?`).run(
+      ...candidateChanges.map(([field, next]) => field === 'tags' ? JSON.stringify(next) : next),
+      timestamp,
+      candidate.id
+    )
+  }
+  const expectedSalary = changed.find(([field]) => field === 'expected_salary')?.[1]
+  const desiredTitles = changed.find(([field]) => field === 'desired_titles')?.[1]
+  if (expectedSalary !== undefined || desiredTitles !== undefined) {
+    const nextExpectedSalary = expectedSalary ?? currentPreferences?.expected_salary ?? null
+    const nextDesiredTitles = desiredTitles ?? current.desired_titles
+    db.prepare(`
+      INSERT INTO candidate_preferences(candidate_id, expected_salary, desired_titles, updated_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(candidate_id) DO UPDATE SET
+        expected_salary = excluded.expected_salary,
+        desired_titles = excluded.desired_titles,
+        updated_at = excluded.updated_at
+    `).run(candidate.id, nextExpectedSalary, JSON.stringify(nextDesiredTitles), timestamp)
+  }
+  const insertSource = db.prepare(`
+    INSERT INTO candidate_field_sources(
+      id, candidate_id, field_name, attachment_id, parser_version,
+      previous_value, new_value, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `)
+  for (const [field, next] of changed) {
+    insertSource.run(
+      randomUUID(), candidate.id, field, attachmentId, PARSER_VERSION,
+      safeJson(field === 'expected_salary' && currentPreferences
+        ? currentPreferences.expected_salary
+        : current[field]), safeJson(next), timestamp
+    )
+  }
+  return changed.map(([field]) => field)
+}
+
+function applySections(db, candidateId, record, selectedSectionIds, attachmentId, timestamp, mergeMode, confirmReplace) {
+  const selectedIds = new Set(selectedSectionIds)
+  const selected = (record.sections ?? []).filter((section) => selectedIds.has(section.section_id))
+  if (!selected.length) return []
+  if (mergeMode === 'replace') {
+    if (!confirmReplace) throw attachmentError(422, 'replace_confirmation_required', '整体替换履历必须单独确认')
+  }
+
+  const normalizedSections = selected.flatMap((section, sourceIndex) => {
+    const normalized = {
+      section_type: cleanValue(section.section_type, 80),
+      title: cleanValue(section.title, 300),
+      content: cleanValue(section.content, 50_000),
+      structured_data: section.structured_data && typeof section.structured_data === 'object'
+        ? section.structured_data
+        : {},
+      source_order: Number.isInteger(section.structured_data?.source_order)
+        ? section.structured_data.source_order
+        : sourceIndex
+    }
+    return normalized.section_type && normalized.content ? [normalized] : []
+  }).sort((left, right) => left.source_order - right.source_order)
+  if (!normalizedSections.length) return []
+
+  const replacementTypes = new Set()
+  for (const section of normalizedSections) {
+    for (const type of semanticSectionTypes(section.section_type)) replacementTypes.add(type)
+  }
+  const activeSections = db.prepare(`
+    SELECT id, section_type, structured_data, source_record_id, sort_order, created_at
+    FROM candidate_profile_sections
+    WHERE candidate_id = ? AND archived_at IS NULL
+    ORDER BY sort_order, created_at, id
+  `).all(candidateId)
+  const archivedIds = activeSections
+    .filter((section) => replacementTypes.has(section.section_type) && isImportedSection(section))
+    .map((section) => section.id)
+  if (archivedIds.length) {
+    const placeholders = archivedIds.map(() => '?').join(', ')
+    db.prepare(`
+      UPDATE candidate_profile_sections SET archived_at = ?, updated_at = ?
+      WHERE id IN (${placeholders})
+    `).run(timestamp, timestamp, ...archivedIds)
+  }
+
+  const signatures = existingSectionSignatures(db, candidateId)
+  const inserted = []
+  const insert = db.prepare(`
+    INSERT INTO candidate_profile_sections(
+      id, candidate_id, section_type, title, content, structured_data, sort_order,
+      sensitivity, source_record_id, created_at, updated_at, archived_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, 'internal', ?, ?, ?, NULL)
+  `)
+  for (const normalized of normalizedSections) {
+    const signature = sectionSignature(normalized)
+    if (signatures.has(signature)) continue
+    signatures.add(signature)
+    const id = randomUUID()
+    insert.run(
+      id, candidateId, normalized.section_type, normalized.title, normalized.content,
+      JSON.stringify({
+        ...normalized.structured_data,
+        source_order: normalized.source_order,
+        attachment_id: attachmentId,
+        parser_version: PARSER_VERSION
+      }),
+      inserted.length, `attachment:${attachmentId}`, timestamp, timestamp
+    )
+    inserted.push(id)
+  }
+
+  const archivedSet = new Set(archivedIds)
+  const survivorIds = activeSections.filter((section) => !archivedSet.has(section.id)).map((section) => section.id)
+  const finalOrder = [...inserted, ...survivorIds]
+  const reorder = db.prepare(`
+    UPDATE candidate_profile_sections SET sort_order = ?, updated_at = ?
+    WHERE id = ? AND candidate_id = ? AND archived_at IS NULL
+  `)
+  for (const [sortOrder, sectionId] of finalOrder.entries()) {
+    reorder.run(sortOrder, timestamp, sectionId, candidateId)
+  }
+  return inserted
+}
+
+export function createAttachmentService({
+  db,
+  rootDir,
+  parser = parseAttachment,
+  suggestionProvider,
+  previewTtlMs = DEFAULT_PREVIEW_TTL_MS,
+  clock = Date.now,
+  removeRootOnClose = false,
+  cleanupIntervalMs = 60_000,
+  parseConcurrency = DEFAULT_PARSE_CONCURRENCY
+} = {}) {
+  if (!db) throw new TypeError('db is required')
+  if (!rootDir) throw new TypeError('rootDir is required')
+  if (!Number.isInteger(previewTtlMs) || previewTtlMs < 1 || previewTtlMs > 60 * 60 * 1000) {
+    throw new TypeError('previewTtlMs must be between 1 and 3600000')
+  }
+  if (!Number.isInteger(parseConcurrency) || parseConcurrency < 1 || parseConcurrency > 8) {
+    throw new TypeError('parseConcurrency must be between 1 and 8')
+  }
+  const root = resolve(rootDir)
+  const quarantineRoot = resolve(root, 'quarantine')
+  const filesRoot = resolve(root, 'files')
+  mkdirSync(quarantineRoot, { recursive: true })
+  mkdirSync(filesRoot, { recursive: true })
+  const rawTokens = new Map()
+  const parseJobs = new Map()
+  const parseQueue = []
+  let activeParses = 0
+  let closing = false
+  let cancelScheduledParse = () => false
+
+  const enqueueCleanup = (storagePath, reason, createdAt = now()) => {
+    const id = randomUUID()
+    db.prepare(`
+      INSERT OR IGNORE INTO attachment_cleanup_jobs(
+        id, storage_path, reason, attempts, last_error, created_at, updated_at, completed_at
+        ) VALUES (?, ?, ?, 0, NULL, ?, ?, NULL)
+    `).run(id, storagePath, reason, createdAt, createdAt)
+    const job = db.prepare(`
+      SELECT * FROM attachment_cleanup_jobs
+      WHERE storage_path = ? AND completed_at IS NULL
+      ORDER BY created_at, id LIMIT 1
+    `).get(storagePath)
+    if (!job) throw attachmentError(503, 'attachment_cleanup_enqueue_failed', '附件清理任务无法入队，请稍后重试')
+    return job
+  }
+
+  const safeDeleteOrQueue = (storagePath, reason) => {
+    if (!storagePath) return true
+    try {
+      const path = assertInside(root, storagePath)
+      unlinkSync(path)
+      return true
+    } catch (error) {
+      if (error?.code === 'ENOENT') return true
+      enqueueCleanup(storagePath, reason)
+      return false
+    }
+  }
+
+  const readPreview = (id) => db.prepare('SELECT * FROM attachment_update_previews WHERE id = ?').get(id)
+
+  const serializePreview = (row) => {
+    if (!row) return null
+    const records = parseJson(row.records_json, []).map(publicRecord)
+    // Only the token hash is durable. A client that crosses a service restart
+    // must retain the raw token issued by createPreview.
+    const previewToken = rawTokens.get(row.id) ?? ''
+    return {
+      preview_id: row.id,
+      preview_token: previewToken,
+      preview_token_reissued: Boolean(previewToken),
+      status: row.parse_status === 'parsed' ? 'ready' : row.parse_status,
+      expires_at: row.expires_at,
+      file: {
+        original_filename: sanitizeOriginalFilename(row.original_filename),
+        mime_type: row.mime_type,
+        file_size: Number(row.file_size),
+        sha256: row.sha256,
+        format: row.format
+      },
+      records,
+      ...(row.parse_status === 'parsing' ? { poll_after_ms: 750 } : {}),
+      ...(row.error_code ? {
+        error_code: row.error_code,
+        error: row.error_message,
+        retryable: RETRYABLE_PARSE_FAILURES.has(row.error_code)
+      } : {})
+    }
+  }
+
+  const processCleanupJob = (job) => {
+    const timestamp = now()
+    try {
+      const path = assertInside(root, job.storage_path)
+      try { unlinkSync(path) } catch (error) { if (error?.code !== 'ENOENT') throw error }
+      db.prepare(`
+        UPDATE attachment_cleanup_jobs
+        SET attempts = attempts + 1, last_error = NULL, updated_at = ?, completed_at = ?
+        WHERE id = ? AND completed_at IS NULL
+      `).run(timestamp, timestamp, job.id)
+      return true
+    } catch (error) {
+      db.prepare(`
+        UPDATE attachment_cleanup_jobs
+        SET attempts = attempts + 1, last_error = ?, updated_at = ?
+        WHERE id = ? AND completed_at IS NULL
+      `).run(String(error?.code ?? error?.name ?? 'cleanup_failed').slice(0, 200), timestamp, job.id)
+      return false
+    }
+  }
+
+  const processCleanupJobs = ({ limit = 25 } = {}) => {
+    const maximum = Number.isInteger(limit) ? Math.min(Math.max(limit, 1), 100) : 25
+    const jobs = db.prepare(`
+      SELECT * FROM attachment_cleanup_jobs
+      WHERE completed_at IS NULL ORDER BY created_at, id LIMIT ?
+    `).all(maximum)
+    let completed = 0
+    let failed = 0
+    for (const job of jobs) {
+      if (processCleanupJob(job)) completed += 1
+      else failed += 1
+    }
+    return { attempted: jobs.length, completed, failed }
+  }
+
+  const cleanupExpiredPreviews = () => {
+    const timestamp = new Date(clock()).toISOString()
+    const expired = db.prepare(`
+      SELECT id, quarantine_path FROM attachment_update_previews
+      WHERE parse_status IN ('parsing', 'parsed', 'failed') AND expires_at <= ?
+    `).all(timestamp)
+    for (const preview of expired) {
+      db.exec('BEGIN IMMEDIATE')
+      try {
+        if (preview.quarantine_path) enqueueCleanup(preview.quarantine_path, 'attachment_preview_expired', timestamp)
+        db.prepare(`
+          UPDATE attachment_update_previews
+          SET parse_status = 'expired', quarantine_path = NULL,
+              extracted_text = '', records_json = '[]',
+              consumed_at = coalesce(consumed_at, ?), updated_at = ?
+          WHERE id = ?
+        `).run(timestamp, timestamp, preview.id)
+        db.exec('COMMIT')
+      } catch (error) {
+        try { db.exec('ROLLBACK') } catch {}
+        throw error
+      }
+      cancelScheduledParse(preview.id)
+      rawTokens.delete(preview.id)
+    }
+    if (expired.length) processCleanupJobs({ limit: 100 })
+    return expired.length
+  }
+
+  const recoverInterruptedPreviews = () => {
+    const interrupted = db.prepare(`
+      SELECT * FROM attachment_update_previews
+      WHERE parse_status = 'parsing'
+      ORDER BY created_at, id
+    `).all()
+    for (const preview of interrupted) {
+      schedulePreviewParsing({
+        id: preview.id,
+        validated: {
+          originalFilename: preview.original_filename,
+          extension: attachmentExtension(preview.format),
+          format: preview.format,
+          mimeType: preview.mime_type,
+          size: Number(preview.file_size),
+          sha256: preview.sha256,
+          packageInfo: null
+        },
+        requestedId: preview.requested_candidate_id,
+        quarantinePath: preview.quarantine_path
+      })
+    }
+    return interrupted.length
+  }
+
+  const runPreviewParsing = async ({ id, validated, requestedId, quarantinePath, buffer: suppliedBuffer, signal }) => {
+    try {
+      let buffer = suppliedBuffer
+      if (!Buffer.isBuffer(buffer)) {
+        if (!quarantinePath) {
+          throw attachmentError(422, 'attachment_staging_invalid', '附件隔离文件路径缺失')
+        }
+        const safePath = assertInside(quarantineRoot, quarantinePath)
+        const stagedStat = await lstat(safePath)
+        if (!stagedStat.isFile() || stagedStat.isSymbolicLink()) {
+          throw attachmentError(422, 'attachment_staging_invalid', '附件隔离文件不是普通文件')
+        }
+        buffer = await readFileAsync(safePath)
+      }
+      if (
+        buffer.length !== Number(validated.size) ||
+        createHash('sha256').update(buffer).digest('hex') !== validated.sha256
+      ) {
+        throw attachmentError(422, 'attachment_staging_invalid', '附件隔离文件大小或内容校验失败')
+      }
+      const stagedFile = {
+        originalname: validated.originalFilename,
+        mimetype: validated.mimeType,
+        buffer
+      }
+      const parsed = await parser(stagedFile, validated, undefined, { signal })
+      let records = (parsed.records ?? []).map((record, index) => (
+        buildPreviewRecord(db, record, index, validated.format, requestedId)
+      ))
+      if (!records.length) throw attachmentError(422, 'attachment_empty', '附件中没有可确认的候选人记录')
+      if (records.length > MAX_CONFIRM_RECORDS) {
+        throw attachmentError(413, 'attachment_record_limit', `附件最多支持 ${MAX_CONFIRM_RECORDS} 条候选人记录`)
+      }
+      if (typeof suggestionProvider === 'function') {
+        try {
+          const proposed = await optionalSuggestionWithin(suggestionProvider({
+            format: validated.format,
+            extracted_text: parsed.text,
+            records: records.map(publicRecord),
+            schema_version: 1
+          }), ATTACHMENT_SUGGESTION_TIMEOUT_MS, signal)
+          if (signal.aborted) return
+          if (Array.isArray(proposed?.records)) {
+            const knownRecordIds = new Set(records.map((record) => record.record_id))
+            const byId = new Map(proposed.records
+              .filter((record) => knownRecordIds.has(record?.record_id))
+              .map((record) => [record.record_id, record]))
+            records = records.map((record) => mergeModelSuggestions(record, byId.get(record.record_id)))
+          }
+        } catch {
+          // Local, schema-validated suggestions remain available when the configured model gateway is unavailable.
+        }
+      }
+      const updatedAt = new Date(clock()).toISOString()
+      db.prepare(`
+        UPDATE attachment_update_previews
+        SET parse_status = 'parsed', extracted_text = ?, records_json = ?,
+            error_code = NULL, error_message = NULL, updated_at = ?
+        WHERE id = ? AND parse_status = 'parsing'
+      `).run(parsed.text ?? '', JSON.stringify(records), updatedAt, id)
+    } catch (error) {
+      if (signal?.aborted && closing) return
+      const updatedAt = new Date(clock()).toISOString()
+      const failure = publicParseFailure(error)
+      const current = readPreview(id)
+      if (current?.parse_status === 'parsing') {
+        db.exec('BEGIN IMMEDIATE')
+        try {
+          if (current.quarantine_path) enqueueCleanup(current.quarantine_path, 'attachment_parse_failed', updatedAt)
+          db.prepare(`
+            UPDATE attachment_update_previews
+            SET parse_status = 'failed', quarantine_path = NULL,
+                error_code = ?, error_message = ?, updated_at = ?
+            WHERE id = ? AND parse_status = 'parsing'
+          `).run(failure.code, failure.message, updatedAt, id)
+          db.exec('COMMIT')
+        } catch (transactionError) {
+          try { db.exec('ROLLBACK') } catch {}
+          throw transactionError
+        }
+        processCleanupJobs({ limit: 100 })
+        rawTokens.delete(id)
+      }
+    }
+  }
+
+  const settleParseJob = (job) => {
+    if (job.settled) return
+    job.settled = true
+    parseJobs.delete(job.id)
+    job.resolve()
+  }
+
+  const drainParseQueue = () => {
+    if (closing) return
+    while (activeParses < parseConcurrency && parseQueue.length) {
+      const job = parseQueue.shift()
+      if (!job || job.settled) continue
+      const preview = readPreview(job.id)
+      if (!preview || preview.parse_status !== 'parsing') {
+        settleParseJob(job)
+        continue
+      }
+      activeParses += 1
+      job.state = 'running'
+      job.controller = new AbortController()
+      const finish = () => {
+        activeParses -= 1
+        settleParseJob(job)
+        drainParseQueue()
+      }
+      runPreviewParsing({ ...job.task, signal: job.controller.signal }).then(finish, finish)
+    }
+  }
+
+  const schedulePreviewParsing = (task) => {
+    let resolveJob
+    const promise = new Promise((resolvePromise) => { resolveJob = resolvePromise })
+    const job = {
+      id: task.id,
+      task,
+      promise,
+      resolve: resolveJob,
+      state: 'queued',
+      controller: null,
+      settled: false
+    }
+    parseJobs.set(job.id, job)
+    parseQueue.push(job)
+    drainParseQueue()
+    return promise
+  }
+
+  cancelScheduledParse = (id) => {
+    const job = parseJobs.get(id)
+    if (!job || job.settled) return false
+    if (job.state === 'queued') settleParseJob(job)
+    else job.controller?.abort()
+    return true
+  }
+
+  cleanupExpiredPreviews()
+  recoverInterruptedPreviews()
+
+  const createPreview = ({ file, requestedCandidateId } = {}) => {
+    if (closing) throw attachmentError(503, 'attachment_service_closing', '附件解析服务正在关闭，请稍后重试')
+    cleanupExpiredPreviews()
+    const requestedId = cleanValue(requestedCandidateId, 200)
+    if (requestedId) {
+      const candidate = db.prepare('SELECT id, archived_at FROM candidates WHERE id = ?').get(requestedId)
+      if (!candidate) throw attachmentError(404, 'not_found', '候选人不存在')
+      if (candidate.archived_at) throw attachmentError(409, 'candidate_archived', '已归档候选人不能上传或更新附件')
+    }
+    const validated = validateAttachmentFile(file)
+    const id = randomUUID()
+    const token = randomBytes(32).toString('base64url')
+    const timestamp = new Date(clock()).toISOString()
+    const expiresAt = new Date(clock() + previewTtlMs).toISOString()
+    const quarantinePath = resolve(quarantineRoot, `${randomUUID()}${attachmentExtension(validated.format)}`)
+    assertInside(quarantineRoot, quarantinePath)
+    try {
+      writeFileSync(quarantinePath, file.buffer, { flag: 'wx', mode: 0o600 })
+    } catch (cause) {
+      const error = attachmentError(503, 'attachment_upload_failed', '附件暂存失败，请稍后重试')
+      error.cause = cause
+      throw error
+    }
+    try {
+      db.prepare(`
+        INSERT INTO attachment_update_previews(
+          id, token_hash, original_filename, quarantine_path, mime_type, file_size,
+          sha256, format, parse_status, parser_version, extracted_text, records_json,
+          requested_candidate_id, error_code, error_message, expires_at, consumed_at,
+          created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'parsing', ?, '', '[]', ?, NULL, NULL, ?, NULL, ?, ?)
+      `).run(
+        id, tokenHash(token), validated.originalFilename, quarantinePath, validated.mimeType,
+        validated.size, validated.sha256, validated.format, PARSER_VERSION, requestedId,
+        expiresAt, timestamp, timestamp
+      )
+      rawTokens.set(id, token)
+    } catch (error) {
+      try { unlinkSync(quarantinePath) } catch {}
+      const uploadError = attachmentError(503, 'attachment_upload_failed', '附件上传状态保存失败，请稍后重试')
+      uploadError.cause = error
+      throw uploadError
+    }
+
+    schedulePreviewParsing({ id, validated, requestedId, quarantinePath, buffer: file.buffer })
+    return serializePreview(readPreview(id))
+  }
+
+  const waitForPreview = async (id) => {
+    await parseJobs.get(id)?.promise
+    return serializePreview(readPreview(id))
+  }
+
+  const getPreview = (id) => {
+    cleanupExpiredPreviews()
+    const row = readPreview(id)
+    if (!row) throw attachmentError(404, 'not_found', '附件预览不存在')
+    return serializePreview(row)
+  }
+
+  const cancelPreview = (id) => {
+    const row = readPreview(id)
+    if (!row) throw attachmentError(404, 'not_found', '附件预览不存在')
+    if (row.parse_status === 'confirmed') {
+      throw attachmentError(409, 'attachment_preview_consumed', '已确认的附件预览不能取消')
+    }
+    const timestamp = new Date(clock()).toISOString()
+    db.exec('BEGIN IMMEDIATE')
+    try {
+      if (row.quarantine_path) enqueueCleanup(row.quarantine_path, 'attachment_preview_cancelled', timestamp)
+      db.prepare(`
+        UPDATE attachment_update_previews
+        SET parse_status = 'cancelled', quarantine_path = NULL,
+            extracted_text = '', records_json = '[]',
+            consumed_at = coalesce(consumed_at, ?), updated_at = ? WHERE id = ?
+      `).run(timestamp, timestamp, id)
+      db.exec('COMMIT')
+    } catch (error) {
+      try { db.exec('ROLLBACK') } catch {}
+      throw error
+    }
+    cancelScheduledParse(id)
+    processCleanupJobs({ limit: 100 })
+    rawTokens.delete(id)
+    return { cancelled: true, preview_id: id }
+  }
+
+  const confirmPreviewCore = (id, input = {}, { authorizedBatch = false, beforeCommit } = {}) => {
+    cleanupExpiredPreviews()
+    const preview = readPreview(id)
+    if (!preview) throw attachmentError(404, 'not_found', '附件预览不存在')
+    if (preview.parse_status === 'confirmed' || preview.consumed_at) {
+      throw attachmentError(409, 'attachment_preview_replayed', '附件预览令牌已使用，不能重复提交')
+    }
+    if (preview.parse_status !== 'parsed') {
+      throw attachmentError(409, 'attachment_preview_not_ready', '附件尚未完成解析或已失效')
+    }
+    if (preview.expires_at <= new Date(clock()).toISOString()) {
+      cleanupExpiredPreviews()
+      throw attachmentError(409, 'attachment_preview_expired', '附件预览令牌已过期')
+    }
+    if (!authorizedBatch && (typeof input.preview_token !== 'string' || tokenHash(input.preview_token) !== preview.token_hash)) {
+      throw attachmentError(409, 'attachment_preview_invalid', '附件预览令牌无效')
+    }
+    if (!Array.isArray(input.records) || input.records.length < 1 || input.records.length > MAX_CONFIRM_RECORDS) {
+      throw attachmentError(422, 'validation_error', `records 必须包含 1 至 ${MAX_CONFIRM_RECORDS} 条记录`)
+    }
+    const storedRecords = parseJson(preview.records_json, [])
+    const storedById = new Map(storedRecords.map((record) => [record.record_id, record]))
+    const seenRecords = new Set()
+    const seenCandidates = new Set()
+    const confirmations = input.records.map((confirmation, index) => {
+      if (!confirmation || typeof confirmation !== 'object') {
+        throw attachmentError(422, 'validation_error', `records.${index} 必须是对象`)
+      }
+      const record = storedById.get(confirmation.record_id)
+      if (!record || seenRecords.has(record.record_id)) {
+        throw attachmentError(422, 'validation_error', 'records 包含未知或重复的 record_id')
+      }
+      seenRecords.add(record.record_id)
+      const candidateId = cleanValue(confirmation.candidate_id, 200)
+      if (!candidateId || seenCandidates.has(candidateId)) {
+        throw attachmentError(422, 'validation_error', '同一附件预览中每位候选人只能确认一次')
+      }
+      seenCandidates.add(candidateId)
+      const candidate = db.prepare('SELECT * FROM candidates WHERE id = ?').get(candidateId)
+      if (!candidate) throw attachmentError(409, 'candidate_not_found', '候选人不存在，整批未更新')
+      if (candidate.archived_at) throw attachmentError(409, 'candidate_archived', '已归档候选人不能通过附件更新，整批未更新')
+      if (candidate.updated_at !== confirmation.expected_updated_at) {
+        throw attachmentError(409, 'version_conflict', '候选人版本已变化，整批未更新', { candidate_id: candidateId })
+      }
+      revalidateIdentity(db, record, candidateId)
+      const suggestionFields = new Set((record.suggestions ?? []).map((item) => item.field))
+      const sectionIds = new Set((record.sections ?? []).map((item) => item.section_id))
+      const selectedFields = validateSelectedList(confirmation.selected_fields ?? [], suggestionFields, 'selected_fields')
+      const selectedSections = validateSelectedList(confirmation.selected_sections ?? [], sectionIds, 'selected_sections')
+      const selfSummarySectionIds = (record.sections ?? [])
+        .filter((section) => section.section_type === 'self_summary')
+        .map((section) => section.section_id)
+      const selfSummarySelected = selectedFields.includes('self_summary') ||
+        selfSummarySectionIds.some((sectionId) => selectedSections.includes(sectionId))
+      if (selfSummarySelected && suggestionFields.has('self_summary') && selfSummarySectionIds.length) {
+        if (!selectedFields.includes('self_summary')) selectedFields.push('self_summary')
+        for (const sectionId of selfSummarySectionIds) {
+          if (!selectedSections.includes(sectionId)) selectedSections.push(sectionId)
+        }
+      }
+      const mergeMode = confirmation.merge_mode ?? 'merge'
+      if (!['merge', 'replace'].includes(mergeMode)) {
+        throw attachmentError(422, 'validation_error', 'merge_mode 仅支持 merge 或 replace')
+      }
+      return { record, confirmation, candidate, candidateId, selectedFields, selectedSections, mergeMode }
+    })
+
+    const createdFiles = []
+    const timestamp = new Date(clock()).toISOString()
+    const results = []
+    db.exec('BEGIN IMMEDIATE')
+    try {
+      const insertAttachment = db.prepare(`
+        INSERT INTO candidate_attachments(
+          id, candidate_id, original_filename, storage_path, mime_type, file_size,
+          sha256, attachment_type, parse_status, parser_version, extracted_text,
+          source, import_batch_id, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'resume', 'parsed', ?, ?, 'user_upload', NULL, ?, ?)
+      `)
+      for (const item of confirmations) {
+        const latest = db.prepare('SELECT * FROM candidates WHERE id = ?').get(item.candidateId)
+        if (!latest || latest.archived_at || latest.updated_at !== item.confirmation.expected_updated_at) {
+          throw attachmentError(409, 'version_conflict', '候选人状态或版本已变化，整批未更新')
+        }
+        revalidateIdentity(db, item.record, item.candidateId)
+        const duplicate = db.prepare(`
+          SELECT * FROM candidate_attachments
+          WHERE candidate_id = ? AND sha256 = ? AND attachment_type = 'resume'
+        `).get(item.candidateId, preview.sha256)
+        if (duplicate) {
+          results.push({
+            record_id: item.record.record_id,
+            candidate_id: item.candidateId,
+            attachment: attachmentRow(duplicate),
+            duplicate: true,
+            changed_fields: [],
+            inserted_section_ids: []
+          })
+          continue
+        }
+
+        const attachmentId = randomUUID()
+        const finalPath = resolve(filesRoot, `${randomUUID()}${attachmentExtension(preview.format)}`)
+        assertInside(filesRoot, finalPath)
+        copyFileSync(preview.quarantine_path, finalPath, fsConstants.COPYFILE_EXCL)
+        createdFiles.push(finalPath)
+        const size = statSync(finalPath).size
+        if (Number(size) !== Number(preview.file_size)) {
+          throw attachmentError(500, 'attachment_copy_mismatch', '附件安全复制后的大小校验失败')
+        }
+        insertAttachment.run(
+          attachmentId, item.candidateId, preview.original_filename, finalPath,
+          preview.mime_type, preview.file_size, preview.sha256, PARSER_VERSION,
+          preview.extracted_text, timestamp, timestamp
+        )
+        const changedFields = updateCandidateFields(
+          db, latest, item.record, item.selectedFields, attachmentId, timestamp
+        )
+        const insertedSectionIds = applySections(
+          db, item.candidateId, item.record, item.selectedSections, attachmentId,
+          timestamp, item.mergeMode, input.confirm_replace_sections === true
+        )
+        db.prepare('UPDATE candidates SET updated_at = ? WHERE id = ?').run(timestamp, item.candidateId)
+        addActivity(db, item.candidateId, 'resume_attachment_confirmed', '确认更新并保存简历附件', {
+          attachment_id: attachmentId,
+          parser_version: PARSER_VERSION,
+          changed_fields: changedFields,
+          inserted_section_count: insertedSectionIds.length,
+          merge_mode: item.mergeMode
+        })
+        const attachment = db.prepare('SELECT * FROM candidate_attachments WHERE id = ?').get(attachmentId)
+        results.push({
+          record_id: item.record.record_id,
+          candidate_id: item.candidateId,
+          attachment: attachmentRow(attachment),
+          duplicate: false,
+          changed_fields: changedFields,
+          inserted_section_ids: insertedSectionIds
+        })
+      }
+      db.prepare(`
+        UPDATE attachment_update_previews
+        SET parse_status = 'confirmed', quarantine_path = NULL,
+            extracted_text = '', records_json = '[]',
+            consumed_at = ?, updated_at = ?
+        WHERE id = ? AND consumed_at IS NULL AND parse_status = 'parsed'
+      `).run(timestamp, timestamp, id)
+      if (preview.quarantine_path) {
+        enqueueCleanup(preview.quarantine_path, 'attachment_preview_confirmed', timestamp)
+      }
+      const response = {
+        preview_id: id,
+        committed_records: results.length,
+        attachment_ids: results.map((result) => result.attachment.id),
+        attachments: results.map((result) => result.attachment),
+        updated_candidate_ids: unique(results.filter((result) => !result.duplicate).map((result) => result.candidate_id)),
+        duplicate_records: results.filter((result) => result.duplicate).length,
+        records: results
+      }
+      if (typeof beforeCommit === 'function') {
+        const hookResult = beforeCommit({ result: response, timestamp, preview })
+        if (hookResult && typeof hookResult.then === 'function') {
+          throw new TypeError('attachment confirmation beforeCommit hook must be synchronous')
+        }
+      }
+      synchronizeBusinessSearch(db)
+      db.exec('COMMIT')
+    } catch (error) {
+      try { db.exec('ROLLBACK') } catch {}
+      for (const path of createdFiles) safeDeleteOrQueue(path, 'attachment_confirm_rollback')
+      throw error
+    }
+
+    processCleanupJobs()
+    rawTokens.delete(id)
+    return {
+      preview_id: id,
+      committed_records: results.length,
+      attachment_ids: results.map((result) => result.attachment.id),
+      attachments: results.map((result) => result.attachment),
+      updated_candidate_ids: unique(results.filter((result) => !result.duplicate).map((result) => result.candidate_id)),
+      duplicate_records: results.filter((result) => result.duplicate).length,
+      records: results
+    }
+  }
+
+  const confirmPreview = (id, input = {}) => confirmPreviewCore(id, input)
+
+  const confirmPreviewForBatch = (id, input = {}, options = {}) => confirmPreviewCore(id, input, {
+    authorizedBatch: true,
+    beforeCommit: options.beforeCommit
+  })
+
+  const listCandidateAttachments = (candidateId) => {
+    const candidate = db.prepare('SELECT id FROM candidates WHERE id = ?').get(candidateId)
+    if (!candidate) throw attachmentError(404, 'not_found', '候选人不存在')
+    return db.prepare(`
+      SELECT * FROM candidate_attachments WHERE candidate_id = ?
+      ORDER BY created_at DESC, id
+    `).all(candidateId).map(attachmentRow)
+  }
+
+  const getAttachment = (id, { includeText = false } = {}) => {
+    const row = db.prepare(`
+      SELECT a.* FROM candidate_attachments a
+      JOIN candidates c ON c.id = a.candidate_id
+      WHERE a.id = ?
+    `).get(id)
+    if (!row) throw attachmentError(404, 'not_found', '附件不存在')
+    return includeText ? { ...attachmentRow(row), extracted_text: row.extracted_text } : attachmentRow(row)
+  }
+
+  const deleteAttachment = (id) => {
+    const attachmentId = cleanValue(id, 200)
+    if (!attachmentId) throw attachmentError(404, 'not_found', '附件不存在')
+    const timestamp = new Date(clock()).toISOString()
+    let row
+    let cleanupJob
+    db.exec('BEGIN IMMEDIATE')
+    try {
+      row = db.prepare(`
+        SELECT a.*, c.archived_at AS candidate_archived_at
+        FROM candidate_attachments a
+        JOIN candidates c ON c.id = a.candidate_id
+        WHERE a.id = ?
+      `).get(attachmentId)
+      if (!row) throw attachmentError(404, 'not_found', '附件不存在')
+      if (row.candidate_archived_at) {
+        throw attachmentError(409, 'candidate_archived', '已归档候选人的附件不能删除')
+      }
+      const storagePath = assertInside(filesRoot, row.storage_path)
+      const fieldSources = db.prepare(`
+        SELECT field_name FROM candidate_field_sources
+        WHERE attachment_id = ? ORDER BY created_at, id
+      `).all(attachmentId)
+      const retainedSectionCount = Number(db.prepare(`
+        SELECT COUNT(*) AS count FROM candidate_profile_sections
+        WHERE candidate_id = ? AND source_record_id = ?
+      `).get(row.candidate_id, `attachment:${attachmentId}`).count)
+      cleanupJob = enqueueCleanup(storagePath, 'attachment_deleted', timestamp)
+      const deleted = db.prepare('DELETE FROM candidate_attachments WHERE id = ?').run(attachmentId)
+      if (Number(deleted.changes) !== 1) {
+        throw attachmentError(409, 'attachment_delete_conflict', '附件状态已变化，请刷新后重试')
+      }
+      db.prepare('UPDATE candidates SET updated_at = ? WHERE id = ?').run(timestamp, row.candidate_id)
+      addActivity(db, row.candidate_id, 'resume_attachment_deleted', '删除简历附件', {
+        attachment_id: attachmentId,
+        original_filename: sanitizeOriginalFilename(row.original_filename),
+        sha256: row.sha256,
+        field_names: unique(fieldSources.map((source) => source.field_name)),
+        retained_profile_section_count: retainedSectionCount
+      })
+      synchronizeBusinessSearch(db)
+      db.exec('COMMIT')
+    } catch (error) {
+      try { db.exec('ROLLBACK') } catch {}
+      throw error
+    }
+
+    const physicalFileDeleted = processCleanupJob(cleanupJob)
+    return {
+      attachment_id: attachmentId,
+      candidate_id: row.candidate_id,
+      deleted: true,
+      cleanup_queued: true,
+      physical_file_deleted: physicalFileDeleted,
+      cleanup_pending: !physicalFileDeleted
+    }
+  }
+
+  const resolveDownload = (id) => {
+    const row = db.prepare(`
+      SELECT a.* FROM candidate_attachments a
+      JOIN candidates c ON c.id = a.candidate_id
+      WHERE a.id = ?
+    `).get(id)
+    if (!row) throw attachmentError(404, 'not_found', '附件不存在')
+    const path = assertInside(filesRoot, row.storage_path)
+    if (!existsSync(path)) throw attachmentError(503, 'attachment_file_missing', '附件文件暂不可用，请稍后重试')
+    return {
+      path,
+      filename: sanitizeOriginalFilename(basename(row.original_filename)),
+      mime_type: row.mime_type,
+      file_size: Number(row.file_size)
+    }
+  }
+
+  const timer = setInterval(() => {
+    try {
+      cleanupExpiredPreviews()
+      processCleanupJobs()
+    } catch {
+      // A later interval or an explicit maintenance call retries pending work.
+    }
+  }, cleanupIntervalMs)
+  timer.unref()
+
+  let closePromise = null
+  const close = () => {
+    if (closePromise) return closePromise
+    closing = true
+    clearInterval(timer)
+    const pending = [...parseJobs.values()].map((job) => job.promise)
+    for (const job of [...parseJobs.values()]) {
+      if (job.state !== 'queued') job.controller?.abort()
+      settleParseJob(job)
+    }
+    closePromise = Promise.allSettled(pending).then(() => {
+      if (removeRootOnClose) {
+        const resolvedRoot = resolve(root)
+        if (resolvedRoot.length < 10 || resolvedRoot === resolve(process.cwd())) {
+          throw new Error('Refusing to remove an unsafe attachment root')
+        }
+        rmSync(resolvedRoot, { recursive: true, force: true })
+      }
+    })
+    return closePromise
+  }
+
+  return {
+    root,
+    quarantineRoot,
+    filesRoot,
+    createPreview,
+    waitForPreview,
+    getPreview,
+    cancelPreview,
+    confirmPreview,
+    confirmPreviewForBatch,
+    listCandidateAttachments,
+    getAttachment,
+    deleteAttachment,
+    resolveDownload,
+    cleanupExpiredPreviews,
+    processCleanupJobs,
+    enqueueCleanup,
+    close
+  }
+}
+
+export const ATTACHMENT_SERVICE_LIMITS = Object.freeze({
+  preview_ttl_ms: DEFAULT_PREVIEW_TTL_MS,
+  parse_concurrency: DEFAULT_PARSE_CONCURRENCY,
+  max_confirm_records: MAX_CONFIRM_RECORDS,
+  parser_version: PARSER_VERSION
+})
+
+export { attachmentError }

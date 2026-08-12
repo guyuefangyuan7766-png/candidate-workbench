@@ -1,0 +1,19 @@
+node_modules/
+dist/
+data/
+backups/
+exports/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+.env
+output/
+*.log
+.candidate-workbench-maintenance-*.lock
+.DS_Store
+
+# Local scratch and benchmark data (not source code, may contain real candidate data)
+.tmp-*/
+tmp/

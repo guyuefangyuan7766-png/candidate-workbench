@@ -1,0 +1,99 @@
+export const DEFAULT_STAGES = [
+  { value: '新候选人', label: '新候选人', color: '#64748b', position: 10, terminal: false },
+  { value: '筛选中', label: '筛选中', color: '#2563eb', position: 20, terminal: false },
+  { value: '面试中', label: '面试中', color: '#7c3aed', position: 30, terminal: false },
+  { value: 'Offer', label: 'Offer', color: '#d97706', position: 40, terminal: false },
+  { value: '已入职', label: '已入职', color: '#059669', position: 50, terminal: true },
+  { value: '不合适', label: '不合适', color: '#dc2626', position: 60, terminal: true }
+]
+
+export const CANDIDATE_FIELDS = [
+  'name',
+  'phone',
+  'email',
+  'photo_url',
+  'current_company',
+  'current_title',
+  'location',
+  'gender',
+  'birth_date',
+  'age',
+  'years_experience',
+  'education',
+  'highest_school',
+  'highest_major',
+  'job_seeking_status',
+  'resume_updated_at',
+  'self_summary',
+  'source',
+  'stage',
+  'owner',
+  'tags',
+  'expected_salary',
+  'source_system',
+  'source_record_id',
+  'import_batch_id'
+]
+
+export const EXPORT_FIELDS = [
+  'id',
+  ...CANDIDATE_FIELDS.filter((field) => field !== 'photo_url'),
+  'created_at',
+  'updated_at',
+  'archived_at'
+]
+
+export const FIELD_LABELS = {
+  id: '候选人ID',
+  name: '姓名',
+  phone: '手机号',
+  email: '邮箱',
+  photo_url: '证件照',
+  current_company: '当前公司',
+  current_title: '当前职位',
+  location: '所在地',
+  gender: '性别',
+  birth_date: '出生日期',
+  age: '年龄',
+  years_experience: '工作年限',
+  education: '学历',
+  highest_school: '最高学历学校',
+  highest_major: '最高学历专业',
+  job_seeking_status: '求职状态',
+  resume_updated_at: '简历更新时间',
+  self_summary: '自我概述',
+  source: '来源',
+  stage: '招聘阶段',
+  owner: '负责人',
+  tags: '标签',
+  expected_salary: '期望薪资',
+  source_system: '来源系统',
+  source_record_id: '来源记录ID',
+  import_batch_id: '导入批次ID',
+  created_at: '创建时间',
+  updated_at: '更新时间',
+  archived_at: '归档时间'
+}
+
+export const AGENT_TOOL_NAMES = [
+  'get_schema_catalog',
+  'execute_readonly_query',
+  'query_candidates',
+  'get_candidate_full',
+  'query_candidate_notes',
+  'query_candidate_activities',
+  'query_candidate_sources',
+  'query_candidate_assessments',
+  'query_positions',
+  'get_position_full',
+  'query_talent_pools',
+  'aggregate_recruitment_data',
+  'search_all_records',
+  'search_candidate_resumes',
+  'get_candidate_resume',
+  'query_candidate_attachments',
+  'get_attachment_text',
+  'export_query_results',
+  'search_web',
+  'fetch_web_page'
+]
