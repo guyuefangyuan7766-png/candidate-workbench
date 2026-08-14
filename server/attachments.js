@@ -13,7 +13,21 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { basename, extname, isAbsolute, relative, resolve, sep } from 'node:path'
 import { CANDIDATE_FIELDS } from './constants.js'
 import { addActivity, now } from './database.js'
+import { findDuplicate, getCandidate, insertCandidate } from './candidates.js'
 import { synchronizeBusinessSearch } from './business-search.js'
+import {
+  extractDocxAvatarSuggestion,
+  extractExplicitAvatarSuggestion,
+  extractExplicitAvatarSensitiveValues,
+  extractPdfAvatarSuggestion,
+  extractXlsxAvatarSuggestions,
+  hydrateAttachmentAvatarTransfer,
+  materializePrivateAttachmentAvatar,
+  projectAttachmentAvatarSuggestion,
+  releaseAttachmentAvatarTransfer,
+  releasePrivateAttachmentAvatar,
+  sanitizeMaterializedAttachmentAvatar
+} from './attachment-avatar.js'
 import { parseAttachment, sanitizeOriginalFilename, validateAttachmentFile } from './attachment-parser.js'
 import {
   HEADER_ALIASES,
@@ -24,11 +38,12 @@ import {
   sanitizeCandidateInput
 } from './validation.js'
 
-const PARSER_VERSION = 'local-resume-parser-v1'
+const PARSER_VERSION = 'local-resume-parser-v2'
 const DEFAULT_PREVIEW_TTL_MS = 15 * 60 * 1000
 const DEFAULT_PARSE_CONCURRENCY = 2
 const MAX_CONFIRM_RECORDS = 1000
 const ATTACHMENT_SUGGESTION_TIMEOUT_MS = 5_000
+const ATTACHMENT_AVATAR_URL_PREFIX = 'attachment-avatar:'
 const PARSE_FAILURE_MESSAGES = Object.freeze({
   attachment_empty: '附件中没有可确认的候选人记录',
   attachment_parse_failed: '附件内容提取失败，请确认文件完整且格式正确后重试',
@@ -39,6 +54,7 @@ const PARSE_FAILURE_MESSAGES = Object.freeze({
   encrypted_office_unsupported: '不支持加密或带密码的 Office 文件',
   encrypted_pdf_unsupported: '不支持加密或带密码的 PDF',
   invalid_csv_encoding: 'CSV 必须使用有效的 UTF-8 编码',
+  invalid_text_encoding: 'TXT 必须使用有效的 UTF-8 编码',
   invalid_office_package: 'Office 文件结构不完整或已损坏',
   invalid_zip: 'Office 文件结构不完整或已损坏',
   multipart_zip_unsupported: '不支持跨卷或分段 Office 文件',
@@ -75,7 +91,8 @@ const RETRYABLE_PARSE_FAILURES = new Set([
   'parser_unavailable'
 ])
 const ALLOWED_UPDATE_FIELDS = new Set([
-  'name', 'phone', 'email', 'current_company', 'current_title', 'location',
+  'name', 'phone', 'email', 'gender', 'birth_date', 'age',
+  'current_company', 'current_title', 'location',
   'years_experience', 'education', 'highest_school', 'highest_major',
   'job_seeking_status', 'resume_updated_at', 'self_summary', 'source', 'owner',
   'tags', 'expected_salary', 'desired_titles'
@@ -84,6 +101,9 @@ const FIELD_LIMITS = Object.freeze({
   name: 200,
   phone: 80,
   email: 320,
+  gender: 40,
+  birth_date: 80,
+  age: 10,
   current_company: 300,
   current_title: 300,
   location: 200,
@@ -262,6 +282,13 @@ function candidateView(row) {
   }
 }
 
+function candidateCreationResponse(candidate) {
+  if (!candidate) return candidate
+  const response = { ...candidate }
+  delete response.photo_url
+  return response
+}
+
 function normalizeHeader(value) {
   return String(value ?? '')
     .trim()
@@ -280,8 +307,10 @@ function findHeaderValue(values, aliases) {
 function extractTextIdentity(text, labeledData = extractLabeledCandidateData(text)) {
   const labeledEmails = labeledData.candidates.email
   const labeledPhones = labeledData.candidates.phone
-  const emails = labeledEmails.length ? labeledEmails : emailCandidates(text)
-  const phones = labeledPhones.length ? labeledPhones : phoneCandidates(text)
+  const emails = labeledData.identity_labels.email ? labeledEmails : emailCandidates(text)
+  const phones = labeledData.identity_labels.phone
+    ? labeledPhones
+    : phoneCandidates(text, { fallbackScan: true })
   return normalizedIdentity({ phone_candidates: phones, email_candidates: emails })
 }
 
@@ -308,11 +337,23 @@ function extractRowIdentity(values) {
 }
 
 function normalizeLabel(value) {
-  return String(value ?? '').trim().toLocaleLowerCase().replace(/\s+/g, ' ')
+  return String(value ?? '')
+    .trim()
+    .toLocaleLowerCase()
+    .replace(/([\u3400-\u9fff])\s+(?=[\u3400-\u9fff])/g, '$1')
+    .replace(/\s+/g, ' ')
 }
 
 function escapeRegex(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+')
+}
+
+function labelRegex(value) {
+  const source = String(value)
+  if (/^[\u3400-\u9fff]+$/.test(source)) {
+    return [...source].map((character) => escapeRegex(character)).join('\\s*')
+  }
+  return escapeRegex(source)
 }
 
 const LABEL_DESCRIPTORS = (() => {
@@ -340,25 +381,48 @@ const LABEL_PATTERN = [...LABEL_DESCRIPTORS.values()]
   .sort((left, right) => right.length - left.length)
   .map(escapeRegex)
   .join('|')
+const SPACED_IDENTITY_LABEL_PATTERN = [...LABEL_DESCRIPTORS.entries()]
+  .filter(([, descriptor]) => [...descriptor.fields].some((field) => field === 'phone' || field === 'email'))
+  .map(([label]) => labelRegex(label))
+  .sort((left, right) => right.length - left.length)
+  .join('|')
+const EMBEDDED_IDENTITY_LABEL_PATTERN = [...LABEL_DESCRIPTORS.entries()]
+  .filter(([label, descriptor]) => (
+    label.length >= 4
+    && [...descriptor.fields].some((field) => field === 'phone' || field === 'email')
+  ))
+  .map(([label]) => labelRegex(label))
+  .sort((left, right) => right.length - left.length)
+  .join('|')
 const SECTION_ALIAS_ENTRIES = RESUME_SECTION_DEFINITIONS
   .flatMap((definition) => definition.aliases.map((alias) => ({ alias, definition })))
   .sort((left, right) => right.alias.length - left.alias.length)
 
 function scanColonMarkers(text) {
   const source = String(text ?? '')
-  const matcher = new RegExp(`(^|[\\s|｜;；,，])(${LABEL_PATTERN})\\s*[:：]\\s*`, 'gimu')
   const markers = []
-  let match
-  while ((match = matcher.exec(source))) {
-    const descriptor = LABEL_DESCRIPTORS.get(normalizeLabel(match[2]))
-    if (!descriptor) continue
-    markers.push({
-      start: match.index + match[1].length,
-      end: matcher.lastIndex,
-      label: match[2],
-      descriptor,
-      inline: true
-    })
+  const collect = (matcher) => {
+    let match
+    while ((match = matcher.exec(source))) {
+      const descriptor = LABEL_DESCRIPTORS.get(normalizeLabel(match[2]))
+      if (!descriptor) continue
+      markers.push({
+        start: match.index + match[1].length,
+        end: matcher.lastIndex,
+        label: match[2],
+        descriptor,
+        inline: true
+      })
+    }
+  }
+  collect(new RegExp(`(^|[\\s|｜;；,，])(${LABEL_PATTERN})\\s*[:：]\\s*`, 'gimu'))
+  // PDF text commonly keeps this label contiguous while inserting spaces around nearby fields.
+  collect(new RegExp(`(^|[^\\p{L}\\p{N}])(移动\\s*电\\s*话)\\s*[:：]\\s*`, 'gimu'))
+  if (SPACED_IDENTITY_LABEL_PATTERN) {
+    collect(new RegExp(`(^|[^\\p{L}\\p{N}])(${SPACED_IDENTITY_LABEL_PATTERN})\\s*[:：]\\s*`, 'gimu'))
+  }
+  if (EMBEDDED_IDENTITY_LABEL_PATTERN) {
+    collect(new RegExp(`(^|.)(${EMBEDDED_IDENTITY_LABEL_PATTERN})\\s*[:：]\\s*`, 'gimu'))
   }
   return markers
 }
@@ -441,11 +505,56 @@ function cleanExtractedSegment(value, maximum) {
   return text ? text.slice(0, maximum) : null
 }
 
-function phoneCandidates(value) {
+const DOMESTIC_PHONE_PATTERN = /(?:\+?86|0086)?[\s().-]*1[3-9](?:[\s().-]*\d){9}(?!\d)/g
+const GENERIC_PHONE_PATTERN = /(?:\+|00)(?:\d[\s().-]?){6,18}\d|(?:\d[\s().-]?){6,18}\d/g
+
+function hasNumericPhoneSuffix(value) {
+  const source = String(value ?? '').trim()
+  const suffix = /\s+(\d{2,4})(?:\s*[A-Za-z\u3400-\u9fff]|\s*$)/.exec(source)
+  if (!suffix) return false
+  const prefix = source.slice(0, suffix.index).trim()
+  if (!prefix) return false
+  const normalizedPrefix = normalizePhone(prefix)
+  return Boolean(normalizedPrefix && phoneCandidatesForPrefix(prefix, normalizedPrefix))
+}
+
+function phoneCandidatesForPrefix(prefix, normalizedPrefix) {
+  const digits = String(prefix).replace(/\D/g, '')
+  if (/^1[3-9]\d{9}$/.test(digits)) return normalizedPrefix
+  if (/^(?:86|0086)1[3-9]\d{9}$/.test(digits)) return normalizedPrefix
+  return null
+}
+
+function phoneCandidates(value, { fallbackScan = false } = {}) {
+  const source = String(value ?? '')
+  const matches = []
+  const domesticMatches = [...source.matchAll(DOMESTIC_PHONE_PATTERN)]
+  const covered = domesticMatches.map((match) => {
+    matches.push(match[0])
+    return [match.index ?? 0, (match.index ?? 0) + match[0].length]
+  })
+  // Remove already recognized domestic mobiles before scanning generic
+  // international/landline forms; this prevents a trailing numeric field from
+  // being concatenated into the mobile candidate.
+  const remainder = [...source].map((character, index) => (
+    covered.some(([start, end]) => index >= start && index < end) ? ' ' : character
+  )).join('')
+  matches.push(...(remainder.match(GENERIC_PHONE_PATTERN) ?? []))
   return unique(
-    (String(value ?? '').match(/(?:\+|00)?(?:\d[\s().-]?){6,18}\d/g) ?? [])
+    matches
       .filter((candidate) => !looksLikeResumeDate(candidate))
-      .map(normalizePhone)
+      .filter((candidate) => !hasNumericPhoneSuffix(candidate))
+      .map((candidate) => ({ candidate, normalized: normalizePhone(candidate) }))
+      .filter(({ candidate, normalized }) => {
+        if (!normalized) return false
+        const digits = String(candidate).replace(/\D/g, '')
+        const domesticDigits = /^(?:86)(1[3-9]\d{9})$/.exec(digits)?.[1] ?? digits
+        if (/^1[3-9]\d/.test(domesticDigits) && !/^1[3-9]\d{9}$/.test(domesticDigits)) return false
+        if (!fallbackScan) return true
+        if (/^\+861[3-9]\d{9}$/.test(normalized)) return true
+        return /^(?:\+|00)/.test(candidate.trim()) && normalized.startsWith('+')
+      })
+      .map(({ normalized }) => normalized)
   )
 }
 
@@ -456,12 +565,85 @@ function emailCandidates(value) {
   )
 }
 
+// Contact values are handled separately from the generic candidate sanitizer.
+// normalizePhone intentionally accepts punctuation and strips non-digits, which
+// is useful for imports but would otherwise turn a model response such as
+// "13800000000 专业：软件工程" into a valid phone number.  Model suggestions
+// therefore must be an exact, single contact token.
+function strictContactCandidate(field, rawValue) {
+  if (typeof rawValue !== 'string' && typeof rawValue !== 'number') return null
+  const input = String(rawValue).replace(/\u0000/g, '').trim()
+  if (!input) return null
+  if (field === 'email') {
+    if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(input)) return null
+    return normalizeEmail(input)
+  }
+  if (field === 'phone') {
+    // Keep the formatting accepted by normalizePhone, but reject labels,
+    // whitespace-separated prose, and any second numeric token. A domestic
+    // mobile must contain exactly 11 digits (or 86 + those 11 digits).
+    if (!/^(?:(?:\+|00)?[0-9][0-9\s().-]{5,22}[0-9])$/.test(input)) return null
+    const digits = input.replace(/\D/g, '')
+    if (hasNumericPhoneSuffix(input)) return null
+    if (/^1[3-9]/.test(digits) && !/^1[3-9]\d{9}$/.test(digits)) return null
+    if (/^(?:\+?86|0086)/.test(input) && !/^(?:86|0086)1[3-9]\d{9}$/.test(digits)) return null
+    const candidates = phoneCandidates(input)
+    return candidates.length === 1 ? candidates[0] : null
+  }
+  return null
+}
+
+function contactCandidateRegex(field) {
+  return field === 'email'
+    ? /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi
+    : /(?:\+?86|0086)?[\s().-]*1[3-9](?:[\s().-]*\d){9}(?!\d)|(?:\+|00)(?:\d[\s().-]?){6,18}\d(?!\d)|(?:\d[\s().-]?){6,18}\d(?!\d)/g
+}
+
+// Return the smallest source fragment containing the contact label and token.
+// It deliberately stops at the token end, so adjacent fields on the same line
+// can never leak into evidence.
+function contactEvidenceFromText(text, field, normalized, preferredEvidence = null) {
+  if (!normalized) return null
+  const sources = []
+  if (typeof preferredEvidence === 'string' && preferredEvidence.trim()) sources.push(preferredEvidence)
+  if (typeof text === 'string' && text.trim() && !sources.includes(text)) sources.push(text)
+  for (const source of sources) {
+    const matcher = contactCandidateRegex(field)
+    let match
+    while ((match = matcher.exec(source))) {
+      const candidate = field === 'email' ? normalizeEmail(match[0]) : normalizePhone(match[0])
+      if (candidate !== normalized) continue
+      if (field === 'phone' && hasNumericPhoneSuffix(match[0])) continue
+      const lineStart = source.lastIndexOf('\n', match.index - 1) + 1
+      const lineEndOffset = source.indexOf('\n', match.index + match[0].length)
+      const lineEnd = lineEndOffset < 0 ? source.length : lineEndOffset
+      const line = source.slice(lineStart, lineEnd)
+      const relativeMatchIndex = match.index - lineStart
+      let start = lineStart
+      // Prefer the nearest recognized label for this field on the same line.
+      const lineMarkers = scanColonMarkers(line)
+      const marker = lineMarkers
+        .filter((item) => item.descriptor.fields.has(field) && item.end <= relativeMatchIndex)
+        .at(-1)
+      if (marker) start = lineStart + marker.start
+      else if (!marker) start = lineStart + relativeMatchIndex
+      const fragment = cleanExtractedSegment(source.slice(start, match.index + match[0].length), 1_000)
+      if (fragment) return fragment
+    }
+  }
+  return null
+}
+
+function uniqueExtractedContact(field, rawValue) {
+  const candidates = field === 'phone' ? phoneCandidates(rawValue) : emailCandidates(rawValue)
+  return candidates.length === 1 ? candidates[0] : null
+}
+
 function normalizeExtractedField(field, rawValue) {
   const maximum = FIELD_LIMITS[field] ?? (field === 'tags' ? 20_000 : 300)
   const multiline = cleanExtractedSegment(rawValue, maximum)
   if (!multiline) return null
-  if (field === 'phone') return phoneCandidates(multiline)[0] ?? null
-  if (field === 'email') return emailCandidates(multiline)[0] ?? null
+  if (field === 'phone' || field === 'email') return uniqueExtractedContact(field, multiline)
   if (field === 'years_experience') {
     const match = multiline.match(/^(\d+(?:\.\d+)?)\s*(?:年|years?)?(?:以上)?$/i)
     return match ? Number(match[1]) : null
@@ -491,23 +673,42 @@ function extractLabeledCandidateData(text) {
   const values = {}
   const evidence = {}
   const candidates = { phone: [], email: [] }
+  const identityLabels = { phone: false, email: false }
   for (const marker of colonMarkers) {
     const boundaryIndex = boundaries.findIndex((item) => item.start === marker.start)
     const next = boundaryIndex >= 0 ? boundaries[boundaryIndex + 1] : null
     const rawValue = source.slice(marker.end, next?.start ?? source.length)
+    const lineEnd = source.indexOf('\n', marker.end)
+    const identityField = [...marker.descriptor.fields].some((field) => field === 'phone' || field === 'email')
+    const sameLine = source.slice(marker.end, lineEnd < 0 ? source.length : lineEnd)
+    const nextColonOffset = identityField ? sameLine.search(/[:：]/) : -1
+    const identityRawValue = source.slice(
+      marker.end,
+      Math.min(
+        next?.start ?? source.length,
+        lineEnd < 0 ? source.length : lineEnd,
+        nextColonOffset >= 0 ? marker.end + nextColonOffset : source.length
+      )
+    )
     for (const field of marker.descriptor.fields) {
-      if (field === 'phone') candidates.phone.push(...phoneCandidates(rawValue))
-      if (field === 'email') candidates.email.push(...emailCandidates(rawValue))
+      if (field === 'phone' || field === 'email') identityLabels[field] = true
+      if (field === 'phone') candidates.phone.push(...phoneCandidates(identityRawValue))
+      if (field === 'email') candidates.email.push(...emailCandidates(identityRawValue))
       if (!ALLOWED_UPDATE_FIELDS.has(field) || Object.prototype.hasOwnProperty.call(values, field)) continue
-      const value = normalizeExtractedField(field, rawValue)
+      const value = field === 'phone' || field === 'email'
+        ? normalizeExtractedField(field, identityRawValue)
+        : normalizeExtractedField(field, rawValue)
       if (!nonEmpty(value)) continue
       values[field] = value
-      evidence[field] = cleanExtractedSegment(source.slice(marker.start, next?.start ?? source.length), 1000)
+      evidence[field] = field === 'phone' || field === 'email'
+        ? contactEvidenceFromText(source, field, value, source.slice(marker.start, next?.start ?? source.length))
+        : cleanExtractedSegment(source.slice(marker.start, next?.start ?? source.length), 1000)
     }
   }
   return {
     values,
     evidence,
+    identity_labels: identityLabels,
     candidates: {
       phone: unique(candidates.phone),
       email: unique(candidates.email)
@@ -535,10 +736,13 @@ function spreadsheetCandidateValues(values) {
     'desired_titles',
     findHeaderValue(values, ATTACHMENT_PREFERENCE_FIELD_ALIASES.desired_titles)
   )
-  return {
+  const imported = {
     ...mapImportedRow(values, mapping),
     ...(desiredTitles ? { desired_titles: desiredTitles } : {})
   }
+  return Object.fromEntries(
+    Object.entries(imported).filter(([field]) => ALLOWED_UPDATE_FIELDS.has(field))
+  )
 }
 
 function sectionTitle(type) {
@@ -682,11 +886,14 @@ function buildSuggestions(sourceValues, candidate, sourceEvidence = {}) {
     .map(([field, suggested]) => {
       const current = candidateRawValue(candidate, field)
       const confidence = fieldConfidence(field, sourceValues)
+      const evidence = field === 'phone' || field === 'email'
+        ? contactEvidenceFromText(String(sourceEvidence[field] ?? ''), field, suggested) ?? String(suggested)
+        : cleanValue(sourceEvidence[field], 1000)
       return {
         field,
         value: suggested,
         confidence,
-        evidence: cleanValue(sourceEvidence[field], 1000) ?? (field === 'phone' || field === 'email'
+        evidence: evidence ?? (field === 'phone' || field === 'email'
           ? '从附件身份字段提取并按系统规则标准化'
           : '从附件中的同名字段或明确标签提取'),
         current_value: current,
@@ -736,11 +943,23 @@ function mergeModelSuggestions(baseRecord, modelRecord) {
       if (!item || !ALLOWED_UPDATE_FIELDS.has(item.field) || !nonEmpty(item.value)) continue
       if (!['high', 'medium', 'low'].includes(item.confidence)) continue
       if (suggestionsByField.has(item.field)) continue
-      const boundedValue = ['tags', 'desired_titles'].includes(item.field) && Array.isArray(item.value)
-        ? item.value
-        : truncateAtKnownBoundary(String(item.value))
+      const contactField = item.field === 'phone' || item.field === 'email'
+      if (contactField && (
+        baseRecord.identity_candidates?.ambiguous === true ||
+        baseRecord.match?.status === 'multiple_matches' ||
+        baseRecord.match?.status === 'identity_conflict'
+      )) continue
+      // Contact model values must be a single token. Do not salvage a value
+      // from prose, since that can silently choose the wrong candidate.
+      const boundedValue = contactField
+        ? strictContactCandidate(item.field, item.value)
+        : ['tags', 'desired_titles'].includes(item.field) && Array.isArray(item.value)
+          ? item.value
+          : truncateAtKnownBoundary(String(item.value))
       if (!nonEmpty(boundedValue)) continue
-      const evidence = sourceEvidence(corpus, boundedValue, item.evidence)
+      const evidence = contactField
+        ? contactEvidenceFromText(corpus, item.field, boundedValue, item.evidence)
+        : sourceEvidence(corpus, boundedValue, item.evidence)
       if (!evidence) continue
       const { value, errors } = sanitizeAttachmentPatch({ [item.field]: boundedValue })
       const suggested = value[item.field]
@@ -874,8 +1093,84 @@ function publicRecord(record) {
     },
     match: record.match,
     suggestions: record.suggestions ?? [],
-    sections: record.sections ?? []
+    sections: record.sections ?? [],
+    avatar: record.avatar ?? { status: 'none', available: false, source: null, confidence: null, candidate_count: 0 }
   }
+}
+
+function redactAvatarValuesForModel(value, sensitiveValues = []) {
+  let source = String(value ?? '')
+  const secrets = [...new Set(sensitiveValues.map(String).filter(Boolean))]
+    .sort((left, right) => right.length - left.length)
+  for (const secret of secrets) source = source.replaceAll(secret, '[redacted]')
+  return source
+}
+
+function redactAvatarValuesForStorage(value, sensitiveValues) {
+  if (typeof value === 'string') return redactAvatarValuesForModel(value, sensitiveValues)
+  if (Array.isArray(value)) {
+    return value.map((item) => redactAvatarValuesForStorage(item, sensitiveValues))
+  }
+  if (!value || typeof value !== 'object') return value
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [key, redactAvatarValuesForStorage(item, sensitiveValues)])
+  )
+}
+
+function preferredAvatarResult(explicit, embedded) {
+  if (explicit?.status === 'ready' || explicit?.status === 'ambiguous') return explicit
+  if (embedded?.status === 'ready' || embedded?.status === 'ambiguous') return embedded
+  return explicit?.status === 'invalid' ? explicit : embedded ?? explicit
+}
+
+function publicAvatarProjection(result) {
+  const projection = projectAttachmentAvatarSuggestion(result)
+  // Embedded WebP is recognized but cannot be stripped of metadata without a
+  // trusted decoder/re-encoder. Remote WebP URLs remain supported.
+  if (
+    projection.available && projection.content_type === 'image/webp' &&
+    ['docx_embedded_image', 'pdf_embedded_image', 'xlsx_embedded_image'].includes(projection.source)
+  ) {
+    return { ...projection, status: 'invalid', available: false, confidence: null }
+  }
+  return projection
+}
+
+async function extractAttachmentAvatarResults(buffer, format, parsed) {
+  const parsedRecords = Array.isArray(parsed?.records) ? parsed.records : []
+  const explicit = parsedRecords.map((record) => extractExplicitAvatarSuggestion({
+    text: record?.values?.raw_text ?? '',
+    values: record?.values ?? {}
+  }))
+  let embedded = []
+  try {
+    if (format === 'pdf' && parsedRecords.length === 1) {
+      embedded = [await extractPdfAvatarSuggestion(buffer)]
+    } else if (format === 'docx' && parsedRecords.length === 1) {
+      embedded = [await extractDocxAvatarSuggestion(buffer)]
+    } else if (['xlsx', 'xlsm'].includes(format)) {
+      const suggestions = await extractXlsxAvatarSuggestions(buffer)
+      const byRow = new Map(suggestions.map((suggestion) => [
+        `${suggestion.sheet_name}\u0000${suggestion.row_number}`,
+        suggestion
+      ]))
+      embedded = parsedRecords.map((record) => byRow.get(
+        `${parsed?.metadata?.sheet_name ?? ''}\u0000${record?.row_number ?? ''}`
+      ))
+    }
+  } catch {
+    // Avatar extraction is optional. A malformed or ambiguous image must not
+    // make otherwise valid resume text unavailable.
+  }
+  return parsedRecords.map((_, index) => preferredAvatarResult(explicit[index], embedded[index]))
+}
+
+function releaseAvatarResult(result) {
+  const references = new Set([
+    result?.reference,
+    ...(Array.isArray(result?.references) ? result.references : [])
+  ].filter(Boolean))
+  for (const reference of references) releasePrivateAttachmentAvatar(reference)
 }
 
 function assertInside(root, candidatePath) {
@@ -1171,6 +1466,7 @@ export function createAttachmentService({
   mkdirSync(quarantineRoot, { recursive: true })
   mkdirSync(filesRoot, { recursive: true })
   const rawTokens = new Map()
+  const privateAvatarResults = new Map()
   const parseJobs = new Map()
   const parseQueue = []
   let activeParses = 0
@@ -1207,6 +1503,73 @@ export function createAttachmentService({
   }
 
   const readPreview = (id) => db.prepare('SELECT * FROM attachment_update_previews WHERE id = ?').get(id)
+
+  const persistCreatedCandidateMatch = (previewId, recordId, candidate, updatedAt = new Date(clock()).toISOString()) => {
+    if (!candidate?.id) throw attachmentError(409, 'candidate_not_found', '新建候选人状态不可用，请刷新后重试')
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const row = readPreview(previewId)
+      if (!row || row.parse_status !== 'parsed' || row.consumed_at) {
+        throw attachmentError(409, 'attachment_preview_not_ready', '附件预览状态已变化，请刷新后重试')
+      }
+      const records = parseJson(row.records_json, [])
+      const recordIndex = records.findIndex((item) => item.record_id === recordId)
+      if (recordIndex < 0) throw attachmentError(422, 'validation_error', 'record_id 不属于当前附件预览')
+      const currentMatch = records[recordIndex].match ?? {}
+      if (currentMatch.resolution === 'created') {
+        if (currentMatch.candidate_id === candidate.id) return true
+        throw attachmentError(409, 'attachment_candidate_resolution_conflict', '附件记录已关联其他新建候选人')
+      }
+      if (currentMatch.status !== 'not_found') {
+        throw attachmentError(409, 'attachment_candidate_create_blocked', '只有未匹配记录可以创建新候选人')
+      }
+      records[recordIndex] = {
+        ...records[recordIndex],
+        match: {
+          ...currentMatch,
+          candidate_id: candidate.id,
+          candidate: candidateView(candidate),
+          resolution: 'created',
+          reason: '已从当前附件创建候选人，等待确认附件关联'
+        },
+        suggestions: (records[recordIndex].suggestions ?? []).map((suggestion) => ({
+          ...suggestion,
+          default_selected: false
+        }))
+      }
+      const result = db.prepare(`
+        UPDATE attachment_update_previews
+        SET records_json = ?, updated_at = ?
+        WHERE id = ? AND parse_status = 'parsed' AND consumed_at IS NULL AND records_json = ?
+      `).run(JSON.stringify(records), updatedAt, previewId, row.records_json)
+      if (result.changes === 1) return true
+    }
+    throw attachmentError(409, 'attachment_preview_state_changed', '附件预览状态已变化，请刷新后重试')
+  }
+
+  const assertPreviewAccess = (id, previewToken) => {
+    const row = readPreview(id)
+    if (!row) throw attachmentError(404, 'not_found', '附件预览不存在')
+    if (typeof previewToken !== 'string' || tokenHash(previewToken) !== row.token_hash) {
+      throw attachmentError(403, 'attachment_preview_token_invalid', '附件预览令牌无效')
+    }
+    return true
+  }
+
+  const releasePreviewAvatars = (id) => {
+    const results = privateAvatarResults.get(id)
+    if (!results) return
+    for (const result of results.values()) releaseAvatarResult(result)
+    privateAvatarResults.delete(id)
+  }
+
+  const releaseRecordAvatar = (previewId, recordId, result = null) => {
+    const retained = privateAvatarResults.get(previewId)
+    const retainedResult = retained?.get(recordId)
+    if (result) releaseAvatarResult(result)
+    if (retainedResult && retainedResult !== result) releaseAvatarResult(retainedResult)
+    retained?.delete(recordId)
+    if (retained?.size === 0) privateAvatarResults.delete(previewId)
+  }
 
   const serializePreview = (row) => {
     if (!row) return null
@@ -1297,6 +1660,7 @@ export function createAttachmentService({
       }
       cancelScheduledParse(preview.id)
       rawTokens.delete(preview.id)
+      releasePreviewAvatars(preview.id)
     }
     if (expired.length) processCleanupJobs({ limit: 100 })
     return expired.length
@@ -1328,6 +1692,8 @@ export function createAttachmentService({
   }
 
   const runPreviewParsing = async ({ id, validated, requestedId, quarantinePath, buffer: suppliedBuffer, signal }) => {
+    let avatarResults = []
+    let avatarTransfers = []
     try {
       let buffer = suppliedBuffer
       if (!Buffer.isBuffer(buffer)) {
@@ -1353,9 +1719,29 @@ export function createAttachmentService({
         buffer
       }
       const parsed = await parser(stagedFile, validated, undefined, { signal })
-      let records = (parsed.records ?? []).map((record, index) => (
+      const sensitiveAvatarValues = extractExplicitAvatarSensitiveValues({
+        text: parsed.text,
+        records: parsed.records
+      })
+      const parserProvidedAvatarTransfers = Object.prototype.hasOwnProperty.call(parsed, 'avatar_transfers')
+      let avatarProjections
+      if (parserProvidedAvatarTransfers) {
+        avatarTransfers = Array.isArray(parsed.avatar_transfers) ? parsed.avatar_transfers : []
+        avatarProjections = (parsed.records ?? []).map((_, index) => (
+          publicAvatarProjection(avatarTransfers[index]?.projection)
+        ))
+      } else {
+        avatarResults = await extractAttachmentAvatarResults(buffer, validated.format, parsed)
+        avatarProjections = avatarResults.map(publicAvatarProjection)
+      }
+      const durableExtractedText = redactAvatarValuesForModel(parsed.text, sensitiveAvatarValues)
+      const durableParsedRecords = redactAvatarValuesForStorage(parsed.records ?? [], sensitiveAvatarValues)
+      let records = durableParsedRecords.map((record, index) => (
         buildPreviewRecord(db, record, index, validated.format, requestedId)
       ))
+      records.forEach((record, index) => {
+        record.avatar = avatarProjections[index]
+      })
       if (!records.length) throw attachmentError(422, 'attachment_empty', '附件中没有可确认的候选人记录')
       if (records.length > MAX_CONFIRM_RECORDS) {
         throw attachmentError(413, 'attachment_record_limit', `附件最多支持 ${MAX_CONFIRM_RECORDS} 条候选人记录`)
@@ -1364,11 +1750,17 @@ export function createAttachmentService({
         try {
           const proposed = await optionalSuggestionWithin(suggestionProvider({
             format: validated.format,
-            extracted_text: parsed.text,
+            extracted_text: durableExtractedText,
             records: records.map(publicRecord),
             schema_version: 1
           }), ATTACHMENT_SUGGESTION_TIMEOUT_MS, signal)
-          if (signal.aborted) return
+          if (signal.aborted) {
+            for (const result of avatarResults) releaseAvatarResult(result)
+            for (const transfer of avatarTransfers) releaseAttachmentAvatarTransfer(transfer)
+            avatarResults = []
+            avatarTransfers = []
+            return
+          }
           if (Array.isArray(proposed?.records)) {
             const knownRecordIds = new Set(records.map((record) => record.record_id))
             const byId = new Map(proposed.records
@@ -1386,8 +1778,14 @@ export function createAttachmentService({
         SET parse_status = 'parsed', extracted_text = ?, records_json = ?,
             error_code = NULL, error_message = NULL, updated_at = ?
         WHERE id = ? AND parse_status = 'parsing'
-      `).run(parsed.text ?? '', JSON.stringify(records), updatedAt, id)
+      `).run(durableExtractedText, JSON.stringify(records), updatedAt, id)
+      for (const result of avatarResults) releaseAvatarResult(result)
+      for (const transfer of avatarTransfers) releaseAttachmentAvatarTransfer(transfer)
+      avatarResults = []
+      avatarTransfers = []
     } catch (error) {
+      for (const result of avatarResults) releaseAvatarResult(result)
+      for (const transfer of avatarTransfers) releaseAttachmentAvatarTransfer(transfer)
       if (signal?.aborted && closing) return
       const updatedAt = new Date(clock()).toISOString()
       const failure = publicParseFailure(error)
@@ -1409,6 +1807,7 @@ export function createAttachmentService({
         }
         processCleanupJobs({ limit: 100 })
         rawTokens.delete(id)
+        releasePreviewAvatars(id)
       }
     }
   }
@@ -1555,7 +1954,284 @@ export function createAttachmentService({
     cancelScheduledParse(id)
     processCleanupJobs({ limit: 100 })
     rawTokens.delete(id)
+    releasePreviewAvatars(id)
     return { cancelled: true, preview_id: id }
+  }
+
+  const recoverPreviewAvatarResult = async (preview, record) => {
+    if (!preview.quarantine_path) {
+      throw attachmentError(409, 'attachment_avatar_source_expired', '头像暂存文件已失效，请重新上传附件')
+    }
+    const safePath = assertInside(quarantineRoot, preview.quarantine_path)
+    const stagedStat = await lstat(safePath)
+    if (!stagedStat.isFile() || stagedStat.isSymbolicLink()) {
+      throw attachmentError(422, 'attachment_staging_invalid', '附件隔离文件不是普通文件')
+    }
+    const buffer = await readFileAsync(safePath)
+    if (
+      buffer.length !== Number(preview.file_size) ||
+      createHash('sha256').update(buffer).digest('hex') !== preview.sha256
+    ) {
+      throw attachmentError(422, 'attachment_staging_invalid', '附件隔离文件大小或内容校验失败')
+    }
+    const stagedFile = {
+      originalname: preview.original_filename,
+      mimetype: preview.mime_type,
+      buffer
+    }
+    const validated = validateAttachmentFile(stagedFile)
+    if (validated.format !== preview.format || validated.sha256 !== preview.sha256) {
+      throw attachmentError(422, 'attachment_staging_invalid', '附件隔离文件格式或内容校验失败')
+    }
+    const parsed = await parser(stagedFile, validated)
+    const parsedRecords = Array.isArray(parsed?.records) ? parsed.records : []
+    const resultIndex = parsedRecords.findIndex((item, index) => (
+      (Number.isInteger(item?.row_number) ? item.row_number : index + 1) === record.row_number
+    ))
+    const parserProvidedAvatarTransfers = Object.prototype.hasOwnProperty.call(parsed, 'avatar_transfers')
+    const transfers = parserProvidedAvatarTransfers && Array.isArray(parsed.avatar_transfers)
+      ? parsed.avatar_transfers
+      : []
+    let result = null
+    try {
+      if (parserProvidedAvatarTransfers) {
+        if (resultIndex >= 0 && transfers[resultIndex]) {
+          result = hydrateAttachmentAvatarTransfer(transfers[resultIndex])
+        }
+      } else {
+        const results = await extractAttachmentAvatarResults(buffer, validated.format, parsed)
+        result = resultIndex >= 0 ? results[resultIndex] : null
+        results.forEach((item, index) => {
+          if (index !== resultIndex) releaseAvatarResult(item)
+        })
+      }
+      const projection = publicAvatarProjection(result)
+      if (
+        !projection.available || projection.source !== record.avatar?.source ||
+        projection.content_type !== record.avatar?.content_type
+      ) {
+        releaseAvatarResult(result)
+        throw attachmentError(409, 'attachment_avatar_changed', '头像解析结果已变化，请重新上传附件')
+      }
+      return result
+    } finally {
+      for (const transfer of transfers) releaseAttachmentAvatarTransfer(transfer)
+    }
+  }
+
+  const privateAvatarForRecord = async (preview, record) => {
+    const retained = privateAvatarResults.get(preview.id)?.get(record.record_id)
+    if (retained) return retained
+    const recovered = await recoverPreviewAvatarResult(preview, record)
+    if (!privateAvatarResults.has(preview.id)) privateAvatarResults.set(preview.id, new Map())
+    privateAvatarResults.get(preview.id).set(record.record_id, recovered)
+    return recovered
+  }
+
+  const createCandidateFromPreview = async (id, input = {}, { authorizedBatch = false } = {}) => {
+    cleanupExpiredPreviews()
+    const preview = readPreview(id)
+    if (!preview) throw attachmentError(404, 'not_found', '附件预览不存在')
+    if (preview.parse_status !== 'parsed' || preview.consumed_at) {
+      throw attachmentError(409, 'attachment_preview_not_ready', '附件预览尚未就绪或已经使用')
+    }
+    if (preview.expires_at <= new Date(clock()).toISOString()) {
+      cleanupExpiredPreviews()
+      throw attachmentError(409, 'attachment_preview_expired', '附件预览令牌已过期')
+    }
+    if (!authorizedBatch && (typeof input.preview_token !== 'string' || tokenHash(input.preview_token) !== preview.token_hash)) {
+      throw attachmentError(409, 'attachment_preview_invalid', '附件预览令牌无效')
+    }
+    const recordId = cleanValue(input.record_id, 200)
+    const records = parseJson(preview.records_json, [])
+    const record = records.find((item) => item.record_id === recordId)
+    if (!record) throw attachmentError(422, 'validation_error', 'record_id 不属于当前附件预览')
+    if (record.match?.status !== 'not_found') {
+      throw attachmentError(409, 'attachment_candidate_create_blocked', '只有未匹配记录可以创建新候选人')
+    }
+
+    const sourceRecordId = `attachment-preview:${preview.id}:${record.record_id}`
+    const existing = db.prepare(`
+      SELECT id FROM candidates WHERE source_system = 'attachment_preview' AND source_record_id = ?
+    `).get(sourceRecordId)
+    if (existing) {
+      const candidate = getCandidate(db, existing.id)
+      persistCreatedCandidateMatch(preview.id, record.record_id, candidate)
+      return candidateCreationResponse(candidate)
+    }
+
+    const freshMatch = matchCandidateIdentity(db, recordIdentity(record))
+    if (freshMatch.status !== 'not_found') {
+      throw attachmentError(409, freshMatch.status, '附件身份字段已匹配现有候选人，请刷新后选择已有候选人')
+    }
+    if (!input.candidate || typeof input.candidate !== 'object' || Array.isArray(input.candidate)) {
+      throw attachmentError(422, 'validation_error', 'candidate 必须是对象')
+    }
+    const candidateInput = { ...input.candidate }
+    for (const field of ['photo_url', 'source_system', 'source_record_id', 'import_batch_id']) delete candidateInput[field]
+    const validStages = db.prepare('SELECT value FROM stages ORDER BY position, value').all().map((stage) => stage.value)
+    const { value, errors } = sanitizeCandidateInput(candidateInput, { validStages })
+    if (errors.length) throw attachmentError(422, 'validation_error', '候选人字段校验失败', errors)
+
+    let avatarResult = null
+    let localAvatar = null
+    let avatarId = null
+    let avatarPath = null
+    if (input.include_avatar !== false && record.avatar?.available) {
+      try {
+        avatarResult = await privateAvatarForRecord(preview, record)
+        let materialized
+        try {
+          materialized = materializePrivateAttachmentAvatar(avatarResult.reference)
+        } catch (error) {
+          if (error?.code !== 'attachment_avatar_reference_invalid') throw error
+          const recovered = await recoverPreviewAvatarResult(preview, record)
+          privateAvatarResults.get(preview.id)?.set(record.record_id, recovered)
+          avatarResult = recovered
+          materialized = materializePrivateAttachmentAvatar(recovered.reference)
+        }
+        if (materialized.kind === 'remote_url') {
+          value.photo_url = materialized.photo_url
+        } else {
+          localAvatar = sanitizeMaterializedAttachmentAvatar(materialized)
+          avatarId = randomUUID()
+          avatarPath = resolve(filesRoot, `${randomUUID()}.${localAvatar.extension}`)
+          assertInside(filesRoot, avatarPath)
+          value.photo_url = `${ATTACHMENT_AVATAR_URL_PREFIX}${avatarId}`
+        }
+      } catch (error) {
+        releaseRecordAvatar(preview.id, record.record_id, avatarResult)
+        throw error
+      }
+    }
+    let avatarCommitted = false
+    let transactionStarted = false
+    try {
+      value.source_system = 'attachment_preview'
+      value.source_record_id = sourceRecordId
+      value.import_batch_id = null
+      const latestPreview = readPreview(id)
+      if (!latestPreview || latestPreview.parse_status !== 'parsed' || latestPreview.consumed_at) {
+        throw attachmentError(409, 'attachment_preview_not_ready', '附件预览状态已变化，请刷新后重试')
+      }
+      if (latestPreview.expires_at <= new Date(clock()).toISOString()) {
+        cleanupExpiredPreviews()
+        throw attachmentError(409, 'attachment_preview_expired', '附件预览令牌已过期')
+      }
+      if (!authorizedBatch && (
+        typeof input.preview_token !== 'string' || tokenHash(input.preview_token) !== latestPreview.token_hash
+      )) {
+        throw attachmentError(409, 'attachment_preview_invalid', '附件预览令牌无效')
+      }
+      const concurrentExisting = db.prepare(`
+        SELECT id FROM candidates WHERE source_system = 'attachment_preview' AND source_record_id = ?
+      `).get(sourceRecordId)
+      if (concurrentExisting) {
+        const candidate = getCandidate(db, concurrentExisting.id)
+        persistCreatedCandidateMatch(preview.id, record.record_id, candidate)
+        return candidateCreationResponse(candidate)
+      }
+
+      const latestMatch = matchCandidateIdentity(db, recordIdentity(record))
+      if (latestMatch.status !== 'not_found') {
+        throw attachmentError(409, latestMatch.status, '附件身份字段已匹配现有候选人，请刷新后选择已有候选人')
+      }
+      const duplicate = findDuplicate(db, value)
+      if (duplicate) {
+        throw attachmentError(409, 'candidate_duplicate', '发现可能重复的候选人，请选择已有候选人', duplicate)
+      }
+
+      const timestamp = new Date(clock()).toISOString()
+      if (localAvatar && avatarPath) {
+        writeFileSync(avatarPath, localAvatar.buffer, { flag: 'wx', mode: 0o600 })
+      }
+
+      let candidateId
+      db.exec('BEGIN IMMEDIATE')
+      transactionStarted = true
+      const racedExisting = db.prepare(`
+        SELECT id FROM candidates WHERE source_system = 'attachment_preview' AND source_record_id = ?
+      `).get(sourceRecordId)
+      if (racedExisting) {
+        db.exec('ROLLBACK')
+        transactionStarted = false
+        const candidate = getCandidate(db, racedExisting.id)
+        persistCreatedCandidateMatch(preview.id, record.record_id, candidate)
+        return candidateCreationResponse(candidate)
+      }
+      const created = insertCandidate(db, {
+        ...value,
+        created_at: timestamp,
+        updated_at: timestamp
+      }, {
+        activityType: 'candidate_created_from_attachment',
+        activityMetadata: {
+          preview_id: preview.id,
+          record_id: record.record_id,
+          avatar_imported: Boolean(value.photo_url)
+        },
+        hydrate: false
+      })
+      candidateId = created.id
+      if (localAvatar && avatarId && avatarPath) {
+        db.prepare(`
+          INSERT INTO candidate_attachments(
+            id, candidate_id, original_filename, storage_path, mime_type, file_size,
+            sha256, attachment_type, parse_status, parser_version, extracted_text,
+            source, import_batch_id, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, 'avatar', 'parsed', ?, '', 'attachment_parse', NULL, ?, ?)
+        `).run(
+          avatarId,
+          candidateId,
+          sanitizeOriginalFilename(`attachment-avatar.${localAvatar.extension}`),
+          avatarPath,
+          localAvatar.content_type,
+          localAvatar.byte_length,
+          localAvatar.sha256,
+          PARSER_VERSION,
+          timestamp,
+          timestamp
+        )
+      }
+      persistCreatedCandidateMatch(preview.id, record.record_id, getCandidate(db, candidateId), timestamp)
+      synchronizeBusinessSearch(db)
+      db.exec('COMMIT')
+      transactionStarted = false
+      avatarCommitted = true
+      return candidateCreationResponse(getCandidate(db, candidateId))
+    } catch (error) {
+      if (transactionStarted) {
+        try { db.exec('ROLLBACK') } catch {}
+        transactionStarted = false
+      }
+      throw error
+    } finally {
+      try {
+        releaseRecordAvatar(preview.id, record.record_id, avatarResult)
+      } finally {
+        if (localAvatar && avatarPath && !avatarCommitted) {
+          safeDeleteOrQueue(avatarPath, 'attachment_candidate_create_rollback')
+        }
+      }
+    }
+  }
+
+  const resolveCandidateAvatar = (candidateId, photoUrl) => {
+    const prefix = ATTACHMENT_AVATAR_URL_PREFIX
+    if (typeof photoUrl !== 'string' || !photoUrl.startsWith(prefix)) return null
+    const avatarId = cleanValue(photoUrl.slice(prefix.length), 200)
+    if (!avatarId) return null
+    const row = db.prepare(`
+      SELECT * FROM candidate_attachments
+      WHERE id = ? AND candidate_id = ? AND attachment_type = 'avatar'
+    `).get(avatarId, candidateId)
+    if (!row) return null
+    const path = assertInside(filesRoot, row.storage_path)
+    if (!existsSync(path)) throw attachmentError(503, 'avatar_file_missing', '候选人头像文件暂不可用')
+    if (!['image/jpeg', 'image/png'].includes(row.mime_type)) {
+      throw attachmentError(422, 'avatar_file_invalid', '候选人头像文件类型无效')
+    }
+    return { path, mime_type: row.mime_type, file_size: Number(row.file_size) }
   }
 
   const confirmPreviewCore = (id, input = {}, { authorizedBatch = false, beforeCommit } = {}) => {
@@ -1733,6 +2409,7 @@ export function createAttachmentService({
 
     processCleanupJobs()
     rawTokens.delete(id)
+    releasePreviewAvatars(id)
     return {
       preview_id: id,
       committed_records: results.length,
@@ -1755,7 +2432,8 @@ export function createAttachmentService({
     const candidate = db.prepare('SELECT id FROM candidates WHERE id = ?').get(candidateId)
     if (!candidate) throw attachmentError(404, 'not_found', '候选人不存在')
     return db.prepare(`
-      SELECT * FROM candidate_attachments WHERE candidate_id = ?
+      SELECT * FROM candidate_attachments
+      WHERE candidate_id = ? AND attachment_type = 'resume'
       ORDER BY created_at DESC, id
     `).all(candidateId).map(attachmentRow)
   }
@@ -1764,7 +2442,7 @@ export function createAttachmentService({
     const row = db.prepare(`
       SELECT a.* FROM candidate_attachments a
       JOIN candidates c ON c.id = a.candidate_id
-      WHERE a.id = ?
+      WHERE a.id = ? AND a.attachment_type = 'resume'
     `).get(id)
     if (!row) throw attachmentError(404, 'not_found', '附件不存在')
     return includeText ? { ...attachmentRow(row), extracted_text: row.extracted_text } : attachmentRow(row)
@@ -1782,7 +2460,7 @@ export function createAttachmentService({
         SELECT a.*, c.archived_at AS candidate_archived_at
         FROM candidate_attachments a
         JOIN candidates c ON c.id = a.candidate_id
-        WHERE a.id = ?
+        WHERE a.id = ? AND a.attachment_type = 'resume'
       `).get(attachmentId)
       if (!row) throw attachmentError(404, 'not_found', '附件不存在')
       if (row.candidate_archived_at) {
@@ -1832,7 +2510,7 @@ export function createAttachmentService({
     const row = db.prepare(`
       SELECT a.* FROM candidate_attachments a
       JOIN candidates c ON c.id = a.candidate_id
-      WHERE a.id = ?
+      WHERE a.id = ? AND a.attachment_type = 'resume'
     `).get(id)
     if (!row) throw attachmentError(404, 'not_found', '附件不存在')
     const path = assertInside(filesRoot, row.storage_path)
@@ -1865,6 +2543,7 @@ export function createAttachmentService({
       if (job.state !== 'queued') job.controller?.abort()
       settleParseJob(job)
     }
+    for (const id of [...privateAvatarResults.keys()]) releasePreviewAvatars(id)
     closePromise = Promise.allSettled(pending).then(() => {
       if (removeRootOnClose) {
         const resolvedRoot = resolve(root)
@@ -1884,12 +2563,15 @@ export function createAttachmentService({
     createPreview,
     waitForPreview,
     getPreview,
+    assertPreviewAccess,
     cancelPreview,
+    createCandidateFromPreview,
     confirmPreview,
     confirmPreviewForBatch,
     listCandidateAttachments,
     getAttachment,
     deleteAttachment,
+    resolveCandidateAvatar,
     resolveDownload,
     cleanupExpiredPreviews,
     processCleanupJobs,

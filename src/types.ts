@@ -221,6 +221,7 @@ export interface AttachmentCandidateMatch {
   status: AttachmentMatchStatus;
   candidate_id?: string;
   candidate?: Pick<Candidate, "id" | "name" | "phone" | "email" | "updated_at">;
+  resolution?: "created";
   reason: string;
 }
 
@@ -244,6 +245,19 @@ export interface AttachmentSectionSuggestion {
   default_selected: boolean;
 }
 
+export interface AttachmentAvatarSuggestion {
+  status: "ready" | "ambiguous" | "invalid" | "none";
+  available: boolean;
+  source: "explicit_url" | "docx_embedded_image" | "pdf_embedded_image" | "xlsx_embedded_image" | null;
+  confidence: "high" | "medium" | "low" | null;
+  candidate_count: number;
+  content_type?: "image/jpeg" | "image/png" | "image/webp";
+  width?: number;
+  height?: number;
+  sheet_name?: string | null;
+  row_number?: number | null;
+}
+
 export interface AttachmentPreviewRecord {
   record_id: string;
   row_number: number | null;
@@ -251,6 +265,7 @@ export interface AttachmentPreviewRecord {
   match: AttachmentCandidateMatch;
   suggestions: AttachmentFieldSuggestion[];
   sections: AttachmentSectionSuggestion[];
+  avatar?: AttachmentAvatarSuggestion;
 }
 
 export interface AttachmentPreview {

@@ -2,6 +2,11 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import { preserveAttachmentPreviewToken } from '../../src/attachment-preview-state.ts'
+import {
+  attachmentFieldLabel,
+  attachmentSuggestionEvidence,
+  attachmentValueText
+} from '../../src/attachment-suggestion-display.ts'
 
 const apiSource = readFileSync(new URL('../../src/api.ts', import.meta.url), 'utf8')
 const workflowSource = readFileSync(new URL('../../src/components/AttachmentWorkflow.tsx', import.meta.url), 'utf8')
@@ -10,6 +15,35 @@ const pickerSource = readFileSync(new URL('../../src/components/CandidatePickerD
 const formSource = readFileSync(new URL('../../src/components/CandidateForm.tsx', import.meta.url), 'utf8')
 const typesSource = readFileSync(new URL('../../src/types.ts', import.meta.url), 'utf8')
 const stylesSource = readFileSync(new URL('../../src/styles.css', import.meta.url), 'utf8')
+const prefillSource = readFileSync(new URL('../../src/attachment-candidate-prefill.ts', import.meta.url), 'utf8')
+const suggestionDisplaySource = readFileSync(new URL('../../src/attachment-suggestion-display.ts', import.meta.url), 'utf8')
+
+test('attachment UI derives missing identity copy from empty API values', () => {
+  assert.match(workflowSource, /record\.identity\.phone \|\| "未提取"/)
+  assert.match(workflowSource, /record\.identity\.email \|\| "未提取"/)
+  assert.match(batchWorkflowSource, /record\.identity\.phone \|\| "未提取"/)
+  assert.match(batchWorkflowSource, /record\.identity\.email \|\| "未提取"/)
+  assert.match(workflowSource, /"pdf", "docx", "xlsx", "xlsm", "xls", "csv", "txt"/)
+  assert.match(batchWorkflowSource, /"pdf", "docx", "xlsx", "xlsm", "xls", "csv", "txt", "zip"/)
+})
+
+test('attachment suggestion cards show localized structured values without contact evidence labels', () => {
+  assert.match(suggestionDisplaySource, /email: "邮箱"/)
+  assert.match(suggestionDisplaySource, /phone: "手机号"/)
+  assert.equal(attachmentFieldLabel('email'), '邮箱')
+  assert.equal(attachmentFieldLabel('phone'), '手机号')
+  assert.equal(attachmentValueText('455786463@qq.com'), '455786463@qq.com')
+  assert.equal(attachmentSuggestionEvidence('email', '电子邮箱：455786463@qq.com', '455786463@qq.com'), null)
+  assert.equal(attachmentSuggestionEvidence('phone', '手机号：13800000000', '13800000000'), null)
+  assert.equal(attachmentSuggestionEvidence('phone', '手机号：13800000000', '+8613800000000'), '原文：13800000000')
+  assert.equal(attachmentSuggestionEvidence('current_company', '现任公司：匿名公司', '匿名公司'), '现任公司：匿名公司')
+  assert.match(workflowSource, /attachmentFieldLabel\(suggestion\.field\)/)
+  assert.match(workflowSource, /attachmentValueText\(suggestion\.value\)/)
+  assert.match(batchWorkflowSource, /attachmentFieldLabel\(suggestion\.field\)/)
+  assert.match(batchWorkflowSource, /attachmentValueText\(suggestion\.value\)/)
+  assert.doesNotMatch(batchWorkflowSource, /<strong>\{suggestion\.field\}<\/strong>/)
+  assert.doesNotMatch(batchWorkflowSource, /<small>\{suggestion\.evidence\}<\/small>/)
+})
 
 test('attachment batch polling survives unchanged snapshots and transient request failures', () => {
   assert.match(batchWorkflowSource, /const shouldPollBatch = batchNeedsPolling\(batch\)/)
@@ -37,7 +71,7 @@ test('attachment preview polling retains the client token when a restarted servi
 test('attachment preview uses its async API lifecycle instead of the shared 20 second request budget', () => {
   assert.match(apiSource, /ATTACHMENT_UPLOAD_TIMEOUT_MS = 60_000/)
   assert.match(apiSource, /attachmentRequest<AttachmentPreview>[\s\S]*\/api\/attachments\/previews/)
-  assert.match(workflowSource, /attachmentApi\.getPreview\(previewId, controller\.signal\)/)
+  assert.match(workflowSource, /attachmentApi\.getPreview\(previewId, preview\.preview_token, controller\.signal\)/)
   assert.match(workflowSource, /previewPollDelay\(nextWithToken\)/)
   assert.match(typesSource, /poll_after_ms\?: number/)
 })
@@ -58,11 +92,57 @@ test('unmatched attachment records reuse candidate search and creation flows', (
   assert.match(workflowSource, /candidateApi\.get\(selectedId, true\)/)
   assert.match(workflowSource, /setResolvedCandidates/)
   assert.match(workflowSource, /<CandidateForm[\s\S]*initialDraft=\{createInitialDraft\}/)
-  assert.match(workflowSource, /candidateApi\.create\(/)
+  assert.match(workflowSource, /requireContact=\{false\}/)
+  assert.match(workflowSource, /fieldsDisabled=\{Boolean\(pendingCreatedCandidateId\)\}/)
+  assert.match(workflowSource, /attachmentApi\.createCandidate\(/)
   assert.match(workflowSource, /selectCandidate\(recordId, selected, "created"\)/)
+  assert.match(prefillSource, /export function candidateDraftFromAttachmentRecord/)
+  assert.match(prefillSource, /export function parsedAttachmentCandidateName/)
   assert.match(pickerSource, /initialQuery\?: string/)
   assert.match(pickerSource, /candidate\.location/)
   assert.match(formSource, /initialDraft\?: Partial<CandidateDraft>/)
+  assert.match(formSource, /requireContact && !draft\.phone\.trim\(\) && !draft\.email\.trim\(\)/)
+  assert.match(formSource, /const educationOptions = Array\.from\(new Set\(\[\.\.\.EDUCATION_OPTIONS, draft\.education\]\.filter\(Boolean\)\)\)/)
+  assert.match(formSource, /<option value="">未填写<\/option>\{educationOptions/)
+})
+
+test('batch unmatched records expose search and create without weakening conflict guards', () => {
+  const fallbackStart = batchWorkflowSource.indexOf('{record.match.status === "not_found" && <div className="attachment-match-fallback">')
+  assert.ok(fallbackStart > 0)
+  const fallbackLine = batchWorkflowSource.slice(fallbackStart, batchWorkflowSource.indexOf('\n', fallbackStart))
+  assert.match(fallbackLine, /选择候选人/)
+  assert.match(fallbackLine, /创建新候选人/)
+  assert.match(fallbackLine, /openCandidateCreate\(record\)/)
+  assert.match(batchWorkflowSource, /function openCandidateCreate\(record: AttachmentPreviewRecord\)[\s\S]*record\.match\.status !== "not_found"/)
+  assert.match(batchWorkflowSource, /if \(!record \|\| record\.match\.status !== "not_found"\) return/)
+  assert.match(batchWorkflowSource, /\["identity_conflict", "multiple_matches"\][\s\S]*身份冲突已阻断，不能猜测、创建或覆盖候选人/)
+  assert.match(batchWorkflowSource, /linkedCandidateIds=\{Object\.entries\(selections\)[\s\S]*recordId !== pickerRecordId/)
+  assert.match(batchWorkflowSource, /initialQuery=\{pickerRecord \? parsedAttachmentCandidateName\(pickerRecord\) : ""\}/)
+  assert.match(batchWorkflowSource, /initialDraft: candidateDraftFromAttachmentRecord\(record\)/)
+  assert.match(batchWorkflowSource, /initialDraft=\{createContext\.initialDraft\}/)
+  assert.match(batchWorkflowSource, /requireContact=\{false\}/)
+  assert.match(batchWorkflowSource, /fieldsDisabled=\{Boolean\(pendingCreatedCandidateId\)\}/)
+})
+
+test('attachment candidate creation uses the dedicated avatar-aware API contract', () => {
+  assert.match(typesSource, /interface AttachmentAvatarSuggestion[\s\S]*available: boolean[\s\S]*source:/)
+  assert.match(formSource, /includeAttachmentAvatar: boolean/)
+  assert.match(formSource, /attachmentAvatar\.source !== "explicit_url"/)
+  assert.match(formSource, /useState\(\(\) => defaultAttachmentAvatarSelection\(attachmentAvatar\)\)/)
+  assert.match(formSource, /外部头像地址，需手动确认使用/)
+  assert.match(formSource, /type="checkbox" checked=\{includeAttachmentAvatar\}/)
+  assert.match(formSource, /includeAttachmentAvatar: Boolean\(attachmentAvatar\?\.available && includeAttachmentAvatar\)/)
+  assert.match(workflowSource, /attachmentAvatar=\{createRecord\.avatar\}/)
+  assert.match(batchWorkflowSource, /avatar: record\.avatar/)
+  assert.match(batchWorkflowSource, /attachmentAvatar=\{createContext\.avatar\}/)
+  assert.match(workflowSource, /attachmentApi\.createCandidate\([\s\S]*options\.includeAttachmentAvatar/)
+  assert.match(batchWorkflowSource, /attachmentBatchApi\.createCandidate\([\s\S]*options\.includeAttachmentAvatar/)
+  assert.match(workflowSource, /record\.avatar\.source === "explicit_url"[\s\S]*创建时需确认是否使用/)
+  assert.match(batchWorkflowSource, /record\.avatar\.source === "explicit_url"[\s\S]*创建时需确认是否使用/)
+  assert.doesNotMatch(workflowSource, /candidateApi\.create\(/)
+  assert.doesNotMatch(batchWorkflowSource, /candidateApi\.create\(/)
+  assert.equal((apiSource.match(/include_avatar: includeAvatar/g) ?? []).length, 2)
+  assert.match(apiSource, /\/api\/attachment-batches\/\$\{encodeURIComponent\(batchId\)\}\/items\/\$\{encodeURIComponent\(itemId\)\}\/candidates/)
 })
 
 test('manual matching recalculates existing candidate diffs before confirmation', () => {
@@ -81,9 +161,36 @@ test('candidate creation refreshes the version without creating a duplicate on r
   const refreshedCandidateIndex = workflowSource.indexOf('const selected = await getCandidateWithRetry(createdId)')
   assert.ok(preferencesIndex > 0)
   assert.ok(refreshedCandidateIndex > preferencesIndex)
-  assert.match(workflowSource, /if \(!createdId\) \{[\s\S]*candidateApi\.create\(/)
+  assert.match(workflowSource, /if \(!createdId\) \{[\s\S]*attachmentApi\.createCandidate\(/)
   assert.match(workflowSource, /setPendingCreatedCandidateId\(created\.id\)/)
   assert.match(workflowSource, /pendingCreatedCandidateId \? "重新获取并选择" : "创建并选择"/)
+  assert.match(apiSource, /\/api\/attachments\/previews\/\$\{encodeURIComponent\(previewId\)\}\/candidates/)
+  assert.match(apiSource, /不会重复创建/)
+})
+
+test('batch creation automatically selects the refreshed candidate and preserves section choices', () => {
+  const selectStart = batchWorkflowSource.indexOf('function selectCandidate(')
+  const selectEnd = batchWorkflowSource.indexOf('async function chooseCandidate', selectStart)
+  const selectSource = batchWorkflowSource.slice(selectStart, selectEnd)
+  const createStart = batchWorkflowSource.indexOf('async function createCandidate(')
+  const createEnd = batchWorkflowSource.indexOf('const duplicateCandidateIds', createStart)
+  const createSource = batchWorkflowSource.slice(createStart, createEnd)
+  assert.ok(selectStart > 0 && selectEnd > selectStart)
+  assert.ok(createStart > 0 && createEnd > createStart)
+  assert.match(selectSource, /candidateId: candidate\.id/)
+  assert.match(selectSource, /source === "created"[\s\S]*new Set\(\)/)
+  assert.match(selectSource, /defaultAttachmentFieldsForCandidate\(record, candidate\)/)
+  assert.doesNotMatch(selectSource, /sections:/)
+  assert.match(createSource, /setPendingCreatedCandidateId\(created\.id\)/)
+  assert.match(createSource, /onCandidateCreated\?\.\(created\.id\)/)
+  assert.match(createSource, /const selected = await getCandidateWithRetry\(createdId\)[\s\S]*selectCandidate\(recordId, selected, "created"\)/)
+  assert.doesNotMatch(createSource, /attachmentBatchApi\.confirm\(/)
+  assert.match(typesSource, /resolution\?: "created"/)
+  assert.match(batchWorkflowSource, /record\.match\.resolution === "created"/)
+  assert.match(batchWorkflowSource, /createdCandidateResolutions[\s\S]*getCandidateWithRetry\(candidateId\)/)
+  assert.match(batchWorkflowSource, /record\.match\.resolution === "created" && !candidateBaseline/)
+  assert.match(batchWorkflowSource, /candidateBaseline \?\? \(record\.match\.candidate\?\.id === selection\.candidateId/)
+  assert.match(workflowSource, /record\.match\.resolution === "created"/)
 })
 
 test('ambiguous confirm, stale versions, polling terminal errors, and delete races have recovery guards', () => {
@@ -99,7 +206,7 @@ test('multi-record previews cannot force or duplicate candidate selection and cr
   assert.match(workflowSource, /preview\.records\.length === 1 && record\.match\.status === "not_found"/)
   assert.match(workflowSource, /duplicateCandidateIds\.has\(selectedId\)/)
   assert.match(workflowSource, /同一批附件记录不能重复关联同一候选人/)
-  assert.match(workflowSource, /resume_updated_at: suggestionText\(record, "resume_updated_at"\) \|\| null/)
+  assert.match(prefillSource, /resume_updated_at: attachmentSuggestionText\(record, "resume_updated_at"\) \|\| null/)
   assert.match(workflowSource, /source === "existing" \? defaultFieldsForCandidate\(record, candidate\) : new Set\(\)/)
 })
 
@@ -112,7 +219,7 @@ test('created candidates become the true field baseline while section defaults a
   assert.doesNotMatch(selectSource, /default_selected/)
   assert.doesNotMatch(selectSource, /sections:/)
   assert.match(workflowSource, /const candidateBaseline = candidateBaselines\[record\.record_id\]/)
-  assert.match(workflowSource, /candidate\.preferences\?\.expected_salary \|\| candidate\.expected_salary/)
+  assert.match(prefillSource, /candidate\.preferences\?\.expected_salary \|\| candidate\.expected_salary/)
 })
 
 test('saved attachments support confirmed, retryable, and idempotent deletion without hiding downloads', () => {
@@ -143,13 +250,13 @@ test('deleting the attachment from the current confirmation clears only its stal
   assert.match(workflowSource, /if \(matchesConfirmedAttachment\) resetCompletedWorkflow\(\)/)
   assert.match(workflowSource, /setDeletedAttachment\(\{ id: target\.id, sha256: target\.sha256 \}\)/)
   assert.match(workflowSource, /deletedAttachment=\{deletedAttachment\}/)
-  assert.match(workflowSource, /onCommitted=\{\(\) => \{ setDeletedAttachment\(null\); void load\(\); onCandidateUpdated\?\.\(\); \}\}/)
+  assert.match(workflowSource, /onCommitted=\{\(candidateIds\) => \{[\s\S]*candidateIds\.includes\(candidate\.id\)[\s\S]*void load\(\)[\s\S]*onCandidateUpdated\?\.\(\)/)
   assert.match(workflowSource, /onClick=\{resetCompletedWorkflow\}/)
 })
 
 test('attachment intent-position suggestions map to candidate preferences instead of current title', () => {
-  assert.match(workflowSource, /desired_titles: "意向岗位"/)
-  assert.match(workflowSource, /candidate\.preferences\?\.desired_titles \?\? \[\]/)
-  assert.match(workflowSource, /desired_titles: desiredTitles/)
-  assert.doesNotMatch(workflowSource, /current_title:\s*suggestionText\(record, "desired_titles"\)/)
+  assert.match(suggestionDisplaySource, /desired_titles: "意向岗位"/)
+  assert.match(prefillSource, /candidate\.preferences\?\.desired_titles \?\? \[\]/)
+  assert.match(prefillSource, /desired_titles: desiredTitles/)
+  assert.doesNotMatch(prefillSource, /current_title:\s*attachmentSuggestionText\(record, "desired_titles"\)/)
 })

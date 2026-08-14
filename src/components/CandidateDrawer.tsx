@@ -69,6 +69,7 @@ interface CandidateDrawerProps {
   onLinkTalentPool?: (poolId: string) => void;
   onUnlinkTalentPool?: (poolId: string) => void;
   onCandidateUpdated?: () => void;
+  onCandidateCreated?: (candidateId: string) => void;
 }
 
 const EMPTY_POSITIONS: Position[] = [];
@@ -151,6 +152,7 @@ export function CandidateDrawer({
   onLinkTalentPool,
   onUnlinkTalentPool,
   onCandidateUpdated,
+  onCandidateCreated,
 }: CandidateDrawerProps) {
   const [tab, setTab] = useState<DetailTab>("profile");
   const [noteText, setNoteText] = useState("");
@@ -295,7 +297,7 @@ export function CandidateDrawer({
                 </div>
               )}
 
-              {tab === "resume" && <div className="profile-sections"><section className="detail-section"><div className="detail-section-heading"><h4>完整履历</h4><span>{profileSections.length} 个资料模块</span></div>{profileSections.length ? <div className="resume-section-list">{profileSections.map((section) => <article className="resume-section-item" key={section.id}><header><span><BookOpen size={15} /></span><div><strong>{section.title || SECTION_LABELS[section.section_type] || section.section_type}</strong><small>{SECTION_LABELS[section.section_type] || "来源资料"}</small></div>{section.sensitivity && section.sensitivity !== "normal" && <span className="sensitivity-chip">{section.sensitivity}</span>}</header><p>{section.content || valueText(section.structured_data)}</p>{section.structured_data && <details><summary>查看结构化字段</summary><MetadataList record={Array.isArray(section.structured_data) ? { items: section.structured_data } : section.structured_data} /></details>}<RawPayload payload={section.raw_payload} /></article>)}</div> : <div className="section-empty"><FileText size={22} /><span>暂无履历资料</span></div>}</section><CandidateAttachmentsPanel candidate={candidate} disabled={Boolean(candidate.archived_at)} onCandidateUpdated={onCandidateUpdated} /></div>}
+              {tab === "resume" && <div className="profile-sections"><section className="detail-section"><div className="detail-section-heading"><h4>完整履历</h4><span>{profileSections.length} 个资料模块</span></div>{profileSections.length ? <div className="resume-section-list">{profileSections.map((section) => <article className="resume-section-item" key={section.id}><header><span><BookOpen size={15} /></span><div><strong>{section.title || SECTION_LABELS[section.section_type] || section.section_type}</strong><small>{SECTION_LABELS[section.section_type] || "来源资料"}</small></div>{section.sensitivity && section.sensitivity !== "normal" && <span className="sensitivity-chip">{section.sensitivity}</span>}</header><p>{section.content || valueText(section.structured_data)}</p>{section.structured_data && <details><summary>查看结构化字段</summary><MetadataList record={Array.isArray(section.structured_data) ? { items: section.structured_data } : section.structured_data} /></details>}<RawPayload payload={section.raw_payload} /></article>)}</div> : <div className="section-empty"><FileText size={22} /><span>暂无履历资料</span></div>}</section><CandidateAttachmentsPanel candidate={candidate} disabled={Boolean(candidate.archived_at)} onCandidateUpdated={onCandidateUpdated} onCandidateCreated={onCandidateCreated} /></div>}
 
               {tab === "assessment" && <div className="profile-sections"><section className="detail-section"><div className="detail-section-heading"><h4>历史评估</h4><span>{assessments.length} 条来源记录</span></div><p className="section-guidance">历史评估仅作为人才档案资料展示，不代表当前招聘流程状态。</p>{assessments.length ? <div className="assessment-list">{assessments.map((assessment) => <article className="assessment-item" key={assessment.id}><span className="assessment-icon"><History size={16} /></span><div><header><strong>{assessment.title || assessment.assessment_type || "历史评估"}</strong><time>{formatDateTime(assessment.occurred_at || assessment.assessed_at || assessment.created_at || null)}</time></header><div className="assessment-result">{assessment.conclusion || assessment.result || assessment.status || "结果未标注"}{assessment.score !== null && assessment.score !== undefined && <span>{assessment.score}</span>}</div>{(assessment.summary || assessment.conclusion) && <p>{assessment.summary || assessment.conclusion}</p>}<MetadataList record={assessment.metadata ?? {}} /><RawPayload payload={assessment.raw_payload} /></div></article>)}</div> : <div className="section-empty"><History size={22} /><span>暂无历史评估资料</span></div>}</section></div>}
 

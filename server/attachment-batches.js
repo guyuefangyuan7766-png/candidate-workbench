@@ -187,6 +187,7 @@ function inferredMime(filename) {
     case '.xlsm': return 'application/vnd.ms-excel.sheet.macroenabled.12'
     case '.xls': return 'application/vnd.ms-excel'
     case '.csv': return 'text/csv'
+    case '.txt': return 'text/plain'
     case '.zip': return 'application/zip'
     default: return 'application/octet-stream'
   }
@@ -372,7 +373,14 @@ export function createAttachmentBatchService({
   const serializeItem = (row) => {
     let preview
     if (row.preview_id && ['parsing', 'matching', 'awaiting_confirmation'].includes(row.status)) {
-      try { preview = attachmentService.getPreview(row.preview_id) } catch {}
+      try {
+        const internalPreview = attachmentService.getPreview(row.preview_id)
+        preview = {
+          ...internalPreview,
+          preview_token: '',
+          preview_token_reissued: false
+        }
+      } catch {}
     }
     return {
       item_id: row.id,
@@ -893,20 +901,64 @@ export function createAttachmentBatchService({
     }
   }
 
+  const reconcileAwaitingPreviews = ({ batchId, itemId } = {}) => {
+    const clauses = ["status = 'awaiting_confirmation'"]
+    const values = []
+    if (batchId) {
+      clauses.push('batch_id = ?')
+      values.push(batchId)
+    }
+    if (itemId) {
+      clauses.push('id = ?')
+      values.push(itemId)
+    }
+    const awaiting = db.prepare(`
+      SELECT * FROM attachment_import_items WHERE ${clauses.join(' AND ')}
+      ORDER BY updated_at, ordinal, id
+    `).all(...values)
+    for (const item of awaiting) {
+      let preview
+      try { preview = attachmentService.getPreview(item.preview_id) } catch {}
+      if (preview?.status === 'ready') continue
+      const status = preview?.status ?? 'missing'
+      markFailed(item.id, attachmentBatchError(
+        409,
+        `attachment_preview_${status}`,
+        `Attachment preview is ${status}`
+      ))
+    }
+  }
+
   const getBatch = (batchId, { batchToken } = {}) => {
     assertAccess(batchId, batchToken)
+    reconcileAwaitingPreviews({ batchId })
     return serializeBatch(refreshBatch(batchId))
   }
 
   const getItem = (batchId, itemId, { batchToken } = {}) => {
     assertAccess(batchId, batchToken)
+    reconcileAwaitingPreviews({ batchId, itemId })
     const item = readItem(itemId)
     if (!item || item.batch_id !== batchId) throw attachmentBatchError(404, 'attachment_batch_item_not_found', 'Attachment batch item was not found')
     return serializeItem(item)
   }
 
+  const createCandidateForItem = async (batchId, itemId, input = {}, { batchToken } = {}) => {
+    assertAccess(batchId, batchToken)
+    reconcileAwaitingPreviews({ batchId, itemId })
+    const item = readItem(itemId)
+    if (!item || item.batch_id !== batchId) {
+      throw attachmentBatchError(404, 'attachment_batch_item_not_found', 'Attachment batch item was not found')
+    }
+    if (item.status !== 'awaiting_confirmation' || !item.preview_id) {
+      throw attachmentBatchError(409, 'attachment_batch_item_not_ready', 'Attachment item is not awaiting confirmation')
+    }
+    return attachmentService.createCandidateFromPreview(item.preview_id, input, { authorizedBatch: true })
+  }
+
   const confirmItem = async (batchId, itemId, input = {}, { batchToken, idempotencyKey } = {}) => {
     assertAccess(batchId, batchToken)
+    reconcileAwaitingPreviews({ batchId, itemId })
     const item = readItem(itemId)
     if (!item || item.batch_id !== batchId) throw attachmentBatchError(404, 'attachment_batch_item_not_found', 'Attachment batch item was not found')
     const key = cleanText(idempotencyKey, limits.maxIdempotencyKeyLength)
@@ -1119,6 +1171,25 @@ export function createAttachmentBatchService({
       processCleanup()
       refreshBatch(batch.id)
     }
+    const awaiting = db.prepare(`
+      SELECT item.* FROM attachment_import_items item
+      JOIN attachment_import_batches batch ON batch.id = item.batch_id
+      WHERE batch.cancel_requested = 0 AND item.status = 'awaiting_confirmation'
+      ORDER BY item.updated_at, item.ordinal, item.id
+    `).all()
+    for (const row of awaiting) {
+      let preview
+      try { preview = row.preview_id ? attachmentService.getPreview(row.preview_id) : null } catch {}
+      if (preview?.status === 'ready') continue
+      const status = preview?.status ?? 'missing'
+      const error = attachmentBatchError(
+        409,
+        `attachment_preview_${status}`,
+        'Attachment preview is no longer available; upload the file again'
+      )
+      error.retryable = false
+      markFailed(row.id, error)
+    }
     const interrupted = db.prepare(`
       SELECT item.* FROM attachment_import_items item
       JOIN attachment_import_batches batch ON batch.id = item.batch_id
@@ -1181,6 +1252,7 @@ export function createAttachmentBatchService({
     createBatch,
     getBatch,
     getItem,
+    createCandidateForItem,
     confirmItem,
     skipItem,
     retryItem,

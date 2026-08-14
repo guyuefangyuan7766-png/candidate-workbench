@@ -2,7 +2,10 @@ import { CANDIDATE_FIELDS } from './constants.js'
 
 export const HEADER_ALIASES = Object.freeze({
   name: ['name', 'candidate name', 'applicant name', 'candidate_name', '姓名', '候选人姓名', '应聘者姓名'],
-  phone: ['phone', 'mobile', 'mobile phone', 'telephone', 'phone number', '手机号', '手机号码', '电话', '联系电话'],
+  phone: [
+    'phone', 'mobile', 'mobile phone', 'telephone', 'phone number',
+    '手机号', '手机号码', '移动电话', '电话', '联系电话'
+  ],
   email: ['email', 'e-mail', 'email address', '邮箱', '电子邮箱', '邮箱地址'],
   photo_url: ['photo url', 'photo_url', 'avatar url', 'avatar_url', '证件照', '头像地址', '照片地址'],
   current_company: ['current company', 'current_company', 'company', 'employer', '当前公司', '目前公司', '现公司', '公司'],

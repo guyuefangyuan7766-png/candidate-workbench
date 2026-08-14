@@ -38,7 +38,8 @@ const FORMAT_MIME_TYPES = Object.freeze({
     'application/octet-stream'
   ]),
   xls: new Set(['application/vnd.ms-excel', 'application/octet-stream']),
-  csv: new Set(['text/csv', 'application/csv', 'text/plain', 'application/vnd.ms-excel', 'application/octet-stream'])
+  csv: new Set(['text/csv', 'application/csv', 'text/plain', 'application/vnd.ms-excel', 'application/octet-stream']),
+  txt: new Set(['text/plain', 'application/octet-stream'])
 })
 
 const EXTENSION_FORMAT = Object.freeze({
@@ -47,7 +48,8 @@ const EXTENSION_FORMAT = Object.freeze({
   '.xlsx': 'xlsx',
   '.xlsm': 'xlsm',
   '.xls': 'xls',
-  '.csv': 'csv'
+  '.csv': 'csv',
+  '.txt': 'txt'
 })
 
 function attachmentError(status, code, message, details) {
@@ -131,7 +133,7 @@ export function validateAttachmentFile(file, limits = ATTACHMENT_LIMITS) {
   }
   const format = EXTENSION_FORMAT[extension]
   if (!format) {
-    throw attachmentError(415, 'unsupported_attachment_type', '仅支持 PDF、DOCX、XLSX、XLSM、BIFF8 XLS 和 UTF-8 CSV')
+    throw attachmentError(415, 'unsupported_attachment_type', '仅支持 PDF、DOCX、XLSX、XLSM、BIFF8 XLS、UTF-8 CSV 和 TXT')
   }
   const mimeType = normalizeMime(file.mimetype)
   assertMime(format, mimeType)
@@ -147,12 +149,14 @@ export function validateAttachmentFile(file, limits = ATTACHMENT_LIMITS) {
     if (buffer.length < oleSignature.length || !buffer.subarray(0, oleSignature.length).equals(oleSignature)) {
       throw attachmentError(422, 'signature_mismatch', '文件不是有效的 Excel 97-2003 BIFF8 .xls')
     }
-  } else if (format === 'csv') {
-    if (buffer.includes(0)) throw attachmentError(422, 'invalid_csv_encoding', 'CSV 必须是 UTF-8 文本，不能包含二进制空字符')
+  } else if (format === 'csv' || format === 'txt') {
+    const invalidEncodingCode = format === 'txt' ? 'invalid_text_encoding' : 'invalid_csv_encoding'
+    const formatLabel = format.toUpperCase()
+    if (buffer.includes(0)) throw attachmentError(422, invalidEncodingCode, `${formatLabel} 必须是 UTF-8 文本，不能包含二进制空字符`)
     try {
       new TextDecoder('utf-8', { fatal: true }).decode(buffer)
     } catch {
-      throw attachmentError(422, 'invalid_csv_encoding', 'CSV 必须使用有效的 UTF-8 编码')
+      throw attachmentError(422, invalidEncodingCode, `${formatLabel} 必须使用有效的 UTF-8 编码`)
     }
   } else {
     if (buffer.length < 4 || buffer.readUInt32LE(0) !== 0x04034b50) {
@@ -254,7 +258,20 @@ export function parseAttachment(file, validated, limits = ATTACHMENT_LIMITS, opt
     timer.unref()
 
     worker.once('message', (message) => {
-      if (message?.ok) finish(resolve, message.result)
+      if (message?.ok) {
+        const result = message.result
+        const avatarTransfers = Array.isArray(result?.avatar_transfers) ? result.avatar_transfers : []
+        if (result && typeof result === 'object') {
+          delete result.avatar_transfers
+          Object.defineProperty(result, 'avatar_transfers', {
+            configurable: false,
+            enumerable: false,
+            writable: false,
+            value: avatarTransfers
+          })
+        }
+        finish(resolve, result)
+      }
       else {
         const details = message?.error?.details
         finish(reject, attachmentError(

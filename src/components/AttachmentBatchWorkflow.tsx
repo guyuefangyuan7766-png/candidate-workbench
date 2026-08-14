@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   FileText,
   FolderOpen,
+  ImageIcon,
   LoaderCircle,
   RefreshCw,
   RotateCcw,
@@ -13,20 +14,37 @@ import {
   SkipForward,
   Trash2,
   UploadCloud,
+  UserPlus,
+  UserRoundCheck,
   X,
 } from "lucide-react";
 import { ApiError, attachmentBatchApi, candidateApi } from "../api";
+import {
+  candidateDraftFromAttachmentRecord,
+  candidateFieldValue,
+  defaultAttachmentFieldsForCandidate,
+  parsedAttachmentCandidateName,
+  suggestionChangesCandidate,
+} from "../attachment-candidate-prefill";
+import {
+  attachmentFieldLabel,
+  attachmentSuggestionEvidence,
+  attachmentValueText,
+} from "../attachment-suggestion-display";
 import type {
   AttachmentBatch,
   AttachmentBatchItem,
   AttachmentConfirmRecord,
+  AttachmentAvatarSuggestion,
   AttachmentPreviewRecord,
   Candidate,
+  CandidateDraft,
 } from "../types";
+import { CandidateForm, type CandidateFormSubmitOptions } from "./CandidateForm";
 import { CandidatePickerDialog } from "./CandidatePickerDialog";
 
 const STORAGE_KEY = "candidate-workbench.attachment-batch.v1";
-const ACCEPTED_EXTENSIONS = new Set(["pdf", "docx", "xlsx", "xlsm", "xls", "csv", "zip"]);
+const ACCEPTED_EXTENSIONS = new Set(["pdf", "docx", "xlsx", "xlsm", "xls", "csv", "txt", "zip"]);
 const ACCEPT = Array.from(ACCEPTED_EXTENSIONS, (extension) => `.${extension}`).join(",");
 const POLLING_STATUSES = new Set(["queued", "extracting", "identifying", "parsing", "matching"]);
 const TERMINAL_BATCH_STATUSES = new Set(["completed", "completed_with_errors", "failed", "cancelled"]);
@@ -49,6 +67,14 @@ interface AttachmentBatchWorkflowProps {
   candidates: Candidate[];
   disabled?: boolean;
   onCommitted?: (candidateIds: string[]) => void;
+  onCandidateCreated?: (candidateId: string) => void;
+}
+
+interface CandidateCreateContext {
+  itemId: string;
+  recordId: string;
+  initialDraft: CandidateDraft;
+  avatar?: AttachmentAvatarSuggestion;
 }
 
 interface LegacyFileEntry {
@@ -80,6 +106,14 @@ const MATCH_COPY: Record<string, string> = {
   identity_conflict: "身份字段冲突",
   multiple_matches: "存在多个匹配",
   not_found: "未匹配候选人",
+};
+
+const MATCH_TONE: Record<string, string> = {
+  high_confidence: "success",
+  single_identity: "notice",
+  identity_conflict: "danger",
+  multiple_matches: "danger",
+  not_found: "warning",
 };
 
 function newOpaqueId(prefix: string) {
@@ -171,7 +205,9 @@ function initialSelections(records: AttachmentPreviewRecord[], knownCandidates: 
     const archived = knownCandidates.find((candidate) => candidate.id === candidateId)?.archived_at;
     return [record.record_id, {
       candidateId: archived ? "" : candidateId,
-      fields: new Set(record.suggestions.filter((item) => item.default_selected).map((item) => item.field)),
+      fields: new Set(record.match.resolution === "created"
+        ? []
+        : record.suggestions.filter((item) => item.default_selected).map((item) => item.field)),
       sections: new Set(record.sections.filter((item) => item.default_selected).map((item) => item.section_id)),
     } satisfies RecordSelection];
   }));
@@ -181,7 +217,36 @@ function batchNeedsPolling(batch: AttachmentBatch | null) {
   return Boolean(batch && !TERMINAL_BATCH_STATUSES.has(batch.status) && batch.items.some((item) => POLLING_STATUSES.has(item.status)));
 }
 
-export function AttachmentBatchWorkflow({ candidates, disabled = false, onCommitted }: AttachmentBatchWorkflowProps) {
+function safeErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof ApiError && error.message.trim()) return error.message.trim();
+  if (error instanceof DOMException && error.name === "AbortError") return "请求已取消。";
+  return error instanceof Error && error.message.trim() ? error.message.trim() : fallback;
+}
+
+function wait(delayMs: number) {
+  return new Promise<void>((resolve) => window.setTimeout(resolve, delayMs));
+}
+
+async function getCandidateWithRetry(candidateId: string, attempts = 4): Promise<Candidate> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      return await candidateApi.get(candidateId, true);
+    } catch (requestError) {
+      lastError = requestError;
+      if ((requestError instanceof ApiError && [401, 403].includes(requestError.status)) || attempt === attempts - 1) break;
+      await wait(Math.min(250 * 2 ** attempt, 1_500));
+    }
+  }
+  throw lastError;
+}
+
+export function AttachmentBatchWorkflow({
+  candidates,
+  disabled = false,
+  onCommitted,
+  onCandidateCreated,
+}: AttachmentBatchWorkflowProps) {
   const filesRef = useRef<HTMLInputElement>(null);
   const folderRef = useRef<HTMLInputElement>(null);
   const pollAbortRef = useRef<AbortController | null>(null);
@@ -192,7 +257,14 @@ export function AttachmentBatchWorkflow({ candidates, disabled = false, onCommit
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [selections, setSelections] = useState<Record<string, RecordSelection>>({});
   const [resolvedCandidates, setResolvedCandidates] = useState<Candidate[]>([]);
+  const [candidateBaselines, setCandidateBaselines] = useState<Record<string, Candidate>>({});
   const [pickerRecordId, setPickerRecordId] = useState<string | null>(null);
+  const [pickerBusy, setPickerBusy] = useState(false);
+  const [createContext, setCreateContext] = useState<CandidateCreateContext | null>(null);
+  const [createBusy, setCreateBusy] = useState(false);
+  const [createError, setCreateError] = useState("");
+  const [pendingCreatedCandidateId, setPendingCreatedCandidateId] = useState<string | null>(null);
+  const [pendingCreateWarning, setPendingCreateWarning] = useState("");
   const [pending, setPending] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState("");
@@ -207,6 +279,15 @@ export function AttachmentBatchWorkflow({ candidates, disabled = false, onCommit
   const selectedItem = batch?.items.find((item) => item.item_id === selectedItemId) ?? null;
   const preview = selectedItem?.preview ?? null;
   const pickerRecord = preview?.records.find((record) => record.record_id === pickerRecordId) ?? null;
+  const createdCandidateResolutions = useMemo(() => (preview?.records ?? []).flatMap((record) => {
+    const candidateId = record.match.resolution === "created"
+      ? record.match.candidate_id ?? record.match.candidate?.id ?? ""
+      : "";
+    return candidateId ? [{ record, candidateId }] : [];
+  }), [preview]);
+  const createdCandidateResolutionKey = createdCandidateResolutions
+    .map(({ record, candidateId }) => `${record.record_id}:${candidateId}`)
+    .join("|");
 
   function acceptBatch(next: AttachmentBatch) {
     setBatch(next);
@@ -295,9 +376,56 @@ export function AttachmentBatchWorkflow({ candidates, disabled = false, onCommit
   useEffect(() => {
     const records = preview?.records ?? [];
     setSelections(initialSelections(records, knownCandidates));
+    setCandidateBaselines({});
     setPickerRecordId(null);
     setPickerError("");
   }, [selectedItem?.item_id, preview?.preview_id]);
+
+  useEffect(() => {
+    if (!createdCandidateResolutions.length) return;
+    let cancelled = false;
+    void Promise.all(createdCandidateResolutions.map(async ({ record, candidateId }) => {
+      const candidate = await getCandidateWithRetry(candidateId);
+      if (candidate.archived_at) throw new Error("已创建的候选人已归档，不能继续关联附件。");
+      return { record, candidate };
+    })).then((resolved) => {
+      if (cancelled) return;
+      setResolvedCandidates((current) => {
+        const byId = new Map(current.map((candidate) => [candidate.id, candidate]));
+        resolved.forEach(({ candidate }) => byId.set(candidate.id, candidate));
+        return Array.from(byId.values());
+      });
+      setCandidateBaselines((current) => {
+        const next = { ...current };
+        resolved.forEach(({ record, candidate }) => { next[record.record_id] = candidate; });
+        return next;
+      });
+      setSelections((current) => {
+        const next = { ...current };
+        resolved.forEach(({ record, candidate }) => {
+          const selection = next[record.record_id];
+          if (selection?.candidateId && selection.candidateId !== candidate.id) return;
+          next[record.record_id] = {
+            candidateId: candidate.id,
+            fields: new Set(),
+            sections: selection?.sections
+              ?? new Set(record.sections.filter((item) => item.default_selected).map((item) => item.section_id)),
+          };
+        });
+        return next;
+      });
+    }).catch((requestError) => {
+      if (!cancelled) setError(safeErrorMessage(requestError, "已创建候选人的最新版本读取失败，请刷新批次后重试。"));
+    });
+    return () => { cancelled = true; };
+  }, [createdCandidateResolutionKey, preview, selectedItem?.item_id]);
+
+  useEffect(() => {
+    setCreateContext(null);
+    setCreateError("");
+    setPendingCreatedCandidateId(null);
+    setPendingCreateWarning("");
+  }, [selectedItem?.item_id]);
 
   useEffect(() => () => {
     pollAbortRef.current?.abort();
@@ -358,19 +486,120 @@ export function AttachmentBatchWorkflow({ candidates, disabled = false, onCommit
     }));
   }
 
+  function selectCandidate(recordId: string, candidate: Candidate, source: "existing" | "created") {
+    setResolvedCandidates((current) => {
+      const withoutCandidate = current.filter((item) => item.id !== candidate.id);
+      return [...withoutCandidate, candidate];
+    });
+    setCandidateBaselines((current) => ({ ...current, [recordId]: candidate }));
+    const record = preview?.records.find((item) => item.record_id === recordId);
+    updateSelection(recordId, (selection) => ({
+      ...selection,
+      candidateId: candidate.id,
+      fields: source === "created"
+        ? new Set()
+        : record
+        ? defaultAttachmentFieldsForCandidate(record, candidate)
+        : selection.fields,
+    }));
+  }
+
   async function chooseCandidate(candidateIds: string[]) {
     const candidateId = candidateIds[0];
     const recordId = pickerRecordId;
-    if (!candidateId || !recordId) return;
+    if (!candidateId || !recordId || pickerBusy) return;
+    const record = preview?.records.find((item) => item.record_id === recordId);
+    if (!record || record.match.status !== "not_found") return;
+    setPickerBusy(true);
     setPickerError("");
     try {
-      const candidate = knownCandidates.find((item) => item.id === candidateId) ?? await candidateApi.get(candidateId, true);
+      const usedByAnotherRecord = Object.entries(selections).some(([otherRecordId, selection]) => (
+        otherRecordId !== recordId && selection.candidateId === candidateId
+      ));
+      if (usedByAnotherRecord) throw new Error("同一文件中的记录不能重复关联同一候选人。");
+      const candidate = await candidateApi.get(candidateId, true);
       if (candidate.archived_at) throw new Error("已归档候选人不能接收附件更新。");
-      setResolvedCandidates((current) => current.some((item) => item.id === candidate.id) ? current : [...current, candidate]);
-      updateSelection(recordId, (selection) => ({ ...selection, candidateId }));
+      selectCandidate(recordId, candidate, "existing");
       setPickerRecordId(null);
     } catch (requestError) {
-      setPickerError(requestError instanceof Error ? requestError.message : "候选人读取失败。");
+      setPickerError(safeErrorMessage(requestError, "候选人读取失败，请重试。"));
+    } finally {
+      setPickerBusy(false);
+    }
+  }
+
+  function openCandidateCreate(record: AttachmentPreviewRecord) {
+    if (record.match.status !== "not_found") return;
+    setCreateContext({
+      itemId: selectedItem?.item_id ?? "",
+      recordId: record.record_id,
+      initialDraft: candidateDraftFromAttachmentRecord(record),
+      avatar: record.avatar,
+    });
+    setCreateError("");
+    setPendingCreatedCandidateId(null);
+    setPendingCreateWarning("");
+  }
+
+  function closeCandidateCreate() {
+    setCreateContext(null);
+    setCreateError("");
+    setPendingCreatedCandidateId(null);
+    setPendingCreateWarning("");
+  }
+
+  async function createCandidate(draft: CandidateDraft, options: CandidateFormSubmitOptions) {
+    const recordId = createContext?.recordId;
+    const itemId = createContext?.itemId;
+    const stored = storedRef.current;
+    if (!recordId || !itemId || !stored || createBusy) return;
+    setCreateBusy(true);
+    setCreateError("");
+    let createdId = pendingCreatedCandidateId;
+    try {
+      let preferenceWarning = pendingCreateWarning;
+      if (!createdId) {
+        const { preferences, stage: _legacyStage, expected_salary: _legacySalary, ...candidateFields } = draft;
+        const created = await attachmentBatchApi.createCandidate(
+          stored.batchId,
+          itemId,
+          stored.batchToken,
+          recordId,
+          candidateFields,
+          options.includeAttachmentAvatar,
+        );
+        createdId = created.id;
+        setPendingCreatedCandidateId(created.id);
+        onCandidateCreated?.(created.id);
+        const hasPreferences = Boolean(
+          preferences.employment_status
+          || preferences.desired_titles.length
+          || preferences.desired_locations.length
+          || preferences.employment_type
+          || preferences.expected_salary
+          || preferences.availability,
+        );
+        if (hasPreferences) {
+          try {
+            await candidateApi.updatePreferences(created.id, preferences);
+          } catch (preferenceError) {
+            preferenceWarning = safeErrorMessage(preferenceError, "请稍后在候选人档案中补充。");
+            setPendingCreateWarning(preferenceWarning);
+          }
+        }
+      }
+      const selected = await getCandidateWithRetry(createdId);
+      selectCandidate(recordId, selected, "created");
+      setCreateContext(null);
+      setPendingCreatedCandidateId(null);
+      setPendingCreateWarning("");
+      if (preferenceWarning) setError(`候选人已创建，但求职偏好未完整保存：${preferenceWarning}`);
+    } catch (requestError) {
+      setCreateError(createdId
+        ? `候选人已创建，但最新版本暂时无法获取。请点击“重新获取并选择”：${safeErrorMessage(requestError, "候选人详情获取失败。")}`
+        : safeErrorMessage(requestError, "候选人创建失败，请检查填写内容后重试。"));
+    } finally {
+      setCreateBusy(false);
     }
   }
 
@@ -383,11 +612,15 @@ export function AttachmentBatchWorkflow({ candidates, disabled = false, onCommit
   }, [selections]);
 
   const confirmRecords = useMemo<AttachmentConfirmRecord[]>(() => (preview?.records ?? []).flatMap((record) => {
+    if (["identity_conflict", "multiple_matches"].includes(record.match.status)) return [];
     const selection = selections[record.record_id];
     if (!selection?.candidateId || duplicateCandidateIds.has(selection.candidateId)) return [];
-    const candidate = record.match.candidate?.id === selection.candidateId
+    const resolvedBaseline = candidateBaselines[record.record_id];
+    const candidateBaseline = resolvedBaseline?.id === selection.candidateId ? resolvedBaseline : undefined;
+    if (record.match.resolution === "created" && !candidateBaseline) return [];
+    const candidate = candidateBaseline ?? (record.match.candidate?.id === selection.candidateId
       ? record.match.candidate
-      : knownCandidates.find((item) => item.id === selection.candidateId);
+      : knownCandidates.find((item) => item.id === selection.candidateId));
     if (!candidate?.updated_at) return [];
     return [{
       record_id: record.record_id,
@@ -397,7 +630,7 @@ export function AttachmentBatchWorkflow({ candidates, disabled = false, onCommit
       selected_sections: Array.from(selection.sections),
       merge_mode: "merge" as const,
     }];
-  }), [duplicateCandidateIds, knownCandidates, preview, selections]);
+  }), [candidateBaselines, duplicateCandidateIds, knownCandidates, preview, selections]);
 
   async function confirmAndNext() {
     const stored = storedRef.current;
@@ -472,6 +705,12 @@ export function AttachmentBatchWorkflow({ candidates, disabled = false, onCommit
     setBatch(null);
     setSelectedItemId(null);
     setSelections({});
+    setResolvedCandidates([]);
+    setCandidateBaselines({});
+    setPickerRecordId(null);
+    setCreateContext(null);
+    setPendingCreatedCandidateId(null);
+    setPendingCreateWarning("");
     setError("");
   }
 
@@ -537,14 +776,36 @@ export function AttachmentBatchWorkflow({ candidates, disabled = false, onCommit
             <div className="attachment-record-list">
               {preview.records.map((record) => {
                 const selection = selections[record.record_id] ?? { candidateId: "", fields: new Set<string>(), sections: new Set<string>() };
-                const candidate = record.match.candidate?.id === selection.candidateId ? record.match.candidate : knownCandidates.find((item) => item.id === selection.candidateId);
+                const selectedCandidate = knownCandidates.find((item) => item.id === selection.candidateId);
+                const resolvedBaseline = candidateBaselines[record.record_id];
+                const candidateBaseline = resolvedBaseline?.id === selection.candidateId
+                  ? resolvedBaseline
+                  : (record.match.resolution === "created" ? selectedCandidate : undefined);
+                const candidate = candidateBaseline
+                  ?? (record.match.candidate?.id === selection.candidateId ? record.match.candidate : selectedCandidate);
                 const duplicate = Boolean(selection.candidateId && duplicateCandidateIds.has(selection.candidateId));
+                const parsedName = parsedAttachmentCandidateName(record);
                 return <article className="attachment-record" key={record.record_id}>
-                  <header><div><strong>{record.row_number ? `第 ${record.row_number} 行` : "简历记录"}</strong><span className="match-badge is-notice">{MATCH_COPY[record.match.status] ?? record.match.status}</span></div><small>{record.match.reason}</small></header>
+                  <header><div><strong>{record.row_number ? `第 ${record.row_number} 行` : "简历记录"}</strong><span className={`match-badge is-${MATCH_TONE[record.match.status] ?? "notice"}`}>{MATCH_COPY[record.match.status] ?? record.match.status}</span></div><small>{record.match.reason}</small></header>
                   <div className="attachment-identity-line"><span>手机：{record.identity.phone || "未提取"}</span><span>邮箱：{record.identity.email || "未提取"}</span></div>
-                  <div className="attachment-match-fallback"><div><strong>{candidate ? `已选择 ${candidate.name}` : "需要确认候选人"}</strong><span>{candidate?.updated_at ? `档案更新时间 ${candidate.updated_at}` : "选择候选人后才能确认"}</span></div><button className="button secondary-button" type="button" onClick={() => setPickerRecordId(record.record_id)}><Search size={15} />选择候选人</button></div>
+                  {record.avatar?.available && <div className="attachment-avatar-detection is-ready"><ImageIcon size={15} /><span>{record.avatar.source === "explicit_url" ? "已识别外部头像地址，创建时需确认是否使用" : "已识别附件头像，创建候选人时默认使用"}</span></div>}
+                  {record.avatar?.status === "ambiguous" && <div className="attachment-avatar-detection is-warning"><AlertTriangle size={15} /><span>检测到多张可能的头像，已停止自动选择</span></div>}
+                  {candidate && ["high_confidence", "single_identity"].includes(record.match.status) && <div className="attachment-match-candidate"><UserRoundCheck size={16} /><span>匹配到 <strong>{candidate.name}</strong></span></div>}
+                  {record.match.status === "not_found" && <div className="attachment-match-fallback"><div><strong>{candidate ? `已选择 ${candidate.name}` : "需要确认候选人"}</strong><span>{candidate ? [selectedCandidate?.current_title, selectedCandidate?.current_company].filter(Boolean).join(" · ") || "候选人档案" : `手机号和邮箱均未匹配${parsedName ? `，可按“${parsedName}”搜索` : ""}`}</span></div><div><button className="button secondary-button" type="button" onClick={() => { setPickerError(""); setPickerRecordId(record.record_id); }}><Search size={15} />选择候选人</button><button className="button secondary-button" type="button" onClick={() => openCandidateCreate(record)}><UserPlus size={15} />创建新候选人</button></div></div>}
                   {duplicate && <div className="attachment-blocked"><AlertTriangle size={15} /><span>同一文件中的记录不能重复关联同一候选人。</span></div>}
-                  {record.suggestions.length > 0 && <div className="attachment-diff-list"><h4>字段更新</h4>{record.suggestions.map((suggestion) => <label className={selection.fields.has(suggestion.field) ? "attachment-diff is-selected" : "attachment-diff"} key={suggestion.field}><input type="checkbox" checked={selection.fields.has(suggestion.field)} disabled={!selection.candidateId} onChange={() => updateSelection(record.record_id, (current) => { const fields = new Set(current.fields); if (fields.has(suggestion.field)) fields.delete(suggestion.field); else fields.add(suggestion.field); return { ...current, fields }; })} /><span className="attachment-diff-main"><span><strong>{suggestion.field}</strong><em className={`confidence is-${suggestion.confidence}`}>{suggestion.confidence}</em></span><small>{suggestion.evidence}</small></span></label>)}</div>}
+                  {["identity_conflict", "multiple_matches"].includes(record.match.status) && <div className="attachment-blocked"><AlertTriangle size={15} /><span>身份冲突已阻断，不能猜测、创建或覆盖候选人。</span></div>}
+                  {record.suggestions.length > 0 && <div className="attachment-diff-list"><h4>字段更新</h4>{record.suggestions.map((suggestion) => {
+                    const currentValue = candidateBaseline
+                      ? candidateFieldValue(candidateBaseline, suggestion.field)
+                      : suggestion.current_value;
+                    const hasRealChange = !candidateBaseline
+                      || suggestionChangesCandidate(candidateBaseline, suggestion.field, suggestion.value);
+                    const selected = hasRealChange && selection.fields.has(suggestion.field);
+                    const evidence = hasRealChange
+                      ? attachmentSuggestionEvidence(suggestion.field, suggestion.evidence, suggestion.value)
+                      : "与现有档案一致，不会提交更新";
+                    return <label className={`attachment-diff${selected ? " is-selected" : ""}${hasRealChange ? "" : " is-unchanged"}`} key={suggestion.field}><input type="checkbox" checked={selected} disabled={!selection.candidateId || !hasRealChange} onChange={() => updateSelection(record.record_id, (current) => { const fields = new Set(current.fields); if (fields.has(suggestion.field)) fields.delete(suggestion.field); else fields.add(suggestion.field); return { ...current, fields }; })} /><span className="attachment-diff-main"><span><strong>{attachmentFieldLabel(suggestion.field)}</strong><em className={`confidence is-${suggestion.confidence}`}>{suggestion.confidence === "high" ? "高" : suggestion.confidence === "medium" ? "中" : "低"}置信</em></span><span className="attachment-values"><del>{attachmentValueText(currentValue)}</del><b>→</b><ins>{attachmentValueText(suggestion.value)}</ins></span>{evidence && <small>{evidence}</small>}</span></label>;
+                  })}</div>}
                   {record.sections.length > 0 && <div className="attachment-section-suggestions"><h4>履历区块</h4>{record.sections.map((section) => <label className={selection.sections.has(section.section_id) ? "is-selected" : ""} key={section.section_id}><input type="checkbox" checked={selection.sections.has(section.section_id)} disabled={!selection.candidateId} onChange={() => updateSelection(record.record_id, (current) => { const sections = new Set(current.sections); if (sections.has(section.section_id)) sections.delete(section.section_id); else sections.add(section.section_id); return { ...current, sections }; })} /><span><strong>{section.title || section.section_type}</strong><small>{section.evidence}</small></span></label>)}</div>}
                 </article>;
               })}
@@ -556,16 +817,40 @@ export function AttachmentBatchWorkflow({ candidates, disabled = false, onCommit
 
       <CandidatePickerDialog
         open={Boolean(pickerRecord)}
+        linkedCandidateIds={Object.entries(selections)
+          .filter(([recordId]) => recordId !== pickerRecordId)
+          .map(([, selection]) => selection.candidateId)
+          .filter(Boolean)}
+        busy={pickerBusy}
         maxSelection={1}
-        title="选择附件对应候选人"
+        title={pickerRecord && parsedAttachmentCandidateName(pickerRecord) ? `搜索“${parsedAttachmentCandidateName(pickerRecord)}”` : "选择附件对应候选人"}
         eyebrow="批次附件匹配"
         helperText="选择后仍需确认字段与履历区块"
         confirmLabel="选择"
-        initialQuery={pickerRecord?.match.candidate?.name ?? ""}
+        initialQuery={pickerRecord ? parsedAttachmentCandidateName(pickerRecord) : ""}
         externalError={pickerError}
-        onClose={() => { setPickerRecordId(null); setPickerError(""); }}
+        onClose={() => { if (!pickerBusy) { setPickerRecordId(null); setPickerError(""); } }}
         onConfirm={(candidateIds) => void chooseCandidate(candidateIds)}
       />
+      {createContext && <div className="modal-layer attachment-candidate-create-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !createBusy && closeCandidateCreate()}>
+        <section className="modal attachment-candidate-create-dialog" role="dialog" aria-modal="true" aria-label="创建候选人并关联附件" aria-busy={createBusy || undefined}>
+          <header className="modal-header">
+            <div><p className="drawer-kicker">批次附件匹配</p><h2>创建新候选人</h2></div>
+            <button className="icon-button" type="button" onClick={closeCandidateCreate} disabled={createBusy} aria-label="关闭" title="关闭"><X size={19} /></button>
+          </header>
+          {createError && <div className="attachment-create-error" role="alert"><AlertTriangle size={15} /><span>{createError}</span></div>}
+          <CandidateForm
+            initialDraft={createContext.initialDraft}
+            attachmentAvatar={createContext.avatar}
+            submitLabel={pendingCreatedCandidateId ? "重新获取并选择" : "创建并选择"}
+            busy={createBusy}
+            fieldsDisabled={Boolean(pendingCreatedCandidateId)}
+            requireContact={false}
+            onCancel={closeCandidateCreate}
+            onSubmit={(draft, options) => void createCandidate(draft, options)}
+          />
+        </section>
+      </div>}
     </div>
   );
 }

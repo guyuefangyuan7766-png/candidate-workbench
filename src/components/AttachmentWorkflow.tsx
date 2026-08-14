@@ -6,6 +6,7 @@ import {
   Download,
   FileSpreadsheet,
   FileText,
+  ImageIcon,
   LoaderCircle,
   RefreshCw,
   Search,
@@ -16,7 +17,19 @@ import {
   X,
 } from "lucide-react";
 import { ApiError, attachmentApi, candidateApi } from "../api";
+import {
+  candidateDraftFromRecord,
+  candidateFieldValue,
+  defaultFieldsForCandidate,
+  parsedCandidateName,
+  suggestionChangesCandidate,
+} from "../attachment-candidate-prefill";
 import { preserveAttachmentPreviewToken } from "../attachment-preview-state";
+import {
+  attachmentFieldLabel,
+  attachmentSuggestionEvidence,
+  attachmentValueText,
+} from "../attachment-suggestion-display";
 import type {
   AttachmentConfirmRecord,
   AttachmentPreview,
@@ -25,12 +38,11 @@ import type {
   CandidateAttachment,
   CandidateDraft,
 } from "../types";
-import { emptyDraft } from "../types";
 import { formatDateTime } from "../utils";
-import { CandidateForm } from "./CandidateForm";
+import { CandidateForm, type CandidateFormSubmitOptions } from "./CandidateForm";
 import { CandidatePickerDialog } from "./CandidatePickerDialog";
 
-const ACCEPTED_EXTENSIONS = ["pdf", "docx", "xlsx", "xlsm", "xls", "csv"];
+const ACCEPTED_EXTENSIONS = ["pdf", "docx", "xlsx", "xlsm", "xls", "csv", "txt"];
 const ACCEPT = ACCEPTED_EXTENSIONS.map((extension) => `.${extension}`).join(",");
 const MAX_FILE_SIZE = 15 * 1024 * 1024;
 const STATUS_POLL_DELAY_MS = 900;
@@ -38,27 +50,6 @@ const STATUS_POLL_MAX_FAILURES = 4;
 const STATUS_POLL_FALLBACK_WINDOW_MS = 15 * 60 * 1000;
 const PROCESSING_STATUSES = new Set(["pending", "parsing"]);
 const READY_STATUSES = new Set(["ready", "parsed"]);
-
-const FIELD_LABELS: Record<string, string> = {
-  name: "姓名",
-  phone: "手机号",
-  email: "邮箱",
-  current_company: "当前公司",
-  current_title: "当前职位",
-  location: "所在地",
-  years_experience: "工作年限",
-  education: "最高学历",
-  highest_school: "学校",
-  highest_major: "专业",
-  job_seeking_status: "求职状态",
-  resume_updated_at: "简历更新时间",
-  self_summary: "个人概述",
-  expected_salary: "期望薪资",
-  desired_titles: "意向岗位",
-  owner: "负责人",
-  source: "来源",
-  tags: "标签",
-};
 
 const MATCH_COPY: Record<AttachmentPreviewRecord["match"]["status"], { label: string; tone: string }> = {
   high_confidence: { label: "手机号与邮箱一致", tone: "success" },
@@ -85,67 +76,10 @@ interface AttachmentWorkflowProps {
 
 type ErrorRecovery = "none" | "upload" | "status";
 
-function valueText(value: unknown): string {
-  if (value === null || value === undefined || value === "") return "未填写";
-  if (Array.isArray(value)) return value.map(valueText).join("、");
-  if (typeof value === "object") return JSON.stringify(value);
-  return String(value);
-}
-
 function fileSize(bytes: number) {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 KB";
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
-
-function suggestionValue(record: AttachmentPreviewRecord, field: string): unknown {
-  return record.suggestions.find((item) => item.field === field)?.value;
-}
-
-function suggestionText(record: AttachmentPreviewRecord, field: string): string {
-  const value = suggestionValue(record, field);
-  return typeof value === "string" || typeof value === "number" ? String(value).trim() : "";
-}
-
-function parsedCandidateName(record: AttachmentPreviewRecord): string {
-  return suggestionText(record, "name") || record.match.candidate?.name || "";
-}
-
-function candidateDraftFromRecord(record: AttachmentPreviewRecord): CandidateDraft {
-  const tags = suggestionValue(record, "tags");
-  const desiredTitlesValue = suggestionValue(record, "desired_titles");
-  const desiredTitles = (Array.isArray(desiredTitlesValue) ? desiredTitlesValue : [desiredTitlesValue])
-    .map((value) => String(value ?? "").trim())
-    .filter(Boolean)
-    .slice(0, 20);
-  const years = Number(suggestionValue(record, "years_experience"));
-  const expectedSalary = suggestionText(record, "expected_salary");
-  return {
-    ...emptyDraft,
-    name: parsedCandidateName(record),
-    phone: record.identity.phone || suggestionText(record, "phone"),
-    email: record.identity.email || suggestionText(record, "email"),
-    current_company: suggestionText(record, "current_company"),
-    current_title: suggestionText(record, "current_title"),
-    location: suggestionText(record, "location"),
-    years_experience: Number.isFinite(years) && years >= 0 ? years : 0,
-    education: suggestionText(record, "education") || emptyDraft.education,
-    highest_school: suggestionText(record, "highest_school"),
-    highest_major: suggestionText(record, "highest_major"),
-    job_seeking_status: suggestionText(record, "job_seeking_status"),
-    resume_updated_at: suggestionText(record, "resume_updated_at") || null,
-    self_summary: suggestionText(record, "self_summary"),
-    source: suggestionText(record, "source") || emptyDraft.source,
-    owner: suggestionText(record, "owner") || emptyDraft.owner,
-    tags: Array.isArray(tags) ? tags.map(String).filter(Boolean).slice(0, 8) : [],
-    expected_salary: expectedSalary,
-    preferences: {
-      ...emptyDraft.preferences,
-      employment_status: suggestionText(record, "job_seeking_status"),
-      desired_titles: desiredTitles,
-      expected_salary: expectedSalary,
-    },
-  };
 }
 
 function previewFailureMessage(preview: AttachmentPreview): string {
@@ -207,47 +141,6 @@ function mergeCandidates(primary: Candidate[], additional: Candidate[]): Candida
   return Array.from(byId.values()).filter((candidate) => !candidate.archived_at);
 }
 
-function hasCandidateValue(value: unknown): boolean {
-  if (value === null || value === undefined) return false;
-  if (typeof value === "string") return Boolean(value.trim());
-  if (Array.isArray(value)) return value.length > 0;
-  if (typeof value === "number") return Number.isFinite(value);
-  return true;
-}
-
-function candidateFieldValue(candidate: Candidate, field: string): unknown {
-  if (field === "tags") return candidate.tags ?? [];
-  if (field === "desired_titles") return candidate.preferences?.desired_titles ?? [];
-  if (field === "expected_salary") return candidate.preferences?.expected_salary || candidate.expected_salary || null;
-  return (candidate as unknown as Record<string, unknown>)[field] ?? null;
-}
-
-function sameCandidateValue(field: string, left: unknown, right: unknown): boolean {
-  if (field === "tags" || field === "desired_titles") return JSON.stringify(left ?? []) === JSON.stringify(right ?? []);
-  return (left ?? null) === (right ?? null);
-}
-
-function suggestionChangesCandidate(candidate: Candidate, field: string, suggested: unknown): boolean {
-  const current = candidateFieldValue(candidate, field);
-  if (field === "tags") {
-    const existing = Array.isArray(current) ? current.map(String) : [];
-    const incoming = Array.isArray(suggested) ? suggested.map(String) : [];
-    const merged = Array.from(new Set([...existing, ...incoming])).slice(0, 50);
-    return !sameCandidateValue(field, existing, merged);
-  }
-  return !sameCandidateValue(field, current, suggested);
-}
-
-function defaultFieldsForCandidate(record: AttachmentPreviewRecord, candidate: Candidate): Set<string> {
-  return new Set(record.suggestions
-    .filter((suggestion) => (
-      suggestionChangesCandidate(candidate, suggestion.field, suggestion.value)
-      && !hasCandidateValue(candidateFieldValue(candidate, suggestion.field))
-      && suggestion.confidence !== "low"
-    ))
-    .map((suggestion) => suggestion.field));
-}
-
 function initialSelections(preview: AttachmentPreview, candidates: Candidate[], forcedCandidateId?: string) {
   const next: Record<string, RecordSelection> = {};
   for (const record of preview.records) {
@@ -255,7 +148,9 @@ function initialSelections(preview: AttachmentPreview, candidates: Candidate[], 
     const allowForcedCandidate = preview.records.length === 1 && record.match.status === "not_found";
     next[record.record_id] = {
       candidateId: matchedId || (allowForcedCandidate ? forcedCandidateId ?? "" : ""),
-      fields: new Set(record.suggestions.filter((item) => item.default_selected).map((item) => item.field)),
+      fields: new Set(record.match.resolution === "created"
+        ? []
+        : record.suggestions.filter((item) => item.default_selected).map((item) => item.field)),
       sections: new Set(record.sections.filter((item) => item.default_selected).map((item) => item.section_id)),
     };
     const selectedCandidate = candidates.find((candidate) => candidate.id === next[record.record_id].candidateId);
@@ -291,6 +186,7 @@ export function AttachmentWorkflow({
   const [createBusy, setCreateBusy] = useState(false);
   const [createError, setCreateError] = useState("");
   const [pendingCreatedCandidateId, setPendingCreatedCandidateId] = useState<string | null>(null);
+  const [pendingCreateWarning, setPendingCreateWarning] = useState("");
   const [confirmOutcomeUnknown, setConfirmOutcomeUnknown] = useState(false);
   const [pollRevision, setPollRevision] = useState(0);
   const activeCandidates = useMemo(
@@ -307,6 +203,7 @@ export function AttachmentWorkflow({
     setResolvedCandidates([]);
     setCandidateBaselines({});
     setPendingCreatedCandidateId(null);
+    setPendingCreateWarning("");
     setConfirmOutcomeUnknown(false);
     setError("");
     setErrorRecovery("none");
@@ -346,7 +243,7 @@ export function AttachmentWorkflow({
         return;
       }
       try {
-        const next = await attachmentApi.getPreview(previewId, controller.signal);
+        const next = await attachmentApi.getPreview(previewId, preview.preview_token, controller.signal);
         if (cancelled) return;
         failureCount = 0;
         const nextWithToken = preserveAttachmentPreviewToken(next, preview);
@@ -404,7 +301,7 @@ export function AttachmentWorkflow({
     const generation = ++workflowGenerationRef.current;
     const extension = file.name.split(".").pop()?.toLocaleLowerCase() ?? "";
     if (!ACCEPTED_EXTENSIONS.includes(extension)) {
-      setError("仅支持 PDF、DOCX、XLSX、XLSM、BIFF8 XLS 和 UTF-8 CSV。旧版 DOC 与其他格式无法解析。");
+      setError("仅支持 PDF、DOCX、XLSX、XLSM、BIFF8 XLS、UTF-8 CSV 和 TXT。旧版 DOC 与其他格式无法解析。");
       setErrorRecovery("none");
       setState("error");
       return;
@@ -432,6 +329,7 @@ export function AttachmentWorkflow({
     setSearchRecordId(null);
     setCreateRecordId(null);
     setPendingCreatedCandidateId(null);
+    setPendingCreateWarning("");
     setConfirmOutcomeUnknown(false);
     setState("uploading");
     try {
@@ -473,6 +371,7 @@ export function AttachmentWorkflow({
     setSearchRecordId(null);
     setCreateRecordId(null);
     setPendingCreatedCandidateId(null);
+    setPendingCreateWarning("");
     setConfirmOutcomeUnknown(false);
     setError("");
     setErrorRecovery("none");
@@ -480,7 +379,7 @@ export function AttachmentWorkflow({
     if (!keepFile) lastFileRef.current = null;
     if (current) {
       try {
-        await attachmentApi.deletePreview(current.preview_id);
+        await attachmentApi.deletePreview(current.preview_id, current.preview_token);
       } catch (requestError) {
         if (workflowGenerationRef.current !== generation) return true;
         setError(safeErrorMessage(requestError, "临时附件清理失败，请稍后重试。"));
@@ -581,6 +480,7 @@ export function AttachmentWorkflow({
   function openCandidateCreate(recordId: string) {
     setCreateError("");
     setPendingCreatedCandidateId(null);
+    setPendingCreateWarning("");
     setCreateRecordId(recordId);
   }
 
@@ -588,23 +488,26 @@ export function AttachmentWorkflow({
     setCreateRecordId(null);
     setCreateError("");
     setPendingCreatedCandidateId(null);
+    setPendingCreateWarning("");
   }
 
-  async function createCandidate(draft: CandidateDraft) {
+  async function createCandidate(draft: CandidateDraft, options: CandidateFormSubmitOptions) {
     const recordId = createRecordId;
-    if (!recordId || createBusy) return;
+    if (!recordId || !preview || createBusy) return;
     setCreateBusy(true);
     setCreateError("");
     let createdId = pendingCreatedCandidateId;
     try {
-      let preferenceWarning = "";
+      let preferenceWarning = pendingCreateWarning;
       if (!createdId) {
         const { preferences, stage: _legacyStage, expected_salary: _legacySalary, ...candidateFields } = draft;
-        const created = await candidateApi.create({
-          ...candidateFields,
-          source_system: "manual",
-          source_record_id: crypto.randomUUID(),
-        });
+        const created = await attachmentApi.createCandidate(
+          preview.preview_id,
+          preview.preview_token,
+          recordId,
+          candidateFields,
+          options.includeAttachmentAvatar,
+        );
         createdId = created.id;
         setPendingCreatedCandidateId(created.id);
         onCandidateCreated?.(created.id);
@@ -621,6 +524,7 @@ export function AttachmentWorkflow({
             await candidateApi.updatePreferences(created.id, preferences);
           } catch (preferenceError) {
             preferenceWarning = safeErrorMessage(preferenceError, "请稍后在候选人档案中补充。");
+            setPendingCreateWarning(preferenceWarning);
           }
         }
       }
@@ -628,6 +532,7 @@ export function AttachmentWorkflow({
       selectCandidate(recordId, selected, "created");
       setCreateRecordId(null);
       setPendingCreatedCandidateId(null);
+      setPendingCreateWarning("");
       if (preferenceWarning) setError(`候选人已创建，但求职偏好未完整保存：${preferenceWarning}`);
     } catch (requestError) {
       setCreateError(createdId
@@ -706,7 +611,7 @@ export function AttachmentWorkflow({
     setState("confirming");
     setError("");
     try {
-      const latest = await attachmentApi.getPreview(originalPreview.preview_id);
+      const latest = await attachmentApi.getPreview(originalPreview.preview_id, originalPreview.preview_token);
       if (latest.status === "confirmed") {
         setPreview(latest);
         completeConfirmation();
@@ -791,7 +696,7 @@ export function AttachmentWorkflow({
         >
           <UploadCloud size={24} />
           <strong>{disabled ? "已归档候选人不能上传附件" : "拖放简历，或点击选择文件"}</strong>
-          <span>PDF、DOCX、XLSX、XLSM、XLS、CSV · 最大 15 MB</span>
+          <span>PDF、DOCX、XLSX、XLSM、XLS、CSV、TXT · 最大 15 MB</span>
         </button>
         <input ref={inputRef} className="sr-only" type="file" accept={ACCEPT} disabled={disabled} onChange={(event) => event.target.files?.[0] && void upload(event.target.files[0])} />
         {error && <div className="attachment-error" role="alert"><AlertTriangle size={15} /><span>{error}</span><button className="icon-button compact-icon-button" type="button" onClick={() => { setError(""); setErrorRecovery("none"); setState("idle"); }} aria-label="关闭错误"><X size={14} /></button></div>}
@@ -846,7 +751,8 @@ export function AttachmentWorkflow({
               const selection = selections[record.record_id] ?? { candidateId: "", fields: new Set<string>(), sections: new Set<string>() };
               const selectedCandidate = activeCandidates.find((item) => item.id === selection.candidateId);
               const matchedCandidate = record.match.candidate ?? selectedCandidate;
-              const candidateBaseline = candidateBaselines[record.record_id];
+              const candidateBaseline = candidateBaselines[record.record_id]
+                ?? (record.match.resolution === "created" ? selectedCandidate : undefined);
               const hasDuplicateCandidate = Boolean(selection.candidateId && duplicateCandidateIds.has(selection.candidateId));
               const rowLabel = record.row_number ? `第 ${record.row_number} 行` : "简历记录";
               const parsedName = parsedCandidateName(record);
@@ -859,6 +765,8 @@ export function AttachmentWorkflow({
                   <div className="attachment-identity-line">
                     <span>手机：{record.identity.phone || "未提取"}</span><span>邮箱：{record.identity.email || "未提取"}</span>
                   </div>
+                  {record.avatar?.available && <div className="attachment-avatar-detection is-ready"><ImageIcon size={15} /><span>{record.avatar.source === "explicit_url" ? "已识别外部头像地址，创建时需确认是否使用" : "已识别附件头像，创建候选人时默认使用"}</span></div>}
+                  {record.avatar?.status === "ambiguous" && <div className="attachment-avatar-detection is-warning"><AlertTriangle size={15} /><span>检测到多张可能的头像，已停止自动选择</span></div>}
                   {matchedCandidate && record.match.status !== "not_found" && (
                     <div className="attachment-match-candidate"><UserRoundCheck size={16} /><span>匹配到 <strong>{matchedCandidate.name}</strong></span></div>
                   )}
@@ -886,10 +794,13 @@ export function AttachmentWorkflow({
                     const hasRealChange = !candidateBaseline
                       || suggestionChangesCandidate(candidateBaseline, suggestion.field, suggestion.value);
                     const selected = hasRealChange && selection.fields.has(suggestion.field);
+                    const evidence = hasRealChange
+                      ? attachmentSuggestionEvidence(suggestion.field, suggestion.evidence, suggestion.value)
+                      : "与现有档案一致，不会提交更新";
                     return (
                       <label className={`attachment-diff${selected ? " is-selected" : ""}${hasRealChange ? "" : " is-unchanged"}`} key={suggestion.field}>
                         <input type="checkbox" checked={selected} onChange={() => toggleField(record.record_id, suggestion.field)} disabled={!selection.candidateId || !hasRealChange} />
-                        <span className="attachment-diff-main"><span><strong>{FIELD_LABELS[suggestion.field] ?? suggestion.field}</strong><em className={`confidence is-${suggestion.confidence}`}>{suggestion.confidence === "high" ? "高" : suggestion.confidence === "medium" ? "中" : "低"}置信</em></span><span className="attachment-values"><del>{valueText(currentValue)}</del><b>→</b><ins>{valueText(suggestion.value)}</ins></span><small>{hasRealChange ? suggestion.evidence : "与现有档案一致，不会提交更新"}</small></span>
+                        <span className="attachment-diff-main"><span><strong>{attachmentFieldLabel(suggestion.field)}</strong><em className={`confidence is-${suggestion.confidence}`}>{suggestion.confidence === "high" ? "高" : suggestion.confidence === "medium" ? "中" : "低"}置信</em></span><span className="attachment-values"><del>{attachmentValueText(currentValue)}</del><b>→</b><ins>{attachmentValueText(suggestion.value)}</ins></span>{evidence && <small>{evidence}</small>}</span>
                       </label>
                     );
                   })}</div>}
@@ -946,10 +857,13 @@ export function AttachmentWorkflow({
         {createError && <div className="attachment-create-error" role="alert"><AlertTriangle size={15} /><span>{createError}</span></div>}
         <CandidateForm
           initialDraft={createInitialDraft}
+          attachmentAvatar={createRecord.avatar}
           submitLabel={pendingCreatedCandidateId ? "重新获取并选择" : "创建并选择"}
           busy={createBusy}
+          fieldsDisabled={Boolean(pendingCreatedCandidateId)}
+          requireContact={false}
           onCancel={closeCandidateCreate}
-          onSubmit={(draft) => void createCandidate(draft)}
+          onSubmit={(draft, options) => void createCandidate(draft, options)}
         />
       </section>
     </div>}
@@ -961,9 +875,10 @@ interface CandidateAttachmentsPanelProps {
   candidate: Candidate;
   disabled?: boolean;
   onCandidateUpdated?: () => void;
+  onCandidateCreated?: (candidateId: string) => void;
 }
 
-export function CandidateAttachmentsPanel({ candidate, disabled = false, onCandidateUpdated }: CandidateAttachmentsPanelProps) {
+export function CandidateAttachmentsPanel({ candidate, disabled = false, onCandidateUpdated, onCandidateCreated }: CandidateAttachmentsPanelProps) {
   const [attachments, setAttachments] = useState<CandidateAttachment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -1038,8 +953,12 @@ export function CandidateAttachmentsPanel({ candidate, disabled = false, onCandi
         candidateId={candidate.id}
         candidates={[candidate]}
         deletedAttachment={deletedAttachment}
-        onCandidateCreated={() => onCandidateUpdated?.()}
-        onCommitted={() => { setDeletedAttachment(null); void load(); onCandidateUpdated?.(); }}
+        onCandidateCreated={(candidateId) => onCandidateCreated?.(candidateId)}
+        onCommitted={(candidateIds) => {
+          setDeletedAttachment(null);
+          if (candidateIds.includes(candidate.id)) void load();
+          onCandidateUpdated?.();
+        }}
       />}
       {loading ? <div className="attachment-list-state"><LoaderCircle className="spin" size={17} /><span>正在加载附件...</span></div> : error ? <div className="attachment-error" role="alert"><AlertTriangle size={15} /><span>{error}</span><button className="icon-button compact-icon-button" type="button" onClick={() => void load()} aria-label="重试"><RefreshCw size={14} /></button></div> : attachments.length ? <div className="candidate-attachment-list">{attachments.map((attachment) => (
         <article key={attachment.id}>

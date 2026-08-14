@@ -81,11 +81,11 @@ export function TalentPoolPage({
 }: TalentPoolPageProps) {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [archiveMode, setArchiveMode] = useState<ArchiveMode>("active");
+  const [archiveMode, setArchiveMode] = useState<ArchiveMode>("all");
   const [pools, setPools] = useState<TalentPool[]>([]);
   const [poolPagination, setPoolPagination] = useState<Pagination>(EMPTY_PAGINATION);
   const [poolPage, setPoolPage] = useState(1);
-  const [poolPageSize, setPoolPageSize] = useState<PageSize>(20);
+  const [poolPageSize, setPoolPageSize] = useState<PageSize>(50);
   const [poolListLoading, setPoolListLoading] = useState(true);
   const [poolListError, setPoolListError] = useState("");
   const [poolRefreshVersion, setPoolRefreshVersion] = useState(0);
@@ -117,15 +117,14 @@ export function TalentPoolPage({
     if (!firstId) return null;
     return pools.find((pool) => pool.id === firstId)?.archived_at ? "archived" : "active";
   }, [pools, selectedPoolIds]);
-  const visiblePoolKinds = new Set(visiblePools.map((pool) => pool.archived_at ? "archived" : "active"));
-  const headerPoolKind = selectedPoolKind
-    ?? (visiblePoolKinds.size === 1 && visiblePools.length ? (visiblePools[0].archived_at ? "archived" : "active") : null);
-  const selectablePoolIds = headerPoolKind
-    ? visiblePools.filter((pool) => (pool.archived_at ? "archived" : "active") === headerPoolKind).map((pool) => pool.id)
-    : [];
-  const selectedVisiblePoolIds = selectablePoolIds.filter((id) => selectedPoolIds.has(id));
-  const allVisiblePoolsSelected = selectablePoolIds.length > 0 && selectedVisiblePoolIds.length === selectablePoolIds.length;
-  const someVisiblePoolsSelected = selectedVisiblePoolIds.length > 0 && !allVisiblePoolsSelected;
+  const visibleActivePoolIds = visiblePools.filter((pool) => !pool.archived_at).map((pool) => pool.id);
+  const visibleArchivedPoolIds = visiblePools.filter((pool) => pool.archived_at).map((pool) => pool.id);
+  const selectedVisibleActivePoolIds = visibleActivePoolIds.filter((id) => selectedPoolIds.has(id));
+  const selectedVisibleArchivedPoolIds = visibleArchivedPoolIds.filter((id) => selectedPoolIds.has(id));
+  const allVisibleActivePoolsSelected = visibleActivePoolIds.length > 0 && selectedVisibleActivePoolIds.length === visibleActivePoolIds.length;
+  const allVisibleArchivedPoolsSelected = visibleArchivedPoolIds.length > 0 && selectedVisibleArchivedPoolIds.length === visibleArchivedPoolIds.length;
+  const someVisibleActivePoolsSelected = selectedVisibleActivePoolIds.length > 0 && !allVisibleActivePoolsSelected;
+  const someVisibleArchivedPoolsSelected = selectedVisibleArchivedPoolIds.length > 0 && !allVisibleArchivedPoolsSelected;
   const poolSelectionOverLimit = selectedPoolIds.size > 100;
   const deleteRelationCount = (deleteTargets ?? []).reduce((sum, pool) => sum + pool.candidate_count, 0);
 
@@ -239,8 +238,14 @@ export function TalentPoolPage({
     });
   }
 
-  function toggleAllPools(selected: boolean) {
-    setSelectedPoolIds(selected ? new Set(selectablePoolIds) : new Set());
+  function toggleAllPools(kind: "active" | "archived", selected: boolean) {
+    const visibleIds = kind === "active" ? visibleActivePoolIds : visibleArchivedPoolIds;
+    setSelectedPoolIds((current) => {
+      if (selected) return new Set(visibleIds);
+      const next = new Set(current);
+      visibleIds.forEach((id) => next.delete(id));
+      return next;
+    });
   }
 
   function selectedPoolsFor(kind: "active" | "archived") {
@@ -454,19 +459,25 @@ export function TalentPoolPage({
         <aside className="talent-pool-index" aria-label="人才库列表">
           <div className="talent-pool-index-toolbar">
             <label><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索人才库" />{query && <button type="button" onClick={() => setQuery("")} aria-label="清除搜索"><X size={14} /></button>}</label>
-            <select value={archiveMode} onChange={(event) => setArchiveMode(event.target.value as ArchiveMode)} aria-label="人才库归档状态">
-              <option value="active">使用中</option><option value="archived">已归档</option><option value="all">全部</option>
-            </select>
+            <div className="talent-pool-archive-filter segmented-control" role="group" aria-label="人才库归档状态">
+              {[["all", "全部"], ["active", "使用中"], ["archived", "已归档"]].map(([value, label]) => <button className={archiveMode === value ? "active" : ""} type="button" key={value} aria-pressed={archiveMode === value} onClick={() => setArchiveMode(value as ArchiveMode)}>{label}</button>)}
+            </div>
           </div>
           <div className="talent-pool-selection-toolbar">
-            <PoolSelectionCheckbox
-              checked={allVisiblePoolsSelected}
-              indeterminate={someVisiblePoolsSelected}
-              disabled={!selectablePoolIds.length}
-              label={`选择当前视图全部${headerPoolKind === "archived" ? "已归档" : "使用中"}人才库`}
-              onChange={() => toggleAllPools(!allVisiblePoolsSelected)}
-            />
-            <span>全选当前视图</span>
+            {(archiveMode === "all" || archiveMode === "active") && <label><PoolSelectionCheckbox
+              checked={allVisibleActivePoolsSelected}
+              indeterminate={someVisibleActivePoolsSelected}
+              disabled={!visibleActivePoolIds.length || selectedPoolKind === "archived" || operationBusy}
+              label="选择当前页全部使用中人才库"
+              onChange={() => toggleAllPools("active", !allVisibleActivePoolsSelected)}
+            /><span>全选使用中</span></label>}
+            {(archiveMode === "all" || archiveMode === "archived") && <label><PoolSelectionCheckbox
+              checked={allVisibleArchivedPoolsSelected}
+              indeterminate={someVisibleArchivedPoolsSelected}
+              disabled={!visibleArchivedPoolIds.length || selectedPoolKind === "active" || operationBusy}
+              label="选择当前页全部已归档人才库"
+              onChange={() => toggleAllPools("archived", !allVisibleArchivedPoolsSelected)}
+            /><span>全选已归档</span></label>}
             {selectedPoolIds.size > 0 && <button type="button" onClick={() => setSelectedPoolIds(new Set())}>取消</button>}
           </div>
           <div className="talent-pool-list" role="region" aria-label="人才库横向列表" tabIndex={0}>
@@ -479,7 +490,7 @@ export function TalentPoolPage({
                   <PoolSelectionCheckbox checked={selected} disabled={!selectable || operationBusy} label={`选择人才库 ${pool.name}`} onChange={() => togglePoolSelection(pool)} />
                   <button className="talent-pool-list-open" type="button" onClick={() => setActivePoolId(pool.id)}>
                     <span className="pool-color" style={{ backgroundColor: pool.color }} />
-                    <span><strong>{pool.name}</strong><small>{pool.candidate_count} 位候选人</small></span>
+                    <span><strong>{pool.name}</strong><small>{pool.candidate_count} 位候选人</small>{pool.archived_at && <span className="archive-badge pool-list-archive-badge">已归档</span>}</span>
                     <span className="pool-updated">{formatDateTime(pool.updated_at)}</span>
                   </button>
                 </div>

@@ -4,6 +4,10 @@ import ExcelJS from 'exceljs'
 import mammothModule from 'mammoth'
 import { readFirstSheet, XlsError } from 'xls-reader'
 import { getDocument, PasswordException } from 'pdfjs-dist/legacy/build/pdf.mjs'
+import {
+  extractAttachmentAvatarResults,
+  serializeAttachmentAvatarResult
+} from './attachment-avatar.js'
 import { inspectSecureZipBuffer } from './secure-zip-buffer.js'
 
 const mammoth = mammothModule.default ?? mammothModule
@@ -250,14 +254,42 @@ async function parseDocx(buffer, limits) {
   }
 }
 
+function parsePlainText(buffer, limits) {
+  let text
+  try {
+    text = new TextDecoder('utf-8', { fatal: true }).decode(buffer)
+  } catch {
+    throw parserError('invalid_text_encoding', 'TXT 必须使用有效的 UTF-8 编码')
+  }
+  const cleaned = cleanText(text, limits.maxExtractedText)
+  if (!cleaned.text) throw parserError('attachment_empty', 'TXT 中没有可提取的简历文本')
+  return {
+    text: cleaned.text,
+    text_truncated: cleaned.truncated,
+    records: [{ row_number: 1, values: { raw_text: cleaned.text } }],
+    metadata: {}
+  }
+}
+
 async function main() {
   const buffer = Buffer.from(workerData.buffer)
   const { format, limits } = workerData
   if (['docx', 'xlsx', 'xlsm'].includes(format)) verifyZipPayload(buffer, limits)
-  if (format === 'pdf') return parsePdf(buffer, limits)
-  if (format === 'docx') return parseDocx(buffer, limits)
-  if (['xlsx', 'xlsm', 'xls', 'csv'].includes(format)) return parseSpreadsheet(buffer, format, limits)
-  throw parserError('unsupported_attachment_type', '不支持该附件格式', 415)
+  let parsed
+  if (format === 'pdf') parsed = await parsePdf(buffer, limits)
+  else if (format === 'docx') parsed = await parseDocx(buffer, limits)
+  else if (format === 'txt') parsed = parsePlainText(buffer, limits)
+  else if (['xlsx', 'xlsm', 'xls', 'csv'].includes(format)) parsed = await parseSpreadsheet(buffer, format, limits)
+  else throw parserError('unsupported_attachment_type', '不支持该附件格式', 415)
+
+  try {
+    const avatarResults = await extractAttachmentAvatarResults(buffer, format, parsed)
+    parsed.avatar_transfers = avatarResults.map(serializeAttachmentAvatarResult)
+  } catch {
+    // Avatar extraction is optional and must not hide otherwise valid resume text.
+    parsed.avatar_transfers = []
+  }
+  return parsed
 }
 
 try {

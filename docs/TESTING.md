@@ -15,7 +15,7 @@
 - 候选人/职位一次性 token 单条与批量永久删除、事务回滚、附件物理清理入队和最小审计。
 - Agent 独立 SQLite 全字段只读连接、authorizer、防绕过、结构化查询/聚合/导出、审计和 Top-K 上下文控制。
 - Agent 回复的角色隔离 Markdown/GFM 渲染、raw HTML 禁用、危险 URL/远程图片阻断及安全外链属性。
-- PDF、DOCX、XLSX、XLSM、BIFF8 XLS、UTF-8 CSV 简历附件，身份匹配、字段选择、SHA-256 幂等、清理重试和 FTS5 证据检索。
+- PDF、DOCX、XLSX、XLSM、BIFF8 XLS、UTF-8 CSV/TXT 简历附件，身份匹配、字段选择、SHA-256 幂等、清理重试和 FTS5 证据检索。
 
 测试使用内存 SQLite、临时 SQLite 文件和临时本地 HTTP 服务，不连接北森、真实模型服务或正式数据库。
 
@@ -157,7 +157,7 @@ V6 测试集中在 `tests/backend/deletion-v6.test.mjs`、`position-deletion-api
 | 只读 SQLite | 文件型独立 `readOnly` 连接；`query_only` / `trusted_schema` / 禁扩展；SELECT、只读 CTE、聚合、排序、分页；INSERT/UPDATE/DELETE/DDL/ATTACH/写 PRAGMA 拒绝；多语句、注释、CTE 写入、未知表/列/函数和字段注入拒绝；100 行/1 MB/超时/页码/导出上限；审计不含结果正文 |
 | Agent 全字段 | 匿名候选人的未打码手机、邮箱、薪资、照片地址、备注、活动、raw payload、履历、评估、授权和附件正文可按需读取；18 工具白名单；不存在写/删除/附件确认工具；大结果分页/聚合/导出，模型只接收 Top-K |
 | FTS5 | 主档、工作/项目/教育/技能区块和附件文本同步；从全量匿名履历召回正确候选人；候选人级去重；得分、字段、片段、原因和分页；结构化地点/年限/关系筛选；FTS5 不可用明确失败 |
-| 附件格式 | 匿名文本 PDF、DOCX、XLSX、XLSM、BIFF8 XLS、UTF-8 CSV 正常解析；宏不执行；表格逐行记录；原文件名清洗和随机私有路径 |
+| 附件格式 | 匿名文本 PDF、DOCX、XLSX、XLSM、BIFF8 XLS、UTF-8 CSV/TXT 正常解析；宏不执行；表格逐行记录；原文件名清洗和随机私有路径 |
 | 附件安全失败 | 伪扩展名、MIME/签名不匹配、`.doc`、加密/损坏文件、扫描/无文本 PDF、非法 UTF-8、路径穿越、ZIP bomb/ZIP64、页/表/行/列/文本/时间上限安全失败且无候选人写入 |
 | HTTP 安全边界 | 不允许的 Origin 对 JSON 和 multipart 写请求均在请求体解析前返回 `403 origin_not_allowed`；不允许的预检返回 `403`；缺少 Origin、回环/配置 Origin 兼容；正常应用响应包含 `nosniff`、禁止 framing、no-referrer、受限 Permissions Policy 和含 `frame-ancestors 'none'` 的 CSP |
 | 身份与确认 | 邮箱唯一、电话唯一、双字段一致、双字段冲突、多候选冲突、归档目标和无匹配；姓名不参与自动合并；预览不修改候选人；确认只写选择项；空值不清除；身份字段二次冲突；标签并集、履历去重/替换确认；版本/token 过期/重放；SHA-256 重复文件幂等；生产建议最多 120,000 字符/100 条记录、strict JSON Schema 且无 tools，网关失败保留本地建议；预览确认/取消/过期后擦除临时正文和记录 JSON |
@@ -602,3 +602,16 @@ npm start
 ## 验收记录
 
 每次 E2E 至少记录日期、代码版本、Node/浏览器版本、视口、匿名测试数据库路径、场景结果、控制台情况和失败截图。必须明确测试数据库与正式数据库隔离。
+
+## 2026-08-12 0.1.1 附件身份修复验收
+
+- 自动化：附件身份聚焦 30/30；附件批量、UI 和中文文件名相关 24/24；完整 `npm test` 共 320 项，319 通过、0 失败、1 项按设计跳过
+- 构建：`npm run build` 通过 TypeScript 与 Vite 生产构建；现有主 chunk 大于 500 kB 提示不影响构建成功
+- 隔离环境：Node.js `v24.18.0`、Playwright CLI `0.1.18`、`output/playwright/attachment-identity-011/e2e.db`、`127.0.0.1:4491`；隔离进程不配置模型，未读取或写入正式数据库
+- 桌面/API 流程：虚构 TXT/PDF/DOCX 文本中“手机号：未提取”、唯一匹配邮箱、空格/换行标签和“项目邮箱”正文噪声均得到“单一身份字段唯一匹配”；日期/版本/序号数字噪声不产生多个手机号/邮箱提示，两个真实手机号仍保持歧义
+- 现场 PDF 隔离重放：识别“移动电话”和行内“电 子 邮 箱”标签，知乎链接中的 11 位文章编号不再作为手机号候选；真实手机号与邮箱命中同一候选人
+- 启动恢复：待确认批次引用的预览过期后转为明确失败，不再恢复旧匹配结论
+- 文件名：中文 TXT 原名在预览、已保存附件和下载入口中完整显示；确认事务成功，隔离服务 stderr 为空
+- 移动端：390×844 下页面、`body` 和根节点宽度均为 390，截图人工检查无重叠；本地工作台页面 console 0 error/0 warning
+- 清理：浏览器会话和隔离服务均已停止，端口 `4491` 已释放。测试输出为本地忽略目录，不包含真实候选人资料
+- 正式运行：旧 PID `8024` 停止后，当前 `master` 工作区以显式 `data/recruitment.db` 启动为 PID `21232` 并监听 `127.0.0.1:4173`；仅只读核对 health=`ok`、Agent model=`kimi-k3`、`configured/full_readonly/async_tasks=true`

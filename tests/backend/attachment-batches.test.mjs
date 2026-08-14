@@ -121,6 +121,237 @@ test('multi-file batches persist progress and idempotent creation returns the or
   assert.equal(db.prepare('SELECT count(*) AS count FROM attachment_import_items').get().count, 2)
 })
 
+test('startup recovery fails an awaiting item whose preview is no longer available', async () => {
+  const { db, attachments, batches, root } = fixture()
+  candidate(db, 'stale-preview', 'stale-preview@example.test')
+  const created = await batches.createBatch({
+    files: [csvFile('Anonymous stale preview', 'stale-preview@example.test')],
+    ...batchOptions('anonymous-stale-token-00000001', 'anonymous-stale-preview-batch')
+  })
+  await batches.waitForIdle()
+  const ready = getBatch(batches, created)
+  const item = ready.items[0]
+  db.prepare(`
+    UPDATE attachment_update_previews
+    SET parse_status = 'expired', extracted_text = '', records_json = '[]'
+    WHERE id = ?
+  `).run(item.preview_id)
+
+  await batches.close()
+  const recovered = createAttachmentBatchService({
+    db,
+    attachmentService: attachments,
+    rootDir: join(root, 'batches')
+  })
+  resources[resources.length - 1].batches = recovered
+  await recovered.waitForIdle()
+
+  const after = getBatch(recovered, created)
+  assert.equal(after.status, 'failed')
+  assert.equal(after.items[0].status, 'failed')
+  assert.equal(after.items[0].error.code, 'attachment_preview_expired')
+  assert.equal(after.items[0].preview, undefined)
+})
+
+test('runtime reconciliation fails an awaiting item after its preview TTL expires', async () => {
+  let currentTime = Date.parse('2026-08-14T10:00:00.000Z')
+  const clock = () => currentTime
+  const { db, batches } = fixture({
+    attachmentOptions: { clock, previewTtlMs: 1_000 },
+    batchOptions: { clock }
+  })
+  candidate(db, 'runtime-expired', 'runtime-expired@example.test')
+  const created = await batches.createBatch({
+    files: [csvFile('Anonymous runtime expired', 'runtime-expired@example.test')],
+    ...batchOptions('anonymous-runtime-expired-token-01', 'anonymous-runtime-expired-batch')
+  })
+  await batches.waitForIdle()
+  const ready = getBatch(batches, created)
+  const item = ready.items[0]
+  assert.equal(item.status, 'awaiting_confirmation')
+
+  currentTime += 2_000
+  const after = getBatch(batches, created)
+
+  assert.equal(after.status, 'failed')
+  assert.equal(after.summary.awaiting_confirmation, 0)
+  assert.equal(after.summary.failed, 1)
+  assert.equal(after.items[0].status, 'failed')
+  assert.equal(after.items[0].error.code, 'attachment_preview_expired')
+  assert.equal(db.prepare(`
+    SELECT parse_status FROM attachment_update_previews WHERE id = ?
+  `).get(item.preview_id).parse_status, 'expired')
+})
+
+test('runtime reconciliation fails an awaiting item after its preview is cancelled', async () => {
+  const { db, attachments, batches } = fixture()
+  candidate(db, 'runtime-cancelled', 'runtime-cancelled@example.test')
+  const created = await batches.createBatch({
+    files: [csvFile('Anonymous runtime cancelled', 'runtime-cancelled@example.test')],
+    ...batchOptions('anonymous-runtime-cancelled-token1', 'anonymous-runtime-cancelled-batch')
+  })
+  await batches.waitForIdle()
+  const item = getBatch(batches, created).items[0]
+
+  attachments.cancelPreview(item.preview_id)
+  const after = batches.getItem(created.batch_id, item.item_id, {
+    batchToken: created.batch_token
+  })
+
+  assert.equal(after.status, 'failed')
+  assert.equal(after.error.code, 'attachment_preview_cancelled')
+  assert.equal(getBatch(batches, created).status, 'failed')
+})
+
+test('runtime reconciliation blocks candidate creation after an awaiting preview fails', async () => {
+  const { db, batches } = fixture()
+  candidate(db, 'runtime-failed', 'runtime-failed@example.test')
+  const created = await batches.createBatch({
+    files: [csvFile('Anonymous runtime failed', 'runtime-failed@example.test')],
+    ...batchOptions('anonymous-runtime-failed-token-001', 'anonymous-runtime-failed-batch')
+  })
+  await batches.waitForIdle()
+  const item = getBatch(batches, created).items[0]
+  db.prepare(`
+    UPDATE attachment_update_previews
+    SET parse_status = 'failed', error_code = 'parser_unavailable',
+      error_message = 'temporary parser outage'
+    WHERE id = ?
+  `).run(item.preview_id)
+
+  await assert.rejects(
+    batches.createCandidateForItem(created.batch_id, item.item_id, {}, {
+      batchToken: created.batch_token
+    }),
+    (error) => error.code === 'attachment_batch_item_not_ready'
+  )
+
+  const after = batches.getItem(created.batch_id, item.item_id, {
+    batchToken: created.batch_token
+  })
+  assert.equal(after.status, 'failed')
+  assert.equal(after.error.code, 'attachment_preview_failed')
+  assert.equal(after.error.retryable, false)
+})
+
+test('runtime reconciliation fails an awaiting item whose preview row disappears', async () => {
+  const { db, batches } = fixture()
+  candidate(db, 'runtime-missing', 'runtime-missing@example.test')
+  const created = await batches.createBatch({
+    files: [csvFile('Anonymous runtime missing', 'runtime-missing@example.test')],
+    ...batchOptions('anonymous-runtime-missing-token-01', 'anonymous-runtime-missing-batch')
+  })
+  await batches.waitForIdle()
+  const item = getBatch(batches, created).items[0]
+  const input = confirmationFor(item, db, 'runtime-missing')
+  db.prepare('DELETE FROM attachment_update_previews WHERE id = ?').run(item.preview_id)
+  assert.equal(db.prepare(`
+    SELECT preview_id FROM attachment_import_items WHERE id = ?
+  `).get(item.item_id).preview_id, null)
+
+  await assert.rejects(
+    batches.confirmItem(created.batch_id, item.item_id, input, {
+      batchToken: created.batch_token,
+      idempotencyKey: 'anonymous-runtime-missing-confirm'
+    }),
+    (error) => error.code === 'attachment_batch_item_not_ready'
+  )
+
+  const after = batches.getItem(created.batch_id, item.item_id, {
+    batchToken: created.batch_token
+  })
+  assert.equal(after.status, 'failed')
+  assert.equal(after.error.code, 'attachment_preview_missing')
+  assert.equal(getBatch(batches, created).status, 'failed')
+})
+
+test('an unmatched batch item creates one sourced candidate idempotently and confirms one resume', async () => {
+  const { db, batches } = fixture({ attachmentOptions: { suggestionProvider: null } })
+  const file = {
+    originalname: 'batch-create-unmatched.csv',
+    mimetype: 'text/csv',
+    buffer: Buffer.from([
+      'name,phone,email,current_company,self_summary',
+      'Anonymous batch created,13800000881,batch.created@example.test,Attachment Works,Batch-created resume evidence'
+    ].join('\n'), 'utf8')
+  }
+  const created = await batches.createBatch({
+    files: [file],
+    ...batchOptions('anonymous-batch-create-token-0001', 'anonymous-batch-create-key')
+  })
+  await batches.waitForIdle()
+  const item = getBatch(batches, created).items[0]
+  const record = item.preview.records[0]
+  assert.equal(item.status, 'awaiting_confirmation')
+  assert.equal(record.match.status, 'not_found')
+
+  const createInput = {
+    record_id: record.record_id,
+    candidate: {
+      name: 'Anonymous batch created',
+      phone: '13800000881',
+      email: 'batch.created@example.test',
+      current_company: 'Attachment Works'
+    }
+  }
+  const first = await batches.createCandidateForItem(
+    created.batch_id,
+    item.item_id,
+    createInput,
+    { batchToken: created.batch_token }
+  )
+  const replay = await batches.createCandidateForItem(
+    created.batch_id,
+    item.item_id,
+    createInput,
+    { batchToken: created.batch_token }
+  )
+
+  assert.equal(replay.id, first.id)
+  assert.equal(first.name, createInput.candidate.name)
+  assert.equal(first.phone, '+8613800000881')
+  assert.equal(first.email, createInput.candidate.email)
+  assert.equal(first.current_company, createInput.candidate.current_company)
+  assert.equal(first.source_system, 'attachment_preview')
+  assert.equal(
+    first.source_record_id,
+    `attachment-preview:${item.preview_id}:${record.record_id}`
+  )
+  assert.equal(db.prepare('SELECT count(*) AS count FROM candidates').get().count, 1)
+  assert.equal(db.prepare(`
+    SELECT count(*) AS count FROM activities
+    WHERE candidate_id = ? AND type = 'candidate_created_from_attachment'
+  `).get(first.id).count, 1)
+
+  const recoveredItem = batches.getItem(created.batch_id, item.item_id, {
+    batchToken: created.batch_token
+  })
+  assert.equal(recoveredItem.preview.records[0].match.status, 'not_found')
+  assert.equal(recoveredItem.preview.records[0].match.resolution, 'created')
+  assert.equal(recoveredItem.preview.records[0].match.candidate_id, first.id)
+  assert.equal(recoveredItem.preview.records[0].suggestions.every((suggestion) => suggestion.default_selected === false), true)
+
+  const confirmed = await batches.confirmItem(
+    created.batch_id,
+    item.item_id,
+    confirmationFor(recoveredItem, db, first.id),
+    {
+      batchToken: created.batch_token,
+      idempotencyKey: 'anonymous-batch-create-confirm'
+    }
+  )
+
+  assert.equal(confirmed.item.status, 'confirmed')
+  assert.equal(confirmed.confirmation.records[0].candidate_id, first.id)
+  assert.equal(confirmed.batch.status, 'completed')
+  assert.equal(db.prepare('SELECT count(*) AS count FROM candidates').get().count, 1)
+  assert.equal(db.prepare(`
+    SELECT count(*) AS count FROM candidate_attachments
+    WHERE candidate_id = ? AND attachment_type = 'resume'
+  `).get(first.id).count, 1)
+  assert.equal(db.prepare('SELECT count(*) AS count FROM candidate_attachments').get().count, 1)
+})
+
 test('per-item confirmation is transactionally replayable without duplicate attachments or activities', async () => {
   const { db, batches } = fixture()
   candidate(db, 'confirm-one', 'confirm-one@example.test')
@@ -205,17 +436,17 @@ test('unsupported files fail independently while a valid sibling remains confirm
   const created = await batches.createBatch({
     files: [
       csvFile('Anonymous valid sibling', 'valid-sibling@example.test', 'valid.csv'),
-      { originalname: 'unsupported.txt', mimetype: 'text/plain', buffer: Buffer.from('unsupported') }
+      { originalname: 'unsupported.doc', mimetype: 'application/msword', buffer: Buffer.from('unsupported') }
     ],
     ...batchOptions('anonymous-isolation-token-00001', 'anonymous-isolation-batch')
   })
   await batches.waitForIdle()
   const result = getBatch(batches, created)
   const valid = result.items.find((item) => item.original_filename === 'valid.csv')
-  const failed = result.items.find((item) => item.original_filename === 'unsupported.txt')
+  const failed = result.items.find((item) => item.original_filename === 'unsupported.doc')
   assert.equal(valid.status, 'awaiting_confirmation')
   assert.equal(failed.status, 'failed')
-  assert.equal(failed.error.code, 'unsupported_attachment_type')
+  assert.equal(failed.error.code, 'legacy_doc_unsupported')
   assert.equal(failed.error.retryable, false)
 
   const skipped = batches.skipItem(created.batch_id, valid.item_id, { batchToken: created.batch_token })

@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
-import { BriefcaseBusiness, CircleUserRound, GraduationCap, Save, Target } from "lucide-react";
+import { BriefcaseBusiness, CircleUserRound, GraduationCap, ImageIcon, Save, Target } from "lucide-react";
 import {
   EDUCATION_OPTIONS,
   emptyDraft,
@@ -9,13 +9,28 @@ import {
   type CandidateDraft,
 } from "../types";
 
+interface AttachmentAvatarOption {
+  available: boolean;
+  source?: "explicit_url" | "docx_embedded_image" | "pdf_embedded_image" | "xlsx_embedded_image" | null;
+  confidence?: "high" | "medium" | "low" | null;
+  width?: number;
+  height?: number;
+}
+
+export interface CandidateFormSubmitOptions {
+  includeAttachmentAvatar: boolean;
+}
+
 interface CandidateFormProps {
   initialValue?: Candidate;
   initialDraft?: Partial<CandidateDraft>;
+  attachmentAvatar?: AttachmentAvatarOption;
   submitLabel: string;
   busy?: boolean;
+  fieldsDisabled?: boolean;
+  requireContact?: boolean;
   onCancel: () => void;
-  onSubmit: (draft: CandidateDraft) => void;
+  onSubmit: (draft: CandidateDraft, options: CandidateFormSubmitOptions) => void;
 }
 
 function draftFrom(candidate?: Candidate, initialDraft?: Partial<CandidateDraft>): CandidateDraft {
@@ -62,15 +77,44 @@ function splitValues(value: string) {
   return value.split(/[,，、]/).map((item) => item.trim()).filter(Boolean).slice(0, 20);
 }
 
-export function CandidateForm({ initialValue, initialDraft, submitLabel, busy = false, onCancel, onSubmit }: CandidateFormProps) {
+function defaultAttachmentAvatarSelection(attachmentAvatar?: AttachmentAvatarOption) {
+  return Boolean(attachmentAvatar?.available && attachmentAvatar.source !== "explicit_url");
+}
+
+export function CandidateForm({
+  initialValue,
+  initialDraft,
+  attachmentAvatar,
+  submitLabel,
+  busy = false,
+  fieldsDisabled = false,
+  requireContact = true,
+  onCancel,
+  onSubmit,
+}: CandidateFormProps) {
   const [draft, setDraft] = useState<CandidateDraft>(() => draftFrom(initialValue, initialDraft));
   const [tagText, setTagText] = useState(() => draftFrom(initialValue, initialDraft).tags.join("、"));
   const [desiredTitles, setDesiredTitles] = useState(() => draftFrom(initialValue, initialDraft).preferences.desired_titles.join("、"));
   const [desiredLocations, setDesiredLocations] = useState(() => draftFrom(initialValue, initialDraft).preferences.desired_locations.join("、"));
   const [error, setError] = useState("");
+  const [includeAttachmentAvatar, setIncludeAttachmentAvatar] = useState(() => defaultAttachmentAvatarSelection(attachmentAvatar));
   const sourceOptions = Array.from(new Set([...SOURCES, draft.source].filter(Boolean)));
   const ownerOptions = Array.from(new Set([...OWNERS, draft.owner].filter(Boolean)));
   const genderOptions = Array.from(new Set(["男", "女", "其他", "未说明", draft.gender].filter(Boolean)));
+  const educationOptions = Array.from(new Set([...EDUCATION_OPTIONS, draft.education].filter(Boolean)));
+  const avatarConfidence = attachmentAvatar?.confidence === "high"
+    ? "高置信"
+    : attachmentAvatar?.confidence === "medium"
+    ? "中等置信"
+    : attachmentAvatar?.confidence === "low"
+    ? "低置信"
+    : "";
+  const avatarDimensions = attachmentAvatar?.width && attachmentAvatar?.height
+    ? `${attachmentAvatar.width} x ${attachmentAvatar.height}`
+    : "";
+  const avatarSourceLabel = attachmentAvatar?.source === "explicit_url"
+    ? "外部头像地址，需手动确认使用"
+    : "已识别内嵌证件照";
 
   useEffect(() => {
     const next = draftFrom(initialValue, initialDraft);
@@ -78,8 +122,9 @@ export function CandidateForm({ initialValue, initialDraft, submitLabel, busy = 
     setTagText(next.tags.join("、"));
     setDesiredTitles(next.preferences.desired_titles.join("、"));
     setDesiredLocations(next.preferences.desired_locations.join("、"));
+    setIncludeAttachmentAvatar(defaultAttachmentAvatarSelection(attachmentAvatar));
     setError("");
-  }, [initialDraft, initialValue]);
+  }, [attachmentAvatar?.available, attachmentAvatar?.source, initialDraft, initialValue]);
 
   function update<K extends keyof CandidateDraft>(key: K, value: CandidateDraft[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -92,7 +137,7 @@ export function CandidateForm({ initialValue, initialDraft, submitLabel, busy = 
   function submit(event: FormEvent) {
     event.preventDefault();
     if (!draft.name.trim()) return setError("请填写候选人姓名");
-    if (!draft.phone.trim() && !draft.email.trim()) return setError("手机号和邮箱至少填写一项");
+    if (requireContact && !draft.phone.trim() && !draft.email.trim()) return setError("手机号和邮箱至少填写一项");
     const salary = draft.preferences.expected_salary.trim();
     onSubmit({
       ...draft,
@@ -105,12 +150,12 @@ export function CandidateForm({ initialValue, initialDraft, submitLabel, busy = 
         desired_locations: splitValues(desiredLocations),
         expected_salary: salary,
       },
-    });
+    }, { includeAttachmentAvatar: Boolean(attachmentAvatar?.available && includeAttachmentAvatar) });
   }
 
   return (
     <form className="candidate-form talent-candidate-form" onSubmit={submit} aria-busy={busy || undefined}>
-      <div className="candidate-form-sections">
+      <fieldset className="candidate-form-sections" disabled={busy || fieldsDisabled}>
         <section className="candidate-form-section">
           <header><span><CircleUserRound size={16} /></span><div><h3>基本资料</h3><p>用于识别候选人的核心信息</p></div></header>
           <div className="form-grid">
@@ -121,6 +166,7 @@ export function CandidateForm({ initialValue, initialDraft, submitLabel, busy = 
             <label className="field"><span>年龄</span><input value={draft.age ?? ""} onChange={(event) => update("age", event.target.value === "" ? null : Math.max(0, Number(event.target.value)))} type="number" min="0" max="120" /></label>
             <label className="field"><span>手机号</span><input value={draft.phone} onChange={(event) => update("phone", event.target.value)} inputMode="tel" /></label>
             <label className="field"><span>邮箱</span><input value={draft.email} onChange={(event) => update("email", event.target.value)} type="email" /></label>
+            {attachmentAvatar?.available && <label className={`attachment-avatar-option field-wide${includeAttachmentAvatar ? " is-selected" : ""}`}><span className="attachment-avatar-option-icon"><ImageIcon size={18} /></span><span><strong>附件头像</strong><small>{[avatarSourceLabel, avatarConfidence, avatarDimensions].filter(Boolean).join(" · ")}</small></span><input type="checkbox" checked={includeAttachmentAvatar} onChange={(event) => setIncludeAttachmentAvatar(event.target.checked)} aria-label="创建时使用附件头像" /></label>}
             <label className="field field-wide"><span>自我评价</span><textarea value={draft.self_summary} onChange={(event) => update("self_summary", event.target.value)} rows={4} placeholder="候选人的职业概述、优势或自我评价" /></label>
           </div>
         </section>
@@ -138,7 +184,7 @@ export function CandidateForm({ initialValue, initialDraft, submitLabel, busy = 
         <section className="candidate-form-section">
           <header><span><GraduationCap size={16} /></span><div><h3>教育与能力</h3><p>用于学历、学校和专业检索</p></div></header>
           <div className="form-grid">
-            <label className="field"><span>最高学历</span><select value={draft.education} onChange={(event) => update("education", event.target.value)}>{EDUCATION_OPTIONS.map((option) => <option key={option}>{option}</option>)}</select></label>
+            <label className="field"><span>最高学历</span><select value={draft.education} onChange={(event) => update("education", event.target.value)}><option value="">未填写</option>{educationOptions.map((option) => <option key={option}>{option}</option>)}</select></label>
             <label className="field"><span>最高学历学校</span><input value={draft.highest_school} onChange={(event) => update("highest_school", event.target.value)} /></label>
             <label className="field"><span>最高学历专业</span><input value={draft.highest_major} onChange={(event) => update("highest_major", event.target.value)} /></label>
           </div>
@@ -164,7 +210,7 @@ export function CandidateForm({ initialValue, initialDraft, submitLabel, busy = 
             <label className="field field-wide"><span>标签</span><input value={tagText} onChange={(event) => setTagText(event.target.value)} placeholder="用顿号分隔，最多 8 个" /></label>
           </div>
         </section>
-      </div>
+      </fieldset>
       {error && <p className="form-error" role="alert">{error}</p>}
       <div className="drawer-footer"><button className="button secondary-button" type="button" onClick={onCancel} disabled={busy}>取消</button><button className="button primary-button" type="submit" disabled={busy}><Save size={16} />{busy ? "正在保存..." : submitLabel}</button></div>
     </form>

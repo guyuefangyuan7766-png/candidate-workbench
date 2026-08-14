@@ -1570,6 +1570,7 @@ export function AssistantDrawer({
           <AttachmentBatchWorkflow
             candidates={candidates}
             onCommitted={() => onCandidatesUpdated?.()}
+            onCandidateCreated={() => onCandidatesUpdated?.()}
           />
         </div>}
 

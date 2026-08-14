@@ -42,6 +42,17 @@ test('talent-pool containers and members use independent server pagination', () 
   assert.doesNotMatch(talentPools, /talentPoolApi\.listAll\(|candidatesAll\(/)
 })
 
+test('talent-pool archive inventory is visible and keeps same-state bulk actions discoverable', () => {
+  assert.match(talentPools, /useState<ArchiveMode>\("all"\)/)
+  assert.match(talentPools, /className="talent-pool-archive-filter segmented-control"/)
+  assert.match(talentPools, /\[\["all", "全部"\], \["active", "使用中"\], \["archived", "已归档"\]\]/)
+  assert.match(talentPools, /pool\.archived_at && <span className="archive-badge pool-list-archive-badge">已归档<\/span>/)
+  assert.match(talentPools, /toggleAllPools\("active", !allVisibleActivePoolsSelected\)/)
+  assert.match(talentPools, /toggleAllPools\("archived", !allVisibleArchivedPoolsSelected\)/)
+  assert.match(talentPools, /talentPoolApi\.restoreBatch/)
+  assert.match(talentPools, /talentPoolApi\.permanentDeleteBatch/)
+})
+
 test('position members and candidate picker query only their requested server page', () => {
   assert.match(app, /positionApi\.candidates\(id, \{[\s\S]*page: positionCandidatePage,[\s\S]*page_size: positionCandidatePageSize/)
   assert.match(positionDetail, /pagination: Pagination/)

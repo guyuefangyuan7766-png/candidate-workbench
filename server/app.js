@@ -961,9 +961,22 @@ export function createApp(options = {}) {
     res.json(archiveCandidates(db, req.body?.candidate_ids))
   })
 
-  app.get('/api/candidates/:id/avatar', (req, res) => {
+  app.get('/api/candidates/:id/avatar', (req, res, next) => {
     const candidate = getCandidate(db, req.params.id, { includeRelated: false })
     if (!candidate) throw httpError(404, '候选人不存在', undefined, 'not_found')
+    const localAvatar = attachments.resolveCandidateAvatar(candidate.id, candidate.photo_url)
+    if (localAvatar) {
+      res.setHeader('Cache-Control', 'private, max-age=300')
+      res.setHeader('Content-Type', localAvatar.mime_type)
+      res.setHeader('Content-Length', String(localAvatar.file_size))
+      res.setHeader('Content-Disposition', 'inline')
+      res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox")
+      res.setHeader('X-Content-Type-Options', 'nosniff')
+      res.setHeader('X-Robots-Tag', 'noindex, nofollow')
+      return res.sendFile(localAvatar.path, { dotfiles: 'deny' }, (error) => {
+        if (error) next(error)
+      })
+    }
     const photoUrl = normalizePhotoUrl(candidate.photo_url)
     if (!photoUrl) throw httpError(404, '候选人没有可用证件照', undefined, 'avatar_not_found')
 
@@ -1096,6 +1109,17 @@ export function createApp(options = {}) {
     res.json(attachmentBatches.getItem(req.params.id, req.params.itemId, attachmentBatchOptions(req)))
   })
 
+  app.post('/api/attachment-batches/:id/items/:itemId/candidates', asyncRoute(async (req, res) => {
+    privateNoStore(res)
+    const candidate = await attachmentBatches.createCandidateForItem(
+      req.params.id,
+      req.params.itemId,
+      req.body ?? {},
+      attachmentBatchOptions(req)
+    )
+    res.status(201).json(candidate)
+  }))
+
   app.post('/api/attachment-batches/:id/items/:itemId/confirm', asyncRoute(async (req, res) => {
     privateNoStore(res)
     const result = await attachmentBatches.confirmItem(req.params.id, req.params.itemId, req.body ?? {}, {
@@ -1130,6 +1154,7 @@ export function createApp(options = {}) {
   })
 
   app.post('/api/attachments/previews', attachmentUpload.single('file'), asyncRoute(async (req, res) => {
+    privateNoStore(res)
     if (!req.file) throw httpError(400, '请使用 multipart/form-data 的 file 字段上传文件', undefined, 'file_required')
     const preview = await attachments.createPreview({
       file: req.file,
@@ -1141,14 +1166,24 @@ export function createApp(options = {}) {
   }))
 
   app.get('/api/attachments/previews/:id', (req, res) => {
+    privateNoStore(res)
+    attachments.assertPreviewAccess(req.params.id, req.get('X-Attachment-Preview-Token'))
     res.json(attachments.getPreview(req.params.id))
   })
 
   app.delete('/api/attachments/previews/:id', (req, res) => {
+    privateNoStore(res)
+    attachments.assertPreviewAccess(req.params.id, req.get('X-Attachment-Preview-Token'))
     res.json(attachments.cancelPreview(req.params.id))
   })
 
+  app.post('/api/attachments/previews/:id/candidates', asyncRoute(async (req, res) => {
+    privateNoStore(res)
+    res.status(201).json(await attachments.createCandidateFromPreview(req.params.id, req.body ?? {}))
+  }))
+
   app.post('/api/attachments/previews/:id/confirm', (req, res) => {
+    privateNoStore(res)
     res.status(201).json(attachments.confirmPreview(req.params.id, req.body))
   })
 

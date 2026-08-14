@@ -1025,6 +1025,11 @@ function normalizePositionList(payload: ListResponse<Position>): ListResponse<Po
   return { ...payload, items, data: items };
 }
 
+export type CandidateCreatePayload = Omit<CandidateDraft, "preferences" | "stage" | "expected_salary"> & {
+  source_system?: string;
+  source_record_id?: string;
+};
+
 export const candidateApi = {
   async list(filters: CandidateFilters = {}, signal?: AbortSignal) {
     const payload = await request<ListResponse<Candidate>>(
@@ -1049,7 +1054,7 @@ export const candidateApi = {
     } as CandidateDetail;
   },
 
-  async create(candidate: Omit<CandidateDraft, "preferences" | "stage" | "expected_salary"> & { source_system?: string; source_record_id?: string }) {
+  async create(candidate: CandidateCreatePayload) {
     return normalizeCandidate(await request<Candidate>("/api/candidates", {
       method: "POST",
       body: JSON.stringify(candidate),
@@ -1628,22 +1633,45 @@ export const attachmentApi = {
     );
   },
 
-  getPreview(previewId: string, signal?: AbortSignal) {
+  getPreview(previewId: string, previewToken: string, signal?: AbortSignal) {
     return attachmentRequest<AttachmentPreview>(
       `/api/attachments/previews/${encodeURIComponent(previewId)}`,
-      { signal },
+      { signal, headers: { "X-Attachment-Preview-Token": previewToken } },
       ATTACHMENT_STATUS_TIMEOUT_MS,
       "附件解析状态获取超时，稍后可继续获取。",
     );
   },
 
-  deletePreview(previewId: string) {
+  deletePreview(previewId: string, previewToken: string) {
     return attachmentRequest<void>(
       `/api/attachments/previews/${encodeURIComponent(previewId)}`,
-      { method: "DELETE" },
+      { method: "DELETE", headers: { "X-Attachment-Preview-Token": previewToken } },
       ATTACHMENT_MUTATION_TIMEOUT_MS,
       "临时附件清理超时，请稍后重试。",
     );
+  },
+
+  async createCandidate(
+    previewId: string,
+    previewToken: string,
+    recordId: string,
+    candidate: CandidateCreatePayload,
+    includeAvatar = true,
+  ) {
+    return normalizeCandidate(await attachmentRequest<Candidate>(
+      `/api/attachments/previews/${encodeURIComponent(previewId)}/candidates`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          preview_token: previewToken,
+          record_id: recordId,
+          candidate,
+          include_avatar: includeAvatar,
+        }),
+      },
+      ATTACHMENT_MUTATION_TIMEOUT_MS,
+      "候选人创建请求超时；重新提交会复用同一附件记录，不会重复创建。",
+    ));
   },
 
   confirmPreview(previewId: string, previewToken: string, records: AttachmentConfirmRecord[]) {
@@ -1720,6 +1748,30 @@ export const attachmentBatchApi = {
       ATTACHMENT_STATUS_TIMEOUT_MS,
       "批次状态暂时不可用，后台处理仍会继续。",
     );
+  },
+
+  async createCandidate(
+    batchId: string,
+    itemId: string,
+    batchToken: string,
+    recordId: string,
+    candidate: CandidateCreatePayload,
+    includeAvatar = true,
+  ) {
+    return normalizeCandidate(await attachmentRequest<Candidate>(
+      `/api/attachment-batches/${encodeURIComponent(batchId)}/items/${encodeURIComponent(itemId)}/candidates`,
+      {
+        method: "POST",
+        headers: attachmentBatchHeaders(batchToken),
+        body: JSON.stringify({
+          record_id: recordId,
+          candidate,
+          include_avatar: includeAvatar,
+        }),
+      },
+      ATTACHMENT_MUTATION_TIMEOUT_MS,
+      "候选人创建请求超时；重新提交会复用同一附件记录，不会重复创建。",
+    ));
   },
 
   confirm(

@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { once } from 'node:events'
-import { gunzipSync } from 'node:zlib'
+import { crc32, deflateSync, gunzipSync } from 'node:zlib'
 import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   rmSync,
   writeFileSync
 } from 'node:fs'
@@ -132,6 +133,90 @@ async function docxFile(text = 'Anonymous DOCX resume with local parser evidence
   }
 }
 
+function pngChunk(type, data = Buffer.alloc(0)) {
+  const typeBuffer = Buffer.from(type, 'ascii')
+  const output = Buffer.alloc(12 + data.length)
+  output.writeUInt32BE(data.length, 0)
+  typeBuffer.copy(output, 4)
+  data.copy(output, 8)
+  output.writeUInt32BE(crc32(Buffer.concat([typeBuffer, data])) >>> 0, 8 + data.length)
+  return output
+}
+
+function attachmentAvatarPng(width = 160, height = 200, privateMarker = '') {
+  const header = Buffer.alloc(13)
+  header.writeUInt32BE(width, 0)
+  header.writeUInt32BE(height, 4)
+  header[8] = 8
+  header[9] = 6
+  const rowLength = 1 + width * 4
+  const pixels = Buffer.alloc(rowLength * height)
+  for (let row = 0; row < height; row += 1) {
+    const start = row * rowLength
+    for (let column = 0; column < width; column += 1) {
+      const offset = start + 1 + column * 4
+      pixels[offset] = 92
+      pixels[offset + 1] = 68
+      pixels[offset + 2] = 132
+      pixels[offset + 3] = 255
+    }
+  }
+  const metadata = privateMarker
+    ? [pngChunk('tEXt', Buffer.from(`Comment\0${privateMarker}`, 'utf8'))]
+    : []
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    pngChunk('IHDR', header),
+    ...metadata,
+    pngChunk('IDAT', deflateSync(pixels)),
+    pngChunk('IEND')
+  ])
+}
+
+async function docxFileWithAvatar(text, imageBuffer) {
+  const archive = new JSZip()
+  archive.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8"?>
+    <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+      <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+      <Default Extension="xml" ContentType="application/xml"/>
+      <Default Extension="png" ContentType="image/png"/>
+      <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+    </Types>`)
+  archive.file('_rels/.rels', `<?xml version="1.0" encoding="UTF-8"?>
+    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+      <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+    </Relationships>`)
+  archive.file('word/_rels/document.xml.rels', `<?xml version="1.0" encoding="UTF-8"?>
+    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+      <Relationship Id="rIdAvatar" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/avatar.png"/>
+    </Relationships>`)
+  archive.file('word/document.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <w:document
+      xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+      xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+      xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+      xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+      xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
+      <w:body>
+        <w:p><w:r><w:t>${xmlText(text)}</w:t></w:r></w:p>
+        <w:p><w:r><w:drawing><wp:inline>
+          <wp:extent cx="1200000" cy="1500000"/>
+          <wp:docPr id="1" name="Candidate avatar" descr="候选人证件照"/>
+          <a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
+            <pic:pic><pic:nvPicPr/><pic:blipFill><a:blip r:embed="rIdAvatar"/></pic:blipFill><pic:spPr/></pic:pic>
+          </a:graphicData></a:graphic>
+        </wp:inline></w:drawing></w:r></w:p>
+        <w:sectPr/>
+      </w:body>
+    </w:document>`)
+  archive.file('word/media/avatar.png', imageBuffer)
+  return {
+    originalname: 'anonymous-avatar-resume.docx',
+    mimetype: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    buffer: await archive.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' })
+  }
+}
+
 function pdfLiteral(value) {
   return String(value).replaceAll('\\', '\\\\').replaceAll('(', '\\(').replaceAll(')', '\\)')
 }
@@ -168,6 +253,73 @@ function pdfFile(text = 'Anonymous PDF resume with local parser evidence', { enc
     originalname: 'anonymous-resume.pdf',
     mimetype: 'application/pdf',
     buffer: Buffer.from(pdf, 'ascii')
+  }
+}
+
+function pdfFileWithAvatar(text = 'Name: PDF avatar candidate\nEmail: pdf.avatar@example.test') {
+  const width = 160
+  const height = 200
+  const pixels = Buffer.alloc(width * height * 3)
+  for (let offset = 0; offset < pixels.length; offset += 3) {
+    pixels[offset] = 92
+    pixels[offset + 1] = 68
+    pixels[offset + 2] = 132
+  }
+  const compressed = deflateSync(pixels)
+  const textCommands = String(text).split(/\r?\n/).map((line, index) => (
+    `${index ? '0 -18 Td\n' : ''}(${pdfLiteral(line)}) Tj`
+  )).join('\n')
+  const content = Buffer.from([
+    'BT',
+    '/F1 12 Tf',
+    '72 740 Td',
+    textCommands,
+    'ET',
+    'q',
+    `${width} 0 0 ${height} 72 500 cm`,
+    '/Im1 Do',
+    'Q'
+  ].join('\n'), 'ascii')
+  const objects = [
+    Buffer.from('<< /Type /Catalog /Pages 2 0 R >>', 'ascii'),
+    Buffer.from('<< /Type /Pages /Kids [3 0 R] /Count 1 >>', 'ascii'),
+    Buffer.from('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 6 0 R >> /XObject << /Im1 4 0 R >> >> /Contents 5 0 R >>', 'ascii'),
+    Buffer.concat([
+      Buffer.from(`<< /Type /XObject /Subtype /Image /Width ${width} /Height ${height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /Length ${compressed.length} >>\nstream\n`, 'ascii'),
+      compressed,
+      Buffer.from('\nendstream', 'ascii')
+    ]),
+    Buffer.concat([
+      Buffer.from(`<< /Length ${content.length} >>\nstream\n`, 'ascii'),
+      content,
+      Buffer.from('\nendstream', 'ascii')
+    ]),
+    Buffer.from('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>', 'ascii')
+  ]
+  const chunks = [Buffer.from('%PDF-1.4\n%\xe2\xe3\xcf\xd3\n', 'binary')]
+  const offsets = [0]
+  let byteLength = chunks[0].length
+  objects.forEach((body, index) => {
+    offsets.push(byteLength)
+    const object = Buffer.concat([
+      Buffer.from(`${index + 1} 0 obj\n`, 'ascii'),
+      body,
+      Buffer.from('\nendobj\n', 'ascii')
+    ])
+    chunks.push(object)
+    byteLength += object.length
+  })
+  const xrefOffset = byteLength
+  let xref = `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`
+  for (let index = 1; index <= objects.length; index += 1) {
+    xref += `${String(offsets[index]).padStart(10, '0')} 00000 n \n`
+  }
+  xref += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`
+  chunks.push(Buffer.from(xref, 'ascii'))
+  return {
+    originalname: 'anonymous-avatar-resume.pdf',
+    mimetype: 'application/pdf',
+    buffer: Buffer.concat(chunks)
   }
 }
 
@@ -595,13 +747,258 @@ test('HTTP preview creation returns 202 before a slow parser completes and GET e
 
     finishParsing()
     await app.locals.attachments.waitForPreview(pending.preview_id)
-    const completedResponse = await fetch(`${url}/api/attachments/previews/${pending.preview_id}`)
+    const unauthorizedResponse = await fetch(`${url}/api/attachments/previews/${pending.preview_id}`)
+    assert.equal(unauthorizedResponse.status, 403)
+    const completedResponse = await fetch(`${url}/api/attachments/previews/${pending.preview_id}`, {
+      headers: { 'X-Attachment-Preview-Token': pending.preview_token }
+    })
     assert.equal(completedResponse.status, 200)
+    assert.equal(completedResponse.headers.get('cache-control'), 'private, no-store')
     const completed = await completedResponse.json()
     assert.equal(completed.status, 'ready')
     assert.equal(completed.records.length, 1)
   } finally {
     finishParsing()
+    server.close()
+    await once(server, 'close')
+    await app.closeDatabase()
+  }
+})
+
+test('HTTP candidate creation stores a sanitized DOCX avatar and serves it only through the avatar endpoint', async () => {
+  const privateMarker = 'PRIVATE_AVATAR_METADATA_MUST_BE_STRIPPED'
+  const sourceImage = attachmentAvatarPng(160, 200, privateMarker)
+  const file = await docxFileWithAvatar([
+    'Name: Avatar attachment candidate',
+    'Email: avatar.attachment@example.test',
+    'Current company: Attachment Studio'
+  ].join('\n'), sourceImage)
+  const app = createApp({
+    databasePath: ':memory:',
+    attachmentSuggestionProvider: null
+  })
+  const server = app.listen(0, '127.0.0.1')
+  await once(server, 'listening')
+  const address = server.address()
+  const url = `http://127.0.0.1:${address.port}`
+
+  try {
+    const pending = app.locals.attachments.createPreview({ file })
+    const preview = await app.locals.attachments.waitForPreview(pending.preview_id)
+    const record = preview.records[0]
+    assert.equal(record.match.status, 'not_found')
+    assert.deepEqual(record.avatar, {
+      status: 'ready',
+      available: true,
+      source: 'docx_embedded_image',
+      confidence: 'high',
+      candidate_count: 1,
+      content_type: 'image/png',
+      width: 160,
+      height: 200,
+      requires_transcoding: true
+    })
+    const publicPreview = JSON.stringify(preview)
+    assert.equal(publicPreview.includes(privateMarker), false)
+    assert.equal(publicPreview.includes(sourceImage.toString('base64')), false)
+
+    const createInput = {
+      preview_token: preview.preview_token,
+      record_id: record.record_id,
+      candidate: {
+        name: 'Avatar attachment candidate',
+        email: 'avatar.attachment@example.test',
+        current_company: 'Attachment Studio'
+      }
+    }
+    const createdResponse = await fetch(`${url}/api/attachments/previews/${preview.preview_id}/candidates`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(createInput)
+    })
+    assert.equal(createdResponse.status, 201)
+    assert.match(createdResponse.headers.get('cache-control'), /no-store/)
+    const created = await createdResponse.json()
+    assert.equal(created.has_photo, true)
+    assert.equal(JSON.stringify(created).includes(privateMarker), false)
+
+    const replayResponse = await fetch(`${url}/api/attachments/previews/${preview.preview_id}/candidates`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(createInput)
+    })
+    assert.equal(replayResponse.status, 201)
+    assert.equal((await replayResponse.json()).id, created.id)
+
+    const storedCandidate = app.locals.db.prepare(`
+      SELECT photo_url FROM candidates WHERE id = ?
+    `).get(created.id)
+    assert.match(storedCandidate.photo_url, /^attachment-avatar:/)
+    const avatar = app.locals.db.prepare(`
+      SELECT * FROM candidate_attachments
+      WHERE candidate_id = ? AND attachment_type = 'avatar'
+    `).get(created.id)
+    assert.ok(avatar)
+    assert.equal(avatar.mime_type, 'image/png')
+    assert.equal(existsSync(avatar.storage_path), true)
+    assert.equal(app.locals.db.prepare(`
+      SELECT COUNT(*) AS count FROM candidate_attachments
+      WHERE candidate_id = ? AND attachment_type = 'avatar'
+    `).get(created.id).count, 1)
+
+    const detailResponse = await fetch(`${url}/api/candidates/${created.id}`)
+    assert.equal(detailResponse.status, 200)
+    const detail = await detailResponse.json()
+    assert.equal(detail.has_photo, true)
+    assert.equal(Object.hasOwn(detail, 'photo_url'), false)
+
+    const avatarResponse = await fetch(`${url}/api/candidates/${created.id}/avatar`)
+    assert.equal(avatarResponse.status, 200)
+    assert.equal(avatarResponse.headers.get('content-type'), 'image/png')
+    assert.equal(avatarResponse.headers.get('content-disposition'), 'inline')
+    assert.equal(avatarResponse.headers.get('x-content-type-options'), 'nosniff')
+    assert.equal(avatarResponse.headers.get('content-security-policy'), "default-src 'none'; sandbox")
+    assert.match(avatarResponse.headers.get('cache-control'), /private/)
+    const storedImage = Buffer.from(await avatarResponse.arrayBuffer())
+    assert.equal(storedImage.length, avatar.file_size)
+    assert.equal(storedImage.includes(Buffer.from(privateMarker)), false)
+    assert.equal(storedImage.equals(sourceImage), false)
+
+    const attachmentListResponse = await fetch(`${url}/api/candidates/${created.id}/attachments`)
+    assert.equal(attachmentListResponse.status, 200)
+    const attachmentList = await attachmentListResponse.json()
+    assert.deepEqual(attachmentList.items, [])
+
+    const genericAttachmentResponse = await fetch(`${url}/api/attachments/${avatar.id}/text`)
+    assert.equal(genericAttachmentResponse.status, 404)
+  } finally {
+    server.close()
+    await once(server, 'close')
+    await app.closeDatabase()
+  }
+})
+
+test('HTTP PDF upload creates a candidate with its first-page embedded portrait', async () => {
+  const file = pdfFileWithAvatar()
+  const app = createApp({
+    databasePath: ':memory:',
+    attachmentSuggestionProvider: null
+  })
+  const server = app.listen(0, '127.0.0.1')
+  await once(server, 'listening')
+  const address = server.address()
+  const url = `http://127.0.0.1:${address.port}`
+
+  try {
+    const form = new FormData()
+    form.append('file', new Blob([file.buffer], { type: file.mimetype }), file.originalname)
+    const uploadResponse = await fetch(`${url}/api/attachments/previews`, {
+      method: 'POST',
+      body: form
+    })
+    assert.equal(uploadResponse.status, 202)
+    const pending = await uploadResponse.json()
+    const preview = await app.locals.attachments.waitForPreview(pending.preview_id)
+    const record = preview.records[0]
+    assert.equal(record.match.status, 'not_found')
+    assert.deepEqual(record.avatar, {
+      status: 'ready',
+      available: true,
+      source: 'pdf_embedded_image',
+      confidence: 'medium',
+      candidate_count: 1,
+      content_type: 'image/png',
+      width: 160,
+      height: 200,
+      requires_transcoding: true
+    })
+
+    const createResponse = await fetch(`${url}/api/attachments/previews/${preview.preview_id}/candidates`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        preview_token: pending.preview_token,
+        record_id: record.record_id,
+        candidate: {
+          name: 'PDF avatar candidate',
+          email: 'pdf.avatar@example.test'
+        }
+      })
+    })
+    assert.equal(createResponse.status, 201)
+    const created = await createResponse.json()
+    assert.equal(created.has_photo, true)
+    assert.equal(Object.hasOwn(created, 'photo_url'), false)
+
+    const avatarResponse = await fetch(`${url}/api/candidates/${created.id}/avatar`)
+    assert.equal(avatarResponse.status, 200)
+    assert.equal(avatarResponse.headers.get('content-type'), 'image/png')
+    const storedImage = Buffer.from(await avatarResponse.arrayBuffer())
+    assert.equal(storedImage.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])), true)
+    assert.equal(app.locals.db.prepare(`
+      SELECT COUNT(*) AS count FROM candidate_attachments
+      WHERE candidate_id = ? AND attachment_type = 'avatar'
+    `).get(created.id).count, 1)
+  } finally {
+    server.close()
+    await once(server, 'close')
+    await app.closeDatabase()
+  }
+})
+
+test('HTTP candidate creation never returns an explicit signed avatar URL', async () => {
+  const secretUrl = 'https://images.example.test/avatar.png?signature=http-response-secret'
+  const app = createApp({
+    databasePath: ':memory:',
+    attachmentSuggestionProvider: null
+  })
+  const server = app.listen(0, '127.0.0.1')
+  await once(server, 'listening')
+  const address = server.address()
+  const url = `http://127.0.0.1:${address.port}`
+
+  try {
+    const pending = app.locals.attachments.createPreview({
+      file: csvFile([{
+        name: 'Remote avatar response candidate',
+        email: 'remote.avatar.response@example.test',
+        photo_url: secretUrl
+      }], {
+        filename: 'remote-avatar-response.csv',
+        headers: ['name', 'email', 'photo_url']
+      })
+    })
+    const preview = await app.locals.attachments.waitForPreview(pending.preview_id)
+    const input = {
+      preview_token: preview.preview_token,
+      record_id: preview.records[0].record_id,
+      candidate: {
+        name: 'Remote avatar response candidate',
+        email: 'remote.avatar.response@example.test'
+      }
+    }
+
+    let candidateId
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const response = await fetch(`${url}/api/attachments/previews/${preview.preview_id}/candidates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input)
+      })
+      assert.equal(response.status, 201)
+      assert.match(response.headers.get('cache-control'), /no-store/)
+      const candidate = await response.json()
+      candidateId ??= candidate.id
+      assert.equal(candidate.id, candidateId)
+      assert.equal(candidate.has_photo, true)
+      assert.equal(Object.hasOwn(candidate, 'photo_url'), false)
+      assert.equal(JSON.stringify(candidate).includes('http-response-secret'), false)
+    }
+
+    assert.equal(app.locals.db.prepare(`
+      SELECT photo_url FROM candidates WHERE id = ?
+    `).get(candidateId).photo_url, secretUrl)
+  } finally {
     server.close()
     await once(server, 'close')
     await app.closeDatabase()
@@ -620,7 +1017,7 @@ test('default attachment Worker honors AbortSignal while parsing', async () => {
   })
 })
 
-test('local parser extracts anonymous PDF, DOCX, XLSM, BIFF8 XLS, and UTF-8 CSV fixtures', async () => {
+test('local parser extracts anonymous PDF, DOCX, XLSM, BIFF8 XLS, UTF-8 CSV, and TXT fixtures', async () => {
   const pdf = await parseFixture(pdfFile())
   assert.equal(pdf.validated.format, 'pdf')
   assert.match(pdf.parsed.text, /Anonymous PDF resume with local parser evidence/)
@@ -663,6 +1060,15 @@ test('local parser extracts anonymous PDF, DOCX, XLSM, BIFF8 XLS, and UTF-8 CSV 
   assert.equal(csv.parsed.metadata.row_count, 1)
   assert.equal(csv.parsed.records[0].values.location, '上海')
   assert.match(csv.parsed.text, /UTF-8 resume evidence/)
+
+  const txt = await parseFixture({
+    originalname: 'anonymous-resume.txt',
+    mimetype: 'text/plain',
+    buffer: Buffer.from('姓名：匿名候选人\n手机：未提取\n邮箱：anonymous.txt@example.test', 'utf8')
+  })
+  assert.equal(txt.validated.format, 'txt')
+  assert.equal(txt.parsed.records.length, 1)
+  assert.match(txt.parsed.text, /anonymous\.txt@example\.test/)
 })
 
 test('attachment validation and workers safely reject spoofed, damaged, textless, encrypted, and oversized files', async () => {
@@ -732,6 +1138,14 @@ test('attachment validation and workers safely reject spoofed, damaged, textless
   }))
   assert.equal(invalidUtf8.status, 422)
   assert.equal(invalidUtf8.code, 'invalid_csv_encoding')
+
+  const invalidTxt = captureError(() => validateAttachmentFile({
+    originalname: 'invalid-utf8.txt',
+    mimetype: 'text/plain',
+    buffer: Buffer.from([0xff, 0xfe, 0xfd])
+  }))
+  assert.equal(invalidTxt.status, 422)
+  assert.equal(invalidTxt.code, 'invalid_text_encoding')
 
   const oversized = captureError(() => validateAttachmentFile({
     originalname: 'oversized.csv',
@@ -851,6 +1265,39 @@ test('attachment identity ignores display placeholders before validation, dedupl
   assert.equal(ambiguousEmail.status, 'multiple_matches')
 })
 
+test('attachment identity drops placeholders even when scalar phone/email fields carry "未提取" or null', () => {
+  const { db } = createAnonymousFixture()
+  addCandidate(db, 'scalar-phone', { phone: normalizePhone('13800000061'), email: 'scalar@example.test' })
+
+  // scalar phone/email field carries a placeholder string while candidates list is empty
+  const scalar = matchCandidateIdentity(db, {
+    phone: '未提取',
+    email: '未提取',
+    phone_candidates: ['138 0000 0061'],
+    email_candidates: ['Scalar@Example.Test']
+  })
+  assert.equal(scalar.status, 'high_confidence')
+  assert.equal(scalar.candidate_id, 'scalar-phone')
+
+  // explicit nulls / undefined / empty scalars stay missing
+  const nullish = matchCandidateIdentity(db, {
+    phone: null,
+    email: undefined,
+    phone_candidates: [null, ''],
+    email_candidates: [null, '  ']
+  })
+  assert.equal(nullish.status, 'not_found')
+  assert.match(nullish.reason, /未提取到可用手机号或邮箱/)
+
+  // placeholder mixed with whitespace inside candidates arrays
+  const mixedPhone = matchCandidateIdentity(db, {
+    phone_candidates: ['未提取', '138 0000 0061', '  未提取  '],
+    email_candidates: ['scalar@example.test']
+  })
+  assert.equal(mixedPhone.status, 'high_confidence')
+  assert.equal(mixedPhone.candidate_id, 'scalar-phone')
+})
+
 test('text resume identity ignores employment dates while retaining domestic and international phones', async () => {
   const parser = async (file) => {
     const text = file.buffer.toString('utf8')
@@ -895,6 +1342,157 @@ test('text resume identity ignores employment dates while retaining domestic and
   })
   assert.equal(datesOnly.records[0].match.status, 'not_found')
   assert.deepEqual(datesOnly.records[0].identity, { phone: '', email: '' })
+})
+
+test('text resume identity treats placeholder labels as missing and rejects numeric resume noise', async () => {
+  const parser = async (file) => {
+    const text = file.buffer.toString('utf8')
+    return {
+      text,
+      records: [{ row_number: 1, values: { raw_text: text } }],
+      metadata: {}
+    }
+  }
+  const { db, service } = createAnonymousFixture({ parser })
+  addCandidate(db, 'placeholder-email-match', { email: 'placeholder.match@example.test' })
+  addCandidate(db, 'scalar-phone', { phone: normalizePhone('13800000061'), email: 'scalar@example.test' })
+
+  const labeledPlaceholder = await createReadyPreview(service, {
+    file: {
+      originalname: 'placeholder-label.txt',
+      mimetype: 'text/plain',
+      buffer: Buffer.from([
+        '姓名：匿名候选人',
+        '手机：未提取',
+        '邮箱：placeholder.match@example.test',
+        '项目经历：2021.09-2022.08，UE 4.26，版本 4.23，序号 123456789'
+      ].join('\n'), 'utf8')
+    }
+  })
+  assert.equal(labeledPlaceholder.records[0].match.status, 'single_identity')
+  assert.equal(labeledPlaceholder.records[0].match.candidate_id, 'placeholder-email-match')
+  assert.equal(Object.hasOwn(labeledPlaceholder.records[0], 'identity_candidates'), false)
+  assert.deepEqual(labeledPlaceholder.records[0].identity, {
+    phone: '',
+    email: 'placeholder.match@example.test'
+  })
+
+  const spacedLabels = await createReadyPreview(service, {
+    file: {
+      originalname: 'spaced-placeholder-label.txt',
+      mimetype: 'text/plain',
+      buffer: Buffer.from([
+        '姓名：匿名候选人',
+        '手 机：未提取',
+        '邮\n箱：placeholder.match@example.test',
+        '项目经历：2021.09-2022.08，版本 4.26，序号 123456789'
+      ].join('\n'), 'utf8')
+    }
+  })
+  assert.equal(spacedLabels.records[0].match.status, 'single_identity')
+  assert.equal(spacedLabels.records[0].match.candidate_id, 'placeholder-email-match')
+  assert.deepEqual(spacedLabels.records[0].identity, {
+    phone: '',
+    email: 'placeholder.match@example.test'
+  })
+
+  const pdfInlineLabels = await createReadyPreview(service, {
+    file: {
+      originalname: 'pdf-inline-labels.txt',
+      mimetype: 'text/plain',
+      buffer: Buffer.from([
+        '姓名：匿名候选人 性 别：男 移动电话：13800000061',
+        '专 业：软件工程 电 子 邮 箱：scalar@example.test',
+        '项目经历：https://example.test/article/13900000061'
+      ].join('\n'), 'utf8')
+    }
+  })
+  assert.equal(pdfInlineLabels.records[0].match.status, 'high_confidence')
+  assert.equal(pdfInlineLabels.records[0].match.candidate_id, 'scalar-phone')
+  assert.deepEqual(pdfInlineLabels.records[0].identity, {
+    phone: '+8613800000061',
+    email: 'scalar@example.test'
+  })
+
+  const bodyEmailNoise = await createReadyPreview(service, {
+    file: {
+      originalname: 'body-email-noise.txt',
+      mimetype: 'text/plain',
+      buffer: Buffer.from([
+        '姓名：匿名候选人',
+        '手机：未提取',
+        '邮箱：placeholder.match@example.test',
+        '项目经历：联系项目邮箱 project.contact@example.test，版本 4.26，序号 123456789'
+      ].join('\n'), 'utf8')
+    }
+  })
+  assert.equal(bodyEmailNoise.records[0].match.status, 'single_identity')
+  assert.equal(bodyEmailNoise.records[0].match.candidate_id, 'placeholder-email-match')
+  assert.deepEqual(bodyEmailNoise.records[0].identity, {
+    phone: '',
+    email: 'placeholder.match@example.test'
+  })
+
+  const ordinaryEmailPhrase = await createReadyPreview(service, {
+    file: {
+      originalname: 'ordinary-email-phrase.txt',
+      mimetype: 'text/plain',
+      buffer: Buffer.from([
+        '姓名：匿名候选人',
+        '手机：未提取',
+        '邮箱：placeholder.match@example.test',
+        '项目邮箱：project.contact@example.test，版本 4.26'
+      ].join('\n'), 'utf8')
+    }
+  })
+  assert.equal(ordinaryEmailPhrase.records[0].match.status, 'single_identity')
+  assert.equal(ordinaryEmailPhrase.records[0].match.candidate_id, 'placeholder-email-match')
+
+  const singleLineBodyEmail = await createReadyPreview(service, {
+    file: {
+      originalname: 'single-line-body-email.txt',
+      mimetype: 'text/plain',
+      buffer: Buffer.from('姓名：匿名候选人 手机：未提取 邮箱：placeholder.match@example.test 项目邮箱：project.contact@example.test 版本：4.26', 'utf8')
+    }
+  })
+  assert.equal(singleLineBodyEmail.records[0].match.status, 'single_identity')
+  assert.equal(singleLineBodyEmail.records[0].match.candidate_id, 'placeholder-email-match')
+
+  const unlabeledNoise = await createReadyPreview(service, {
+    file: {
+      originalname: 'unlabeled-noise.txt',
+      mimetype: 'text/plain',
+      buffer: Buffer.from([
+        'Anonymous resume placeholder.match@example.test',
+        'Project 2021.09-2022.08; engine 4.26; build 123456789; sequence 1234-5678-9012'
+      ].join('\n'), 'utf8')
+    }
+  })
+  assert.equal(unlabeledNoise.records[0].match.status, 'single_identity')
+  assert.equal(unlabeledNoise.records[0].match.candidate_id, 'placeholder-email-match')
+  assert.deepEqual(unlabeledNoise.records[0].identity, {
+    phone: '',
+    email: 'placeholder.match@example.test'
+  })
+
+  const allMissing = await createReadyPreview(service, {
+    file: {
+      originalname: 'all-placeholder.txt',
+      mimetype: 'text/plain',
+      buffer: Buffer.from('姓名：匿名候选人\n手机：未提取\n邮箱：未提取', 'utf8')
+    }
+  })
+  assert.equal(allMissing.records[0].match.status, 'not_found')
+  assert.deepEqual(allMissing.records[0].identity, { phone: '', email: '' })
+
+  const realAmbiguity = await createReadyPreview(service, {
+    file: {
+      originalname: 'two-real-phones.txt',
+      mimetype: 'text/plain',
+      buffer: Buffer.from('姓名：匿名候选人\n手机：13800000061、13900000061', 'utf8')
+    }
+  })
+  assert.equal(realAmbiguity.records[0].match.status, 'multiple_matches')
 })
 
 test('text resume fields and sections use shared boundaries and preserve source order', async () => {
@@ -1203,6 +1801,483 @@ test('unmatched records can be confirmed against a manually selected or newly cr
   assert.equal(db.prepare(`
     SELECT COUNT(*) AS count FROM candidate_attachments WHERE candidate_id IN (?, ?)
   `).get(existing.id, created.id).count, 2)
+})
+
+test('an unmatched preview creates one candidate idempotently and can then attach the resume', async () => {
+  const { db, service } = createAnonymousFixture({ suggestionProvider: null })
+  const preview = await createReadyPreview(service, {
+    file: csvFile([{
+      name: 'Created from unmatched attachment',
+      phone: '13800000771',
+      email: 'created.unmatched@example.test',
+      current_company: 'Attachment Studio',
+      self_summary: 'Created candidate resume evidence'
+    }], { filename: 'create-unmatched-candidate.csv' })
+  })
+  const record = preview.records[0]
+  assert.equal(record.match.status, 'not_found')
+  const input = {
+    preview_token: preview.preview_token,
+    record_id: record.record_id,
+    candidate: {
+      name: 'Created from unmatched attachment',
+      phone: '13800000771',
+      email: 'created.unmatched@example.test',
+      current_company: 'Attachment Studio'
+    }
+  }
+
+  const created = await service.createCandidateFromPreview(preview.preview_id, input)
+  assert.equal(created.name, input.candidate.name)
+  assert.equal(created.phone, '+8613800000771')
+  assert.equal(created.email, input.candidate.email)
+  assert.equal(created.source_system, 'attachment_preview')
+  assert.equal(created.source_record_id, `attachment-preview:${preview.preview_id}:${record.record_id}`)
+
+  const recovered = service.getPreview(preview.preview_id)
+  assert.equal(recovered.records[0].match.status, 'not_found')
+  assert.equal(recovered.records[0].match.resolution, 'created')
+  assert.equal(recovered.records[0].match.candidate_id, created.id)
+  assert.equal(recovered.records[0].match.candidate.id, created.id)
+  assert.equal(recovered.records[0].suggestions.every((suggestion) => suggestion.default_selected === false), true)
+
+  const replay = await service.createCandidateFromPreview(preview.preview_id, input)
+  assert.equal(replay.id, created.id)
+  assert.equal(db.prepare(`SELECT COUNT(*) AS count FROM candidates`).get().count, 1)
+  assert.equal(db.prepare(`
+    SELECT COUNT(*) AS count FROM activities
+    WHERE candidate_id = ? AND type = 'candidate_created_from_attachment'
+  `).get(created.id).count, 1)
+  assert.equal(db.prepare(`
+    SELECT parse_status FROM attachment_update_previews WHERE id = ?
+  `).get(preview.preview_id).parse_status, 'parsed')
+
+  const confirmed = service.confirmPreview(preview.preview_id, confirmationFor(recovered, created.id, {
+    expected_updated_at: created.updated_at
+  }))
+  assert.equal(confirmed.records[0].candidate_id, created.id)
+  assert.equal(db.prepare(`
+    SELECT COUNT(*) AS count FROM candidate_attachments
+    WHERE candidate_id = ? AND attachment_type = 'resume'
+  `).get(created.id).count, 1)
+})
+
+test('concurrent avatar candidate creation converges without duplicate rows or orphan files', async () => {
+  const { db, service, root } = createAnonymousFixture({ suggestionProvider: null })
+  const file = await docxFileWithAvatar([
+    'Name: Concurrent avatar candidate',
+    'Email: concurrent.avatar@example.test'
+  ].join('\n'), attachmentAvatarPng())
+  const preview = await createReadyPreview(service, { file })
+  const record = preview.records[0]
+  assert.equal(record.match.status, 'not_found')
+  assert.equal(record.avatar.available, true)
+  const input = {
+    preview_token: preview.preview_token,
+    record_id: record.record_id,
+    candidate: {
+      name: 'Concurrent avatar candidate',
+      email: 'concurrent.avatar@example.test'
+    }
+  }
+
+  const [first, second] = await Promise.all([
+    service.createCandidateFromPreview(preview.preview_id, input),
+    service.createCandidateFromPreview(preview.preview_id, input)
+  ])
+  assert.equal(second.id, first.id)
+  assert.equal(db.prepare(`SELECT COUNT(*) AS count FROM candidates`).get().count, 1)
+  assert.equal(db.prepare(`
+    SELECT COUNT(*) AS count FROM candidate_attachments
+    WHERE candidate_id = ? AND attachment_type = 'avatar'
+  `).get(first.id).count, 1)
+  assert.equal(db.prepare(`
+    SELECT COUNT(*) AS count FROM activities
+    WHERE candidate_id = ? AND type = 'candidate_created_from_attachment'
+  `).get(first.id).count, 1)
+  assert.equal(readdirSync(join(root, 'files')).length, 1)
+})
+
+test('avatar candidate creation cleans the staged file when BEGIN IMMEDIATE fails', async () => {
+  const { db, service, root } = createAnonymousFixture({ suggestionProvider: null })
+  const file = await docxFileWithAvatar([
+    'Name: Begin failure avatar candidate',
+    'Email: begin.failure.avatar@example.test'
+  ].join('\n'), attachmentAvatarPng())
+  const preview = await createReadyPreview(service, { file })
+  const record = preview.records[0]
+  assert.equal(record.match.status, 'not_found')
+  assert.equal(record.avatar.available, true)
+
+  const originalExec = db.exec
+  let beginFailed = false
+  db.exec = function injectedBeginFailure(sql) {
+    if (!beginFailed && String(sql).trim().toUpperCase() === 'BEGIN IMMEDIATE') {
+      beginFailed = true
+      assert.equal(readdirSync(join(root, 'files')).length, 1, 'avatar must be staged before BEGIN')
+      const error = new Error('injected BEGIN IMMEDIATE failure')
+      error.code = 'SQLITE_BUSY'
+      throw error
+    }
+    return originalExec.call(this, sql)
+  }
+
+  try {
+    await assert.rejects(
+      service.createCandidateFromPreview(preview.preview_id, {
+        preview_token: preview.preview_token,
+        record_id: record.record_id,
+        candidate: {
+          name: 'Begin failure avatar candidate',
+          email: 'begin.failure.avatar@example.test'
+        }
+      }),
+      (error) => error?.code === 'SQLITE_BUSY'
+    )
+  } finally {
+    db.exec = originalExec
+  }
+
+  assert.equal(beginFailed, true)
+  assert.equal(db.prepare(`SELECT COUNT(*) AS count FROM candidates`).get().count, 0)
+  assert.equal(db.prepare(`SELECT COUNT(*) AS count FROM candidate_attachments`).get().count, 0)
+  assert.equal(readdirSync(join(root, 'files')).length, 0)
+
+  const retried = await service.createCandidateFromPreview(preview.preview_id, {
+    preview_token: preview.preview_token,
+    record_id: record.record_id,
+    candidate: {
+      name: 'Begin failure avatar candidate',
+      email: 'begin.failure.avatar@example.test'
+    }
+  })
+  assert.equal(db.prepare(`
+    SELECT COUNT(*) AS count FROM candidate_attachments
+    WHERE candidate_id = ? AND attachment_type = 'avatar'
+  `).get(retried.id).count, 1)
+  assert.equal(readdirSync(join(root, 'files')).length, 1)
+})
+
+test('avatar candidate rollback queues durable cleanup when physical removal fails', async () => {
+  const { db, service, root } = createAnonymousFixture({ suggestionProvider: null })
+  const file = await docxFileWithAvatar([
+    'Name: Queued cleanup avatar candidate',
+    'Email: queued.cleanup.avatar@example.test'
+  ].join('\n'), attachmentAvatarPng())
+  const preview = await createReadyPreview(service, { file })
+  const record = preview.records[0]
+  assert.equal(record.avatar.available, true)
+
+  const originalExec = db.exec
+  let blockedAvatarPath = null
+  db.exec = function injectedBeginAndUnlinkFailure(sql) {
+    if (!blockedAvatarPath && String(sql).trim().toUpperCase() === 'BEGIN IMMEDIATE') {
+      const [stagedAvatar] = readdirSync(join(root, 'files'))
+      blockedAvatarPath = join(root, 'files', stagedAvatar)
+      rmSync(blockedAvatarPath, { force: true })
+      mkdirSync(blockedAvatarPath)
+      const error = new Error('injected BEGIN IMMEDIATE failure')
+      error.code = 'SQLITE_BUSY'
+      throw error
+    }
+    return originalExec.call(this, sql)
+  }
+
+  try {
+    await assert.rejects(
+      service.createCandidateFromPreview(preview.preview_id, {
+        preview_token: preview.preview_token,
+        record_id: record.record_id,
+        candidate: {
+          name: 'Queued cleanup avatar candidate',
+          email: 'queued.cleanup.avatar@example.test'
+        }
+      }),
+      (error) => error?.code === 'SQLITE_BUSY'
+    )
+  } finally {
+    db.exec = originalExec
+  }
+
+  assert.ok(blockedAvatarPath)
+  assert.equal(db.prepare(`SELECT COUNT(*) AS count FROM candidates`).get().count, 0)
+  const pending = db.prepare(`
+    SELECT * FROM attachment_cleanup_jobs
+    WHERE storage_path = ? AND completed_at IS NULL
+  `).get(blockedAvatarPath)
+  assert.ok(pending)
+  assert.equal(pending.reason, 'attachment_candidate_create_rollback')
+
+  rmSync(blockedAvatarPath, { recursive: true, force: true })
+  assert.deepEqual(service.processCleanupJobs(), { attempted: 1, completed: 1, failed: 0 })
+  assert.ok(db.prepare(`
+    SELECT completed_at FROM attachment_cleanup_jobs WHERE id = ?
+  `).get(pending.id).completed_at)
+})
+
+test('candidate creation is blocked when the preview identity starts matching later', async () => {
+  const { db, service } = createAnonymousFixture({ suggestionProvider: null })
+  const preview = await createReadyPreview(service, {
+    file: csvFile([{
+      name: 'Late identity match',
+      email: 'late.identity@example.test'
+    }], { filename: 'late-identity-match.csv' })
+  })
+  const record = preview.records[0]
+  assert.equal(record.match.status, 'not_found')
+  const existing = addCandidate(db, 'late-identity-existing', {
+    name: 'Existing candidate added after preview',
+    email: 'late.identity@example.test'
+  })
+
+  await assert.rejects(
+    service.createCandidateFromPreview(preview.preview_id, {
+      preview_token: preview.preview_token,
+      record_id: record.record_id,
+      candidate: {
+        name: 'Must not be created',
+        email: 'late.identity@example.test'
+      }
+    }),
+    (error) => error?.status === 409 && error?.code === 'single_identity'
+  )
+  assert.equal(db.prepare(`SELECT COUNT(*) AS count FROM candidates`).get().count, 1)
+  assert.equal(db.prepare(`
+    SELECT COUNT(*) AS count FROM activities WHERE type = 'candidate_created_from_attachment'
+  `).get().count, 0)
+  assert.equal(db.prepare(`SELECT id FROM candidates`).get().id, existing.id)
+})
+
+test('candidate creation revalidates preview expiry after asynchronous avatar recovery', async () => {
+  let clockMs = Date.parse('2026-08-14T10:00:00.000Z')
+  let parserCalls = 0
+  let finishRecovery
+  const recoveryGate = new Promise((resolve) => { finishRecovery = resolve })
+  const rawText = [
+    'Name: Expiring avatar candidate',
+    'photo_url: https://images.example.test/avatar.png?signature=expiring-secret',
+    'Professional profile with enough text for attachment parsing'
+  ].join('\n')
+  const parser = async () => {
+    parserCalls += 1
+    if (parserCalls === 2) await recoveryGate
+    return {
+      text: rawText,
+      records: [{ row_number: 1, values: { raw_text: rawText } }],
+      metadata: {}
+    }
+  }
+  const { db, service } = createAnonymousFixture({
+    parser,
+    clock: () => clockMs,
+    previewTtlMs: 1_000,
+    suggestionProvider: null
+  })
+  const preview = await createReadyPreview(service, {
+    file: {
+      originalname: 'expiring-avatar.txt',
+      mimetype: 'text/plain',
+      buffer: Buffer.from(rawText, 'utf8')
+    }
+  })
+  assert.equal(preview.records[0].avatar.available, true)
+
+  const creating = service.createCandidateFromPreview(preview.preview_id, {
+    preview_token: preview.preview_token,
+    record_id: preview.records[0].record_id,
+    candidate: { name: 'Must not survive expiry' }
+  })
+  while (parserCalls < 2) await new Promise((resolve) => setImmediate(resolve))
+  clockMs += 2_000
+  finishRecovery()
+
+  await assert.rejects(creating, (error) => error?.code === 'attachment_preview_expired')
+  assert.equal(db.prepare(`SELECT COUNT(*) AS count FROM candidates`).get().count, 0)
+  assert.equal(db.prepare(`
+    SELECT parse_status FROM attachment_update_previews WHERE id = ?
+  `).get(preview.preview_id).parse_status, 'expired')
+})
+
+test('public previews and suggestion-model context never expose attachment avatar secrets', async () => {
+  let modelPayload = null
+  const { db, service } = createAnonymousFixture({
+    suggestionProvider: async (payload) => {
+      modelPayload = payload
+      return { records: [] }
+    }
+  })
+  const secretUrl = 'https://images.example.test/candidates/avatar.png?signature=private-avatar-value'
+  const preview = await createReadyPreview(service, {
+    file: csvFile([{
+      name: 'Avatar privacy candidate',
+      email: 'avatar.privacy@example.test',
+      photo_url: secretUrl,
+      portfolio: secretUrl
+    }], {
+      filename: 'avatar-privacy.csv',
+      headers: ['name', 'email', 'photo_url', 'portfolio']
+    })
+  })
+
+  assert.deepEqual(preview.records[0].avatar, {
+    status: 'ready',
+    available: true,
+    source: 'explicit_url',
+    confidence: 'high',
+    candidate_count: 1
+  })
+  for (const publicValue of [preview, service.getPreview(preview.preview_id), modelPayload]) {
+    const serialized = JSON.stringify(publicValue)
+    assert.equal(serialized.includes(secretUrl), false)
+    assert.equal(serialized.includes('private-avatar-value'), false)
+  }
+  assert.match(modelPayload.extracted_text, /photo_url: \[redacted\]/)
+  assert.match(modelPayload.extracted_text, /portfolio: \[redacted\]/)
+  assert.equal(JSON.stringify(preview.records[0]).includes('photo_url'), false)
+  const durablePreview = db.prepare(`
+    SELECT parse_status, extracted_text, records_json
+    FROM attachment_update_previews WHERE id = ?
+  `).get(preview.preview_id)
+  assert.equal(durablePreview.parse_status, 'parsed')
+  for (const durableValue of [durablePreview.extracted_text, durablePreview.records_json]) {
+    assert.equal(durableValue.includes(secretUrl), false)
+    assert.equal(durableValue.includes('private-avatar-value'), false)
+  }
+
+  const created = await service.createCandidateFromPreview(preview.preview_id, {
+    preview_token: preview.preview_token,
+    record_id: preview.records[0].record_id,
+    candidate: {
+      name: 'Avatar privacy candidate',
+      email: 'avatar.privacy@example.test'
+    }
+  })
+  const confirmed = service.confirmPreview(preview.preview_id, confirmationFor(preview, created.id, {
+    expected_updated_at: created.updated_at
+  }))
+  const attachment = db.prepare(`
+    SELECT extracted_text FROM candidate_attachments WHERE id = ?
+  `).get(confirmed.attachment_ids[0])
+  const searchDocument = db.prepare(`
+    SELECT content FROM candidate_resume_documents WHERE document_id = ?
+  `).get(`attachment:${confirmed.attachment_ids[0]}`)
+  const searchIndex = db.prepare(`
+    SELECT content FROM candidate_resume_fts WHERE document_id = ?
+  `).get(`attachment:${confirmed.attachment_ids[0]}`)
+  for (const durableValue of [attachment.extracted_text, searchDocument.content, searchIndex.content]) {
+    assert.equal(durableValue.includes(secretUrl), false)
+    assert.equal(durableValue.includes('private-avatar-value'), false)
+  }
+})
+
+test('invalid labeled avatar URLs are still redacted from model and durable text', async () => {
+  let modelPayload = null
+  const { db, service } = createAnonymousFixture({
+    suggestionProvider: async (payload) => {
+      modelPayload = payload
+      return { records: [] }
+    }
+  })
+  const secretUrl = 'https://images.example.test/private/avatar?signature=invalid-avatar-secret'
+  const preview = await createReadyPreview(service, {
+    file: csvFile([{
+      name: 'Invalid avatar privacy candidate',
+      photo_url: secretUrl,
+      portfolio: secretUrl
+    }], {
+      filename: 'invalid-avatar-privacy.csv',
+      headers: ['name', 'photo_url', 'portfolio']
+    })
+  })
+
+  assert.equal(preview.records[0].avatar.status, 'invalid')
+  const durable = db.prepare(`
+    SELECT extracted_text, records_json FROM attachment_update_previews WHERE id = ?
+  `).get(preview.preview_id)
+  for (const value of [JSON.stringify(preview), JSON.stringify(modelPayload), durable.extracted_text, durable.records_json]) {
+    assert.equal(value.includes(secretUrl), false)
+    assert.equal(value.includes('invalid-avatar-secret'), false)
+  }
+})
+
+test('TXT avatar secrets repeated under non-avatar labels are globally redacted', async () => {
+  let modelPayload = null
+  const { db, service } = createAnonymousFixture({
+    suggestionProvider: async (payload) => {
+      modelPayload = payload
+      return { records: [] }
+    }
+  })
+  const secretUrl = 'https://images.example.test/candidates/avatar.png?signature=txt-private-avatar-value'
+  const preview = await createReadyPreview(service, {
+    file: {
+      originalname: 'avatar-portfolio.txt',
+      mimetype: 'text/plain',
+      buffer: Buffer.from([
+        'Name: TXT avatar privacy candidate',
+        'Email: txt.avatar.privacy@example.test',
+        `avatar_url: ${secretUrl}`,
+        `portfolio: ${secretUrl}`
+      ].join('\n'), 'utf8')
+    }
+  })
+
+  assert.equal(preview.records[0].avatar.available, true)
+  assert.equal(preview.records[0].avatar.source, 'explicit_url')
+  assert.match(modelPayload.extracted_text, /avatar_url: \[redacted\]/)
+  assert.match(modelPayload.extracted_text, /portfolio: \[redacted\]/)
+  for (const value of [
+    JSON.stringify(modelPayload),
+    JSON.stringify(preview),
+    ...Object.values(db.prepare(`
+      SELECT extracted_text, records_json FROM attachment_update_previews WHERE id = ?
+    `).get(preview.preview_id))
+  ]) {
+    assert.equal(String(value).includes(secretUrl), false)
+    assert.equal(String(value).includes('txt-private-avatar-value'), false)
+  }
+})
+
+test('explicit URL avatars are recovered by reparsing quarantine after service restart', async () => {
+  const fixture = createAnonymousFixture({ suggestionProvider: null })
+  const secretUrl = 'https://images.example.test/candidates/restart-avatar.png?signature=restart-private-value'
+  const preview = await createReadyPreview(fixture.service, {
+    file: csvFile([{
+      name: 'Restart avatar candidate',
+      email: 'restart.avatar@example.test',
+      photo_url: secretUrl
+    }], {
+      filename: 'restart-avatar.csv',
+      headers: ['name', 'email', 'photo_url']
+    })
+  })
+  const issuedToken = preview.preview_token
+  const recordId = preview.records[0].record_id
+  assert.equal(preview.records[0].avatar.available, true)
+  await fixture.service.close()
+
+  const restarted = createAttachmentService({
+    db: fixture.db,
+    rootDir: fixture.root,
+    suggestionProvider: null,
+    cleanupIntervalMs: 60 * 60 * 1000
+  })
+  fixture.service = restarted
+  const recoveredPreview = restarted.getPreview(preview.preview_id)
+  assert.equal(recoveredPreview.status, 'ready')
+  assert.equal(recoveredPreview.preview_token, '')
+
+  const created = await restarted.createCandidateFromPreview(preview.preview_id, {
+    preview_token: issuedToken,
+    record_id: recordId,
+    candidate: {
+      name: 'Restart avatar candidate',
+      email: 'restart.avatar@example.test'
+    }
+  })
+  assert.equal(fixture.db.prepare(`
+    SELECT photo_url FROM candidates WHERE id = ?
+  `).get(created.id).photo_url, secretUrl)
 })
 
 test('CSV confirmation writes only selected non-empty fields, provenance, attachment, and FTS text', async () => {
@@ -1574,4 +2649,150 @@ test('failed physical cleanup remains retryable and succeeds on a later pass', (
   assert.equal(completed.last_error, null)
   assert.ok(completed.completed_at)
   assert.equal(existsSync(retryPath), false)
+})
+
+test('contact suggestions keep same-line adjacent fields out of value and evidence', async () => {
+  const parser = async (file) => {
+    const text = file.buffer.toString('utf8')
+    return {
+      text,
+      records: [{ row_number: 1, values: { raw_text: text } }],
+      metadata: {}
+    }
+  }
+  const { service } = createAnonymousFixture({ parser, suggestionProvider: null })
+  const preview = await createReadyPreview(service, {
+    file: {
+      originalname: 'same-line-contact-fields.txt',
+      mimetype: 'text/plain',
+      buffer: Buffer.from([
+        '姓名：匿名候选人',
+        '手机号：17788859606 专业：软件工程',
+        '电子邮箱：455786463@qq.com 身高：170cm 67kg'
+      ].join('\n'), 'utf8')
+    }
+  })
+
+  const suggestions = Object.fromEntries(
+    preview.records[0].suggestions.map((item) => [item.field, item])
+  )
+  assert.equal(suggestions.phone.value, '+8617788859606')
+  assert.equal(suggestions.email.value, '455786463@qq.com')
+  assert.doesNotMatch(suggestions.phone.value, /专业|软件工程|手机号|[:：]/)
+  assert.doesNotMatch(suggestions.email.value, /身高|体重|职位|电子邮箱|[:：]/)
+  assert.match(suggestions.phone.evidence, /17788859606/)
+  assert.match(suggestions.email.evidence, /455786463@qq\.com/)
+  assert.doesNotMatch(suggestions.phone.evidence, /专业|软件工程|电子邮箱|身高|体重/)
+  assert.doesNotMatch(suggestions.email.evidence, /手机号|专业|身高|体重|67kg/)
+
+  const numericSuffix = await createReadyPreview(service, {
+    file: {
+      originalname: 'numeric-suffix-contact.txt',
+      mimetype: 'text/plain',
+      buffer: Buffer.from('Phone: 17700000001 170\\nEmail: numeric.suffix@example.test', 'utf8')
+    }
+  })
+  const numericPhone = numericSuffix.records[0].suggestions.find((item) => item.field === 'phone')
+  assert.ok(numericPhone)
+  assert.equal(numericPhone.value, '+8617700000001')
+  assert.doesNotMatch(numericPhone.value, /170$/)
+})
+
+test('model contact suggestions with adjacent text never create contact updates', async () => {
+  let modelRecord
+  const parser = async () => ({
+    text: 'anonymous spreadsheet row',
+    records: [{
+      row_number: 2,
+      values: {
+        name: 'Anonymous model row',
+        self_summary: '联系方式：17788859606 专业：软件工程；备用手机号：18888888888；电子邮箱：one@example.test 身高：170cm；备用邮箱：two@example.test'
+      }
+    }],
+    metadata: {}
+  })
+  const suggestionProvider = async (payload) => {
+    modelRecord = payload.records[0]
+    return {
+      records: [{
+        record_id: modelRecord.record_id,
+        suggestions: [
+          {
+            field: 'phone',
+            value: '17788859606 专业：软件工程',
+            confidence: 'high',
+            evidence: '联系方式：17788859606 专业：软件工程',
+            default_selected: true
+          },
+          {
+            field: 'email',
+            value: 'one@example.test 身高：170cm',
+            confidence: 'high',
+            evidence: '电子邮箱：one@example.test 身高：170cm',
+            default_selected: true
+          }
+        ]
+      }]
+    }
+  }
+  const { service } = createAnonymousFixture({ parser, suggestionProvider })
+  const preview = await createReadyPreview(service, {
+    file: csvFile([{ name: 'Model row' }], { filename: 'model-contact-noise.csv' })
+  })
+  const record = preview.records[0]
+  assert.ok(modelRecord?.record_id)
+  assert.equal(record.suggestions.some((item) => item.field === 'phone'), false)
+  assert.equal(record.suggestions.some((item) => item.field === 'email'), false)
+})
+
+test('ambiguous contacts do not create automatic contact suggestions', async () => {
+  let modelRecord
+  const parser = async (file) => {
+    const text = file.buffer.toString('utf8')
+    return {
+      text,
+      records: [{ row_number: 1, values: { raw_text: text } }],
+      metadata: {}
+    }
+  }
+  const suggestionProvider = async (payload) => {
+    modelRecord = payload.records[0]
+    return {
+      records: [{
+        record_id: modelRecord.record_id,
+        suggestions: [
+          {
+            field: 'phone',
+            value: '17788859606',
+            confidence: 'high',
+            evidence: '手机号：17788859606',
+            default_selected: true
+          },
+          {
+            field: 'email',
+            value: 'one@example.test',
+            confidence: 'high',
+            evidence: '电子邮箱：one@example.test',
+            default_selected: true
+          }
+        ]
+      }]
+    }
+  }
+  const { service } = createAnonymousFixture({ parser, suggestionProvider })
+  const preview = await createReadyPreview(service, {
+    file: {
+      originalname: 'ambiguous-contact-fields.txt',
+      mimetype: 'text/plain',
+      buffer: Buffer.from([
+        '手机号：17788859606；手机号：18888888888',
+        '电子邮箱：one@example.test；电子邮箱：two@example.test'
+      ].join('\n'), 'utf8')
+    }
+  })
+  const record = preview.records[0]
+  assert.ok(modelRecord?.record_id)
+  assert.equal(record.match.status, 'multiple_matches')
+  assert.equal(record.suggestions.some((item) => item.field === 'phone'), false)
+  assert.equal(record.suggestions.some((item) => item.field === 'email'), false)
 })
