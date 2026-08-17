@@ -205,6 +205,7 @@ function App() {
   const [sensitiveBusy, setSensitiveBusy] = useState(false);
   const [candidateBusy, setCandidateBusy] = useState(false);
   const [createForPositionId, setCreateForPositionId] = useState<string | null>(null);
+  const [pendingCreatedCandidateId, setPendingCreatedCandidateId] = useState<string | null>(null);
   const [positionFormMode, setPositionFormMode] = useState<PositionFormMode>(null);
   const [editingPosition, setEditingPosition] = useState<Position | null>(null);
   const [positionFormBusy, setPositionFormBusy] = useState(false);
@@ -691,21 +692,34 @@ function App() {
     setSelectedCandidateId(null);
     setCandidateDetail(null);
     setCreateForPositionId(positionId);
+    setPendingCreatedCandidateId(null);
     setDrawerMode("create");
   }
 
   async function saveCandidate(draft: CandidateDraft) {
     setCandidateBusy(true);
     try {
-      const { preferences, stage: _legacyStage, expected_salary: _legacySalary, ...candidateFields } = draft;
+      const { preferences, profile_sections: draftProfileSections, stage: _legacyStage, expected_salary: _legacySalary, ...candidateFields } = draft;
+      const profile_sections = draftProfileSections ?? [];
       if (drawerMode === "create") {
         let linkedToRequestedPosition = false;
-        const created = await candidateApi.create({
-          ...candidateFields,
-          source_system: "manual",
-          source_record_id: crypto.randomUUID(),
-        });
-        await candidateApi.updatePreferences(created.id, preferences);
+        let created: Candidate;
+        const retryCandidateId = pendingCreatedCandidateId;
+        if (retryCandidateId) {
+          await candidateApi.updatePreferences(retryCandidateId, preferences);
+          await candidateApi.replaceProfileSections(retryCandidateId, profile_sections ?? []);
+          created = await candidateApi.get(retryCandidateId, true);
+        } else {
+          created = await candidateApi.create({ ...candidateFields, source_system: "manual", source_record_id: crypto.randomUUID() });
+          setPendingCreatedCandidateId(created.id);
+          try {
+            await candidateApi.updatePreferences(created.id, preferences);
+            await candidateApi.replaceProfileSections(created.id, profile_sections);
+          } catch (saveError) {
+            notify(errorMessage(saveError, "候选人已创建，偏好或履历未完整保存；请再次提交以重试"), { tone: "warning" });
+            return;
+          }
+        }
         if (createForPositionId) {
           try {
             await positionApi.linkCandidates(createForPositionId, [created.id]);
@@ -715,6 +729,7 @@ function App() {
           }
         }
         setSelectedCandidateId(created.id);
+        setPendingCreatedCandidateId(null);
         setDrawerMode("detail");
         setCreateForPositionId(null);
         await Promise.all([loadCandidateDetail(created.id, true), loadWorkspace(false)]);
@@ -731,6 +746,7 @@ function App() {
         }
         const updated = await candidateApi.update(selectedCandidateId, candidateFields);
         await candidateApi.updatePreferences(selectedCandidateId, preferences);
+        if (Array.isArray(profile_sections)) await candidateApi.replaceProfileSections(selectedCandidateId, profile_sections);
         setCandidateDetail((current) => current ? { ...current, ...updated } : updated as CandidateDetail);
         setDrawerMode("detail");
         await Promise.all([loadCandidateDetail(updated.id, true), loadWorkspace(false)]);
@@ -1529,7 +1545,7 @@ function App() {
         </main>
       </div>
 
-      <CandidateDrawer mode={drawerMode} candidate={currentCandidate} notes={candidateDetail?.notes ?? []} activities={candidateDetail?.activities ?? []} positions={activePositionOptions} talentPools={talentPools.filter((pool) => !pool.archived_at)} busy={candidateBusy} positionBusy={candidateBusy} sensitiveBusy={sensitiveBusy} sensitiveLoaded={sensitiveLoaded} onRevealSensitive={() => void revealCandidateSensitive()} onClose={() => { if (!candidateBusy) { setDrawerMode(null); setCreateForPositionId(null); setSensitiveLoaded(false); } }} onEdit={() => currentCandidate && editCandidate(currentCandidate)} onSave={(draft) => void saveCandidate(draft)} onArchive={() => currentCandidate && void archiveCandidate(currentCandidate)} onRestore={() => currentCandidate && void restoreCandidate(currentCandidate)} onDelete={() => currentCandidate && requestPermanentDelete(currentCandidate)} onAddNote={(content) => void addNote(content)} onLinkPosition={(positionId) => void linkCandidateToPosition(positionId)} onUnlinkPosition={(positionId) => void unlinkCandidateFromPosition(positionId)} onOpenPosition={openPosition} onLinkTalentPool={(poolId) => void linkCandidateToTalentPool(poolId)} onUnlinkTalentPool={(poolId) => void unlinkCandidateFromTalentPool(poolId)} onCandidateUpdated={() => currentCandidate && void loadCandidateDetail(currentCandidate.id, sensitiveLoaded)} onCandidateCreated={() => void loadWorkspace(false)} />
+      <CandidateDrawer mode={drawerMode} candidate={currentCandidate} notes={candidateDetail?.notes ?? []} activities={candidateDetail?.activities ?? []} positions={activePositionOptions} talentPools={talentPools.filter((pool) => !pool.archived_at)} busy={candidateBusy} pendingProfileSave={Boolean(pendingCreatedCandidateId)} positionBusy={candidateBusy} sensitiveBusy={sensitiveBusy} sensitiveLoaded={sensitiveLoaded} onRevealSensitive={() => void revealCandidateSensitive()} onClose={() => { if (!candidateBusy) { setDrawerMode(null); setCreateForPositionId(null); setPendingCreatedCandidateId(null); setSensitiveLoaded(false); } }} onEdit={() => currentCandidate && editCandidate(currentCandidate)} onSave={(draft) => void saveCandidate(draft)} onArchive={() => currentCandidate && void archiveCandidate(currentCandidate)} onRestore={() => currentCandidate && void restoreCandidate(currentCandidate)} onDelete={() => currentCandidate && requestPermanentDelete(currentCandidate)} onAddNote={(content) => void addNote(content)} onLinkPosition={(positionId) => void linkCandidateToPosition(positionId)} onUnlinkPosition={(positionId) => void unlinkCandidateFromPosition(positionId)} onOpenPosition={openPosition} onLinkTalentPool={(poolId) => void linkCandidateToTalentPool(poolId)} onUnlinkTalentPool={(poolId) => void unlinkCandidateFromTalentPool(poolId)} onCandidateUpdated={() => currentCandidate && void loadCandidateDetail(currentCandidate.id, sensitiveLoaded)} onCandidateCreated={() => void loadWorkspace(false)} />
       <PositionFormDrawer mode={positionFormMode} position={editingPosition} ownerOptions={Array.from(new Set([...availableCandidateOwners, ...availablePositionOwners]))} busy={positionFormBusy} submitError={positionFormError} onClose={() => !positionFormBusy && setPositionFormMode(null)} onSubmit={(draft) => void savePosition(draft)} />
       <CandidatePickerDialog open={candidatePickerOpen} excludePositionId={activePositionId ?? undefined} busy={candidatePickerBusy} onClose={() => !candidatePickerBusy && setCandidatePickerOpen(false)} onConfirm={(ids) => void addCandidatesToActivePosition(ids)} />
       {linkTargetCandidateIds.length > 0 && (

@@ -34,6 +34,17 @@ export interface CandidateProfileSection {
   raw_payload?: Record<string, unknown> | null;
 }
 
+export interface CandidateProfileSectionDraft {
+  id?: string;
+  section_type: string;
+  title: string;
+  content: string;
+  structured_data?: Record<string, unknown> | unknown[] | null;
+  sort_order?: number;
+  sensitivity?: "public" | "internal" | "high";
+  source_record_id?: string | null;
+}
+
 export interface CandidatePreferences {
   candidate_id?: string;
   employment_status: string;
@@ -675,6 +686,8 @@ export interface CandidateDraft extends Pick<
   | "expected_salary"
 > {
   preferences: CandidatePreferencesDraft;
+  /** Optional when an edit payload did not load profile sections. */
+  profile_sections?: CandidateProfileSectionDraft[];
 }
 
 export interface ImportResult {
@@ -826,6 +839,7 @@ export const emptyDraft: CandidateDraft = {
     expected_salary: "",
     availability: "",
   },
+  profile_sections: [],
 };
 
 export const emptyPositionDraft: PositionDraft = {

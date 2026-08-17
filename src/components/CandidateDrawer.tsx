@@ -33,10 +33,12 @@ import type {
   CandidateActivity,
   CandidateDraft,
   CandidateNote,
+  CandidateProfileSection,
   Position,
   TalentPool,
 } from "../types";
 import { candidateDisplayAge, formatDate, formatDateTime } from "../utils";
+import { displayApplicantNumber, displayScalarValue, filterPlaceholderData, filterPlaceholderLines, hasVisibleProfileSection, isDisplayableValue, isInternalMetadataKey, visibleProfileSection } from "../profile-section-display";
 import { CandidateAvatar } from "./CandidateAvatar";
 import { CandidateAttachmentsPanel } from "./AttachmentWorkflow";
 import { CandidateForm } from "./CandidateForm";
@@ -70,6 +72,7 @@ interface CandidateDrawerProps {
   onUnlinkTalentPool?: (poolId: string) => void;
   onCandidateUpdated?: () => void;
   onCandidateCreated?: (candidateId: string) => void;
+  pendingProfileSave?: boolean;
 }
 
 const EMPTY_POSITIONS: Position[] = [];
@@ -94,6 +97,7 @@ const SECTION_LABELS: Record<string, string> = {
   award: "奖励与荣誉",
   training: "培训经历",
   publication: "论文与作品",
+  management: "管理经历",
   other: "补充资料",
 };
 
@@ -108,7 +112,8 @@ function valueText(value: unknown): string {
 
 function metadataRows(record: Record<string, unknown>, omitted: string[] = []) {
   const hidden = new Set(["raw_payload", "metadata", ...omitted]);
-  return Object.entries(record).filter(([key, value]) => !hidden.has(key) && value !== null && value !== undefined && value !== "");
+  return Object.entries(record).map(([key, value]) => [key, filterPlaceholderData(value)] as const)
+    .filter(([key, value]) => !hidden.has(key) && !isInternalMetadataKey(key) && isDisplayableValue(value));
 }
 
 function MetadataList({ record, omitted }: { record: Record<string, unknown>; omitted?: string[] }) {
@@ -118,11 +123,12 @@ function MetadataList({ record, omitted }: { record: Record<string, unknown>; om
 }
 
 function RawPayload({ payload }: { payload?: Record<string, unknown> | null }) {
-  if (!payload || !Object.keys(payload).length) return null;
+  const visible = filterPlaceholderData(payload);
+  if (!visible || Array.isArray(visible) || !isDisplayableValue(visible)) return null;
   return (
     <details className="raw-payload-disclosure">
       <summary>查看来源原始字段</summary>
-      <MetadataList record={payload} />
+      <MetadataList record={visible as Record<string, unknown>} />
     </details>
   );
 }
@@ -153,6 +159,7 @@ export function CandidateDrawer({
   onUnlinkTalentPool,
   onCandidateUpdated,
   onCandidateCreated,
+  pendingProfileSave = false,
 }: CandidateDrawerProps) {
   const [tab, setTab] = useState<DetailTab>("profile");
   const [noteText, setNoteText] = useState("");
@@ -212,18 +219,47 @@ export function CandidateDrawer({
     setNoteText("");
   }
 
-  const profileSections = candidate?.profile_sections ?? [];
+  const profileSections = (candidate?.profile_sections ?? []).filter((section): section is CandidateProfileSection => hasVisibleProfileSection(section)).map(visibleProfileSection);
   const assessments = candidate?.assessments ?? [];
   const preferences = candidate?.preferences;
   const displayAge = candidate ? candidateDisplayAge(candidate) : null;
   const applicantNumber = candidate?.source_system === "manual" ? "" : candidate?.source_record_id ?? "";
+  const visibleApplicantNumber = displayApplicantNumber(candidate?.source_system, applicantNumber);
+  const displayValue = (value: unknown) => displayScalarValue(value);
+  const profilePhone = sensitiveLoaded ? displayValue(candidate?.phone) : "显式查看后显示";
+  const profileEmail = sensitiveLoaded ? displayValue(candidate?.email) : "显式查看后显示";
+  const profileLocation = displayValue(candidate?.location);
+  const profileGender = displayValue(candidate?.gender);
+  const profileAge = displayAge === null ? "" : `${displayAge} 岁`;
+  const currentCompany = displayValue(candidate?.current_company);
+  const currentTitle = displayValue(candidate?.current_title);
+  const yearsExperience = candidate?.years_experience ? `${candidate.years_experience} 年` : "";
+  const education = displayValue(candidate?.education);
+  const school = displayValue(candidate?.highest_school);
+  const major = displayValue(candidate?.highest_major);
+  const selfSummary = displayValue(candidate?.self_summary);
+  const jobStatus = displayValue(candidate?.job_seeking_status) || displayValue(preferences?.employment_status);
+  const desiredTitles = displayValue(preferences?.desired_titles);
+  const desiredLocations = displayValue(preferences?.desired_locations);
+  const employmentType = displayValue(preferences?.employment_type);
+  const expectedSalary = sensitiveLoaded ? displayValue(preferences?.expected_salary) || displayValue(candidate?.expected_salary) : "敏感信息";
+  const availability = displayValue(preferences?.availability);
+  const hasContactSummary = Boolean(profilePhone || profileEmail || profileLocation);
+  const hasIdentityDetails = Boolean(profileGender || profileAge || visibleApplicantNumber);
+  const lineageRows = [
+    { label: "来源系统", value: displayValue(candidate?.source_system) },
+    { label: "源记录 ID", value: visibleApplicantNumber && sensitiveLoaded ? visibleApplicantNumber : visibleApplicantNumber ? "已保护" : "" },
+    { label: "导入批次", value: displayValue(candidate?.import_batch_id) || (candidate?.source_system === "manual" ? "手工录入" : "") },
+    { label: "创建日期", value: candidate?.created_at ? formatDate(candidate.created_at) : "" },
+    { label: "简历更新", value: candidate?.resume_updated_at ? formatDate(candidate.resume_updated_at) : "" },
+  ].filter((row) => isDisplayableValue(row.value));
 
   return (
     <div className="drawer-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !busy && onClose()}>
       <aside className="drawer candidate-drawer talent-candidate-drawer" role="dialog" aria-modal="true" aria-label={title} aria-busy={busy || undefined}>
         <header className="drawer-header"><div><p className="drawer-kicker">{mode === "detail" ? "人才档案" : "候选人库"}</p><h2>{title}</h2></div><button className="icon-button" type="button" onClick={onClose} disabled={busy} aria-label="关闭" title="关闭"><X size={19} /></button></header>
 
-        {mode === "create" && <CandidateForm submitLabel="创建档案" busy={busy} onCancel={onClose} onSubmit={onSave} />}
+        {mode === "create" && <CandidateForm submitLabel={pendingProfileSave ? "重试保存偏好与履历" : "创建档案"} statusMessage={pendingProfileSave ? "候选人已创建，偏好或履历未完整保存。请重试，系统不会重复创建候选人。" : undefined} fieldsDisabled={pendingProfileSave} busy={busy} onCancel={onClose} onSubmit={onSave} />}
         {mode === "edit" && candidate && <CandidateForm initialValue={candidate} submitLabel="保存修改" busy={busy} onCancel={onClose} onSubmit={onSave} />}
 
         {mode === "detail" && candidate && (
@@ -231,9 +267,9 @@ export function CandidateDrawer({
             <div className="candidate-identity">
               <CandidateAvatar candidate={candidate} size="large" />
               <div className="candidate-identity-main">
-                <div className="identity-title-row"><h3>{candidate.name}</h3>{candidate.job_seeking_status && <span className="talent-status-badge">{candidate.job_seeking_status}</span>}</div>
-                <p>{candidate.current_title || "职位待补充"}{candidate.current_company ? ` · ${candidate.current_company}` : ""}</p>
-                <div className="identity-tags">{candidate.tags.map((tag) => <span className="tag" key={tag}>{tag}</span>)}</div>
+                <div className="identity-title-row"><h3>{displayValue(candidate.name) || "未命名候选人"}</h3>{jobStatus && <span className="talent-status-badge">{jobStatus}</span>}</div>
+                <p>{currentTitle || "职位待补充"}{currentCompany ? ` · ${currentCompany}` : ""}</p>
+                <div className="identity-tags">{candidate.tags.map((tag) => displayValue(tag)).filter(Boolean).map((tag) => <span className="tag" key={tag}>{tag}</span>)}</div>
               </div>
             </div>
 
@@ -248,37 +284,37 @@ export function CandidateDrawer({
             <div className="drawer-scroll-region">
               {tab === "profile" && (
                 <div className="profile-sections">
-                  <section className="detail-section">
+                  {(hasContactSummary || hasIdentityDetails || (!sensitiveLoaded && Boolean(onRevealSensitive))) && <section className="detail-section">
                     <div className="detail-section-heading"><h4>基本资料与联系方式</h4>{!sensitiveLoaded && <span className="protected-label"><LockKeyhole size={12} />敏感信息已保护</span>}</div>
                     <div className="info-list">
-                      <div><Phone size={16} /><span>{sensitiveLoaded ? candidate.phone || "-" : "显式查看后显示"}</span></div>
-                      <div><Mail size={16} /><span>{sensitiveLoaded ? candidate.email || "-" : "显式查看后显示"}</span></div>
-                      <div><MapPin size={16} /><span>{candidate.location || "-"}</span></div>
+                      {profilePhone && <div><Phone size={16} /><span>{profilePhone}</span></div>}
+                      {profileEmail && <div><Mail size={16} /><span>{profileEmail}</span></div>}
+                      {profileLocation && <div><MapPin size={16} /><span>{profileLocation}</span></div>}
                     </div>
                     <dl className="detail-grid candidate-identity-details">
-                      <div><dt><UserRound size={15} />性别</dt><dd>{candidate.gender || "-"}</dd></div>
-                      <div><dt><Clock3 size={15} />年龄</dt><dd>{displayAge === null ? "-" : `${displayAge} 岁`}</dd></div>
-                      {applicantNumber && <div className="candidate-applicant-id"><dt>应聘者编号</dt><dd>{applicantNumber}</dd></div>}
+                      {profileGender && <div><dt><UserRound size={15} />性别</dt><dd>{profileGender}</dd></div>}
+                      {profileAge && <div><dt><Clock3 size={15} />年龄</dt><dd>{profileAge}</dd></div>}
+                      {applicantNumber && visibleApplicantNumber && <div className="candidate-applicant-id"><dt>应聘者编号</dt><dd>{visibleApplicantNumber}</dd></div>}
                     </dl>
                     {!sensitiveLoaded && onRevealSensitive && <button className="button sensitive-reveal-button" type="button" onClick={onRevealSensitive} disabled={sensitiveBusy}><Eye size={15} />{sensitiveBusy ? "正在加载..." : "查看敏感资料"}</button>}
-                  </section>
+                  </section>}
 
-                  <section className="detail-section"><h4>当前经历与教育摘要</h4><dl className="detail-grid">
-                    <div><dt><Building2 size={15} />当前公司</dt><dd>{candidate.current_company || "-"}</dd></div>
-                    <div><dt><BriefcaseBusiness size={15} />当前职位</dt><dd>{candidate.current_title || "-"}</dd></div>
-                    <div><dt><Clock3 size={15} />工作年限</dt><dd>{candidate.years_experience ? `${candidate.years_experience} 年` : "-"}</dd></div>
-                    <div><dt><GraduationCap size={15} />最高学历</dt><dd>{candidate.education || "-"}</dd></div>
-                    <div><dt>学校</dt><dd>{candidate.highest_school || "-"}</dd></div><div><dt>专业</dt><dd>{candidate.highest_major || "-"}</dd></div>
-                  </dl>{candidate.self_summary && <div className="self-summary"><strong>自我评价</strong><p>{candidate.self_summary}</p></div>}</section>
+                  {(currentCompany || currentTitle || yearsExperience || education || school || major || selfSummary) && <section className="detail-section"><h4>当前经历与教育摘要</h4><dl className="detail-grid">
+                    {currentCompany && <div><dt><Building2 size={15} />当前公司</dt><dd>{currentCompany}</dd></div>}
+                    {currentTitle && <div><dt><BriefcaseBusiness size={15} />当前职位</dt><dd>{currentTitle}</dd></div>}
+                    {yearsExperience && <div><dt><Clock3 size={15} />工作年限</dt><dd>{yearsExperience}</dd></div>}
+                    {education && <div><dt><GraduationCap size={15} />最高学历</dt><dd>{education}</dd></div>}
+                    {school && <div><dt>学校</dt><dd>{school}</dd></div>}{major && <div><dt>专业</dt><dd>{major}</dd></div>}
+                  </dl>{selfSummary && <div className="self-summary"><strong>自我评价</strong><p>{selfSummary}</p></div>}</section>}
 
-                  <section className="detail-section"><h4>求职偏好</h4><dl className="detail-grid">
-                    <div><dt><Target size={15} />求职状态</dt><dd>{candidate.job_seeking_status || preferences?.employment_status || "-"}</dd></div>
-                    <div><dt>期望职位</dt><dd>{preferences?.desired_titles?.join("、") || "-"}</dd></div>
-                    <div><dt>期望地点</dt><dd>{preferences?.desired_locations?.join("、") || "-"}</dd></div>
-                    <div><dt>工作性质</dt><dd>{preferences?.employment_type || "-"}</dd></div>
-                    <div><dt>期望薪资</dt><dd>{sensitiveLoaded ? preferences?.expected_salary || candidate.expected_salary || "-" : "敏感信息"}</dd></div>
-                    <div><dt>到岗时间</dt><dd>{preferences?.availability || "-"}</dd></div>
-                  </dl></section>
+                  {(jobStatus || desiredTitles || desiredLocations || employmentType || expectedSalary || availability) && <section className="detail-section"><h4>求职偏好</h4><dl className="detail-grid">
+                    {jobStatus && <div><dt><Target size={15} />求职状态</dt><dd>{jobStatus}</dd></div>}
+                    {desiredTitles && <div><dt>期望职位</dt><dd>{desiredTitles}</dd></div>}
+                    {desiredLocations && <div><dt>期望地点</dt><dd>{desiredLocations}</dd></div>}
+                    {employmentType && <div><dt>工作性质</dt><dd>{employmentType}</dd></div>}
+                    {expectedSalary && <div><dt>期望薪资</dt><dd>{expectedSalary}</dd></div>}
+                    {availability && <div><dt>到岗时间</dt><dd>{availability}</dd></div>}
+                  </dl></section>}
 
                   <section className="detail-section candidate-position-section">
                     <div className="detail-section-heading"><h4>关联职位</h4><span>{candidate.positions.length} 个</span></div>
@@ -297,7 +333,7 @@ export function CandidateDrawer({
                 </div>
               )}
 
-              {tab === "resume" && <div className="profile-sections"><section className="detail-section"><div className="detail-section-heading"><h4>完整履历</h4><span>{profileSections.length} 个资料模块</span></div>{profileSections.length ? <div className="resume-section-list">{profileSections.map((section) => <article className="resume-section-item" key={section.id}><header><span><BookOpen size={15} /></span><div><strong>{section.title || SECTION_LABELS[section.section_type] || section.section_type}</strong><small>{SECTION_LABELS[section.section_type] || "来源资料"}</small></div>{section.sensitivity && section.sensitivity !== "normal" && <span className="sensitivity-chip">{section.sensitivity}</span>}</header><p>{section.content || valueText(section.structured_data)}</p>{section.structured_data && <details><summary>查看结构化字段</summary><MetadataList record={Array.isArray(section.structured_data) ? { items: section.structured_data } : section.structured_data} /></details>}<RawPayload payload={section.raw_payload} /></article>)}</div> : <div className="section-empty"><FileText size={22} /><span>暂无履历资料</span></div>}</section><CandidateAttachmentsPanel candidate={candidate} disabled={Boolean(candidate.archived_at)} onCandidateUpdated={onCandidateUpdated} onCandidateCreated={onCandidateCreated} /></div>}
+              {tab === "resume" && <div className="profile-sections"><section className="detail-section"><div className="detail-section-heading"><h4>完整履历</h4><span>{profileSections.length} 个资料模块</span></div>{profileSections.length ? <div className="resume-section-list">{profileSections.map((section) => { const content = filterPlaceholderLines(section.content); const structured = section.displayStructuredData; const title = filterPlaceholderLines(section.title) || SECTION_LABELS[section.section_type] || section.section_type; return <article className="resume-section-item" key={section.id}><header><span><BookOpen size={15} /></span><div><strong>{title}</strong><small>{SECTION_LABELS[section.section_type] || "来源资料"}</small></div>{section.sensitivity && section.sensitivity !== "normal" && <span className="sensitivity-chip">{section.sensitivity}</span>}</header>{content && <p>{content}</p>}{isDisplayableValue(structured) && <details><summary>查看结构化字段</summary><MetadataList record={Array.isArray(structured) ? { items: structured } : structured as Record<string, unknown>} /></details>}<RawPayload payload={section.raw_payload} /></article>; })}</div> : <div className="section-empty"><FileText size={22} /><span>暂无履历资料</span></div>}</section><CandidateAttachmentsPanel candidate={candidate} disabled={Boolean(candidate.archived_at)} onCandidateUpdated={onCandidateUpdated} onCandidateCreated={onCandidateCreated} /></div>}
 
               {tab === "assessment" && <div className="profile-sections"><section className="detail-section"><div className="detail-section-heading"><h4>历史评估</h4><span>{assessments.length} 条来源记录</span></div><p className="section-guidance">历史评估仅作为人才档案资料展示，不代表当前招聘流程状态。</p>{assessments.length ? <div className="assessment-list">{assessments.map((assessment) => <article className="assessment-item" key={assessment.id}><span className="assessment-icon"><History size={16} /></span><div><header><strong>{assessment.title || assessment.assessment_type || "历史评估"}</strong><time>{formatDateTime(assessment.occurred_at || assessment.assessed_at || assessment.created_at || null)}</time></header><div className="assessment-result">{assessment.conclusion || assessment.result || assessment.status || "结果未标注"}{assessment.score !== null && assessment.score !== undefined && <span>{assessment.score}</span>}</div>{(assessment.summary || assessment.conclusion) && <p>{assessment.summary || assessment.conclusion}</p>}<MetadataList record={assessment.metadata ?? {}} /><RawPayload payload={assessment.raw_payload} /></div></article>)}</div> : <div className="section-empty"><History size={22} /><span>暂无历史评估资料</span></div>}</section></div>}
 
@@ -305,7 +341,7 @@ export function CandidateDrawer({
 
               {tab === "advanced" && <div className="profile-sections advanced-sections">
                 <section className="detail-section sensitive-section"><div className="sensitive-section-heading"><span><ShieldAlert size={18} /></span><div><h4>高级与敏感信息</h4><p>仅在明确进入本区域并主动加载后显示。列表、搜索和 AI 助手默认不可见。</p></div></div>{!sensitiveLoaded ? <button className="button sensitive-reveal-button" type="button" onClick={onRevealSensitive} disabled={sensitiveBusy || !onRevealSensitive}><Eye size={15} />{sensitiveBusy ? "正在安全加载..." : "加载完整敏感资料"}</button> : <div className="sensitive-loaded-state"><LockKeyhole size={15} /><span>敏感资料已在当前详情会话中加载</span></div>}</section>
-                <section className="detail-section"><h4>数据血缘</h4><dl className="lineage-list"><div><dt>来源系统</dt><dd>{candidate.source_system || "-"}</dd></div><div><dt>源记录 ID</dt><dd>{sensitiveLoaded ? candidate.source_record_id || "-" : "已保护"}</dd></div><div><dt>导入批次</dt><dd>{candidate.import_batch_id || "手工录入"}</dd></div><div><dt>创建日期</dt><dd>{formatDate(candidate.created_at)}</dd></div><div><dt>简历更新</dt><dd>{formatDate(candidate.resume_updated_at)}</dd></div></dl></section>
+                <section className="detail-section"><h4>数据血缘</h4><dl className="lineage-list">{lineageRows.map((row) => <div key={row.label}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}</dl></section>
                 <AdvancedRecordSection title="来源历史" icon={<Database size={16} />} records={candidate.source_records ?? []} sensitiveLoaded={sensitiveLoaded} />
                 <AdvancedRecordSection title="职位申请来源" icon={<BriefcaseBusiness size={16} />} records={candidate.position_sources ?? []} sensitiveLoaded={sensitiveLoaded} />
                 <AdvancedRecordSection title="授权与隐私记录" icon={<LockKeyhole size={16} />} records={candidate.consents ?? []} sensitiveLoaded={sensitiveLoaded} />
@@ -334,5 +370,5 @@ export function CandidateDrawer({
 }
 
 function AdvancedRecordSection({ title, icon, records, sensitiveLoaded }: { title: string; icon: React.ReactNode; records: object[]; sensitiveLoaded: boolean }) {
-  return <section className="detail-section"><div className="detail-section-heading"><h4 className="advanced-section-title">{icon}{title}</h4><span>{records.length} 条</span></div>{records.length ? <div className="advanced-record-list">{records.map((source, index) => { const record = source as Record<string, unknown>; const label = record.title ?? record.position_title ?? record.agreement_name ?? record.record_type ?? record.source_name ?? record.consent_type ?? record.source_application_id ?? record.application_id ?? record.source_record_id ?? `${title} ${index + 1}`; return <details key={String(record.id ?? index)}><summary>{valueText(label)}</summary><MetadataList record={record} />{sensitiveLoaded && <RawPayload payload={record.raw_payload as Record<string, unknown> | null | undefined} />}</details>; })}</div> : <p className="empty-copy">暂无记录</p>}</section>;
+  return <section className="detail-section"><div className="detail-section-heading"><h4 className="advanced-section-title">{icon}{title}</h4><span>{records.length} 条</span></div>{records.length ? <div className="advanced-record-list">{records.map((source, index) => { const record = source as Record<string, unknown>; const label = [record.title, record.position_title, record.agreement_name, record.record_type, record.source_name, record.consent_type, sensitiveLoaded ? record.source_application_id : undefined, sensitiveLoaded ? record.application_id : undefined].map(displayScalarValue).find(Boolean) || `${title} ${index + 1}`; return <details key={String(record.id ?? index)}><summary>{valueText(label)}</summary><MetadataList record={record} omitted={sensitiveLoaded ? undefined : ["source_application_id", "application_id"]} />{sensitiveLoaded && <RawPayload payload={record.raw_payload as Record<string, unknown> | null | undefined} />}</details>; })}</div> : <p className="empty-copy">暂无记录</p>}</section>;
 }

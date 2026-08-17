@@ -142,6 +142,11 @@ test('attachment candidate creation uses the dedicated avatar-aware API contract
   assert.doesNotMatch(workflowSource, /candidateApi\.create\(/)
   assert.doesNotMatch(batchWorkflowSource, /candidateApi\.create\(/)
   assert.equal((apiSource.match(/include_avatar: includeAvatar/g) ?? []).length, 2)
+  assert.equal((apiSource.match(/profile_sections: profileSections/g) ?? []).length, 2)
+  assert.match(workflowSource, /profile_sections \?\? \[\][\s\S]*options\.includeAttachmentAvatar/)
+  assert.match(batchWorkflowSource, /profile_sections \?\? \[\][\s\S]*options\.includeAttachmentAvatar/)
+  assert.equal((workflowSource.match(/sections: source === "created" \? new Set\(\)/g) ?? []).length, 1)
+  assert.equal((batchWorkflowSource.match(/sections: source === "created" \? new Set\(\)/g) ?? []).length, 1)
   assert.match(apiSource, /\/api\/attachment-batches\/\$\{encodeURIComponent\(batchId\)\}\/items\/\$\{encodeURIComponent\(itemId\)\}\/candidates/)
 })
 
@@ -157,7 +162,7 @@ test('manual matching recalculates existing candidate diffs before confirmation'
 })
 
 test('candidate creation refreshes the version without creating a duplicate on recovery', () => {
-  const preferencesIndex = workflowSource.indexOf('await candidateApi.updatePreferences(created.id, preferences)')
+  const preferencesIndex = workflowSource.search(/await candidateApi\.updatePreferences\((?:created\.id|createdId), preferences\)/)
   const refreshedCandidateIndex = workflowSource.indexOf('const selected = await getCandidateWithRetry(createdId)')
   assert.ok(preferencesIndex > 0)
   assert.ok(refreshedCandidateIndex > preferencesIndex)
@@ -168,7 +173,7 @@ test('candidate creation refreshes the version without creating a duplicate on r
   assert.match(apiSource, /不会重复创建/)
 })
 
-test('batch creation automatically selects the refreshed candidate and preserves section choices', () => {
+test('batch creation persists profile sections and clears them from the follow-up confirmation', () => {
   const selectStart = batchWorkflowSource.indexOf('function selectCandidate(')
   const selectEnd = batchWorkflowSource.indexOf('async function chooseCandidate', selectStart)
   const selectSource = batchWorkflowSource.slice(selectStart, selectEnd)
@@ -180,14 +185,16 @@ test('batch creation automatically selects the refreshed candidate and preserves
   assert.match(selectSource, /candidateId: candidate\.id/)
   assert.match(selectSource, /source === "created"[\s\S]*new Set\(\)/)
   assert.match(selectSource, /defaultAttachmentFieldsForCandidate\(record, candidate\)/)
-  assert.doesNotMatch(selectSource, /sections:/)
+  assert.match(selectSource, /sections: source === "created" \? new Set\(\) : selection\.sections/)
   assert.match(createSource, /setPendingCreatedCandidateId\(created\.id\)/)
   assert.match(createSource, /onCandidateCreated\?\.\(created\.id\)/)
   assert.match(createSource, /const selected = await getCandidateWithRetry\(createdId\)[\s\S]*selectCandidate\(recordId, selected, "created"\)/)
+  assert.match(createSource, /profile_sections \?\? \[\][\s\S]*options\.includeAttachmentAvatar/)
   assert.doesNotMatch(createSource, /attachmentBatchApi\.confirm\(/)
   assert.match(typesSource, /resolution\?: "created"/)
   assert.match(batchWorkflowSource, /record\.match\.resolution === "created"/)
   assert.match(batchWorkflowSource, /createdCandidateResolutions[\s\S]*getCandidateWithRetry\(candidateId\)/)
+  assert.match(batchWorkflowSource, /candidateId: candidate\.id,[\s\S]*fields: new Set\(\),[\s\S]*sections: new Set\(\)/)
   assert.match(batchWorkflowSource, /record\.match\.resolution === "created" && !candidateBaseline/)
   assert.match(batchWorkflowSource, /candidateBaseline \?\? \(record\.match\.candidate\?\.id === selection\.candidateId/)
   assert.match(workflowSource, /record\.match\.resolution === "created"/)
@@ -210,16 +217,17 @@ test('multi-record previews cannot force or duplicate candidate selection and cr
   assert.match(workflowSource, /source === "existing" \? defaultFieldsForCandidate\(record, candidate\) : new Set\(\)/)
 })
 
-test('created candidates become the true field baseline while section defaults are preserved', () => {
+test('created candidates become the true field baseline without resubmitting persisted sections', () => {
   const selectStart = workflowSource.indexOf('function selectCandidate(')
   const selectEnd = workflowSource.indexOf('function openCandidateSearch', selectStart)
   const selectSource = workflowSource.slice(selectStart, selectEnd)
   assert.match(selectSource, /setCandidateBaselines\(\(current\) => \(\{ \.\.\.current, \[recordId\]: candidate \}\)\)/)
   assert.match(selectSource, /source === "existing" \? defaultFieldsForCandidate\(record, candidate\) : new Set\(\)/)
   assert.doesNotMatch(selectSource, /default_selected/)
-  assert.doesNotMatch(selectSource, /sections:/)
+  assert.match(selectSource, /sections: source === "created" \? new Set\(\) : current\.sections/)
   assert.match(workflowSource, /const candidateBaseline = candidateBaselines\[record\.record_id\]/)
   assert.match(prefillSource, /candidate\.preferences\?\.expected_salary \|\| candidate\.expected_salary/)
+  assert.match(prefillSource, /profile_sections: attachmentProfileSectionDrafts\(record\)/)
 })
 
 test('saved attachments support confirmed, retryable, and idempotent deletion without hiding downloads', () => {

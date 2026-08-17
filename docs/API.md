@@ -220,6 +220,8 @@ Content-Type: application/json
 
 ### 资料区块
 
+`section_type` 的 canonical 值为 `education|experience|project|internship|skill|campus|language|certificate|award|training|publication|management|other`。解析器和旧客户端的 `education_experience`、`work_experience`、`project_experience`、`skills`、`additional_information` 等别名只在输入边界兼容，服务端始终持久化 canonical 类型；`self_summary`/`resume_summary` 写入 `candidates.self_summary`，不重复提交为履历区块。
+
 ```http
 PUT /api/candidates/:id/profile-sections
 Content-Type: application/json
@@ -240,7 +242,9 @@ Content-Type: application/json
 }
 ```
 
-单次最多 100 个区块。`section_type` 支持 `education|experience|project|internship|skill|campus|language|certificate|award|training|publication|management|other`；`sensitivity` 支持 `public|internal|high`。请求是整组替换，未重用的旧区块软归档。
+单次最多 100 个区块；`sensitivity` 支持 `public|internal|high`。请求是整组替换，未重用的旧区块软归档。
+
+附件创建正文可携带 `profile_sections`；单文件/批量创建会把候选人、头像和确认的履历区块放在同一事务提交。附件生成的 `source_system=attachment_preview` 和 `attachment-preview:<preview>:<record>` 仅用于幂等与审计，不是外部候选人编号。偏好仍通过 `/candidates/:id/preferences` 保存，失败时客户端可重试而不会重复创建候选人。
 
 ## 人才库
 
@@ -325,6 +329,8 @@ V6.1 前端对单条归档、恢复和永久删除都发送 `{ "expected_updated
 | GET | `/attachments/previews/:id` | 轮询仍有效的解析预览，直到 `ready` 或 `failed` 等明确终态 |
 | DELETE | `/attachments/previews/:id` | 取消预览并清理隔离文件 |
 | POST | `/attachments/previews/:id/confirm` | 用户确认选择字段/履历区块并保存附件 |
+| POST | `/attachments/previews/:id/candidates` | 从单文件未匹配记录创建候选人，并保存确认的履历区块/头像 |
+| POST | `/attachment-batches/:batch_id/items/:item_id/candidates` | 从批量附件未匹配记录创建候选人，契约与单文件创建一致 |
 | GET | `/candidates/:id/attachments` | 列出候选人附件元数据 |
 | GET | `/attachments/:id/text` | 返回附件元数据和解析文本；`Cache-Control: no-store` |
 | GET | `/attachments/:id/download` | 私有受控下载；不公开附件目录 |
@@ -389,7 +395,9 @@ PDF/DOCX 产生一条候选记录；Excel/CSV 每个非空数据行独立产生�
 }
 ```
 
-服务端重新校验 token、预览状态/有效期、候选人存在/未归档/版本、身份冲突、字段和区块选择。空建议值不会清除已有值；默认只选当前为空且非低置信字段，覆盖非空字段必须显式选中；标签去重并集；区块 `merge` 按内容签名去重，`replace` 还要求 `confirm_replace_sections=true`。相同候选人 + SHA-256 + `resume` 幂等，重复文件不重复更新、附件或活动。
+服务端重新校验 token、预览状态/有效期、候选人存在/未归档/版本、身份冲突、字段和区块选择。空建议值不会清除已有值；区块 `merge` 按 canonical family 和内容签名去重，`replace` 只软归档已导入的目标 family，不触碰未选区块或手工区块；`self_summary` 只更新主档字段。相同候选人 + SHA-256 + `resume` 幂等。
+
+候选人编号显示严格区分系统 `candidate.id`、受信任外部编号和附件内部 lineage key。附件没有明确外部编号时，详情页不渲染“应聘者编号”，也不以文件名、行号、UUID 或 `attachment-preview:` 值代替。
 
 生产服务在 Agent 网关配置完整时会调用同一网关生成补充建议：最多发送提取文本前 120,000 字符和前 100 条预览记录，使用 strict JSON Schema `candidate_attachment_suggestions`，不携带 tools/tool choice，系统提示把附件 JSON 视为不可信数据。网关未配置、超时、错误或返回无效 JSON 时，API 保留本地规则建议并继续返回可确认预览；模型建议从不直接写数据库。
 

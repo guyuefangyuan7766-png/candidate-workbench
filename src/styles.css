@@ -4483,6 +4483,17 @@ p {
 .candidate-form-section h3 { font-size: 12px; }
 .candidate-form-section p { color: var(--muted); font-size: 9px; }
 .candidate-form-section textarea { min-height: 92px; }
+.candidate-resume-form-list { display: flex; flex-direction: column; gap: 9px; }
+.candidate-resume-form-item { padding: 10px; background: var(--surface-soft); border: 1px solid var(--line); border-radius: var(--radius); }
+.candidate-resume-form-item-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.candidate-resume-form-item-heading strong { color: var(--ink-soft); font-size: 10px; }
+.candidate-resume-form-item .field-wide { grid-column: 1 / -1; }
+.candidate-resume-form-item textarea { min-height: 90px; }
+.candidate-form-section-heading-with-action { display: flex; align-items: center; gap: 10px; }
+.candidate-form-section-heading-with-action > div { flex: 1; min-width: 0; }
+.danger-icon-button { color: var(--red); }
+.section-empty-copy { padding: 12px; color: var(--muted); background: var(--surface-soft); border: 1px dashed var(--line); border-radius: var(--radius); text-align: center; }
+.form-status-message { margin: 10px 0; padding: 9px 11px; color: var(--amber); background: var(--amber-soft); border: 1px solid color-mix(in srgb, var(--amber) 30%, var(--line)); border-radius: var(--radius); }
 .attachment-avatar-option { display: grid; min-height: 54px; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 9px; padding: 8px 10px; background: var(--surface-soft); border: 1px solid var(--line); border-radius: var(--radius-sm); cursor: pointer; }
 .attachment-avatar-option.is-selected { background: var(--green-soft); border-color: #bfddcf; }
 .attachment-avatar-option-icon { display: grid; width: 34px; height: 34px; place-items: center; color: var(--primary); background: var(--surface); border: 1px solid var(--line); border-radius: 50%; }

@@ -208,7 +208,9 @@ function initialSelections(records: AttachmentPreviewRecord[], knownCandidates: 
       fields: new Set(record.match.resolution === "created"
         ? []
         : record.suggestions.filter((item) => item.default_selected).map((item) => item.field)),
-      sections: new Set(record.sections.filter((item) => item.default_selected).map((item) => item.section_id)),
+      sections: new Set(record.match.resolution === "created"
+        ? []
+        : record.sections.filter((item) => item.default_selected).map((item) => item.section_id)),
     } satisfies RecordSelection];
   }));
 }
@@ -408,8 +410,7 @@ export function AttachmentBatchWorkflow({
           next[record.record_id] = {
             candidateId: candidate.id,
             fields: new Set(),
-            sections: selection?.sections
-              ?? new Set(record.sections.filter((item) => item.default_selected).map((item) => item.section_id)),
+            sections: new Set(),
           };
         });
         return next;
@@ -501,6 +502,7 @@ export function AttachmentBatchWorkflow({
         : record
         ? defaultAttachmentFieldsForCandidate(record, candidate)
         : selection.fields,
+      sections: source === "created" ? new Set() : selection.sections,
     }));
   }
 
@@ -556,36 +558,51 @@ export function AttachmentBatchWorkflow({
     setCreateBusy(true);
     setCreateError("");
     let createdId = pendingCreatedCandidateId;
+    const wasPending = Boolean(createdId);
+    const {
+      preferences,
+      profile_sections,
+      stage: _legacyStage,
+      expected_salary: _legacySalary,
+      ...candidateFields
+    } = draft;
+    const hasPreferences = Boolean(
+      preferences.employment_status
+      || preferences.desired_titles.length
+      || preferences.desired_locations.length
+      || preferences.employment_type
+      || preferences.expected_salary
+      || preferences.availability,
+    );
     try {
       let preferenceWarning = pendingCreateWarning;
       if (!createdId) {
-        const { preferences, stage: _legacyStage, expected_salary: _legacySalary, ...candidateFields } = draft;
         const created = await attachmentBatchApi.createCandidate(
           stored.batchId,
           itemId,
           stored.batchToken,
           recordId,
           candidateFields,
+          profile_sections ?? [],
           options.includeAttachmentAvatar,
         );
         createdId = created.id;
         setPendingCreatedCandidateId(created.id);
         onCandidateCreated?.(created.id);
-        const hasPreferences = Boolean(
-          preferences.employment_status
-          || preferences.desired_titles.length
-          || preferences.desired_locations.length
-          || preferences.employment_type
-          || preferences.expected_salary
-          || preferences.availability,
-        );
-        if (hasPreferences) {
-          try {
-            await candidateApi.updatePreferences(created.id, preferences);
-          } catch (preferenceError) {
-            preferenceWarning = safeErrorMessage(preferenceError, "请稍后在候选人档案中补充。");
-            setPendingCreateWarning(preferenceWarning);
-          }
+      }
+
+      // Candidate, avatar and profile sections are committed by the batch
+      // endpoint. Retry only the separate preference write when needed.
+      if (hasPreferences && (!wasPending || pendingCreateWarning)) {
+        try {
+          await candidateApi.updatePreferences(createdId, preferences);
+          preferenceWarning = "";
+          setPendingCreateWarning("");
+        } catch (preferenceError) {
+          preferenceWarning = safeErrorMessage(preferenceError, "请稍后在候选人档案中补充。");
+          setPendingCreateWarning(preferenceWarning);
+          setCreateError(`候选人已创建，但求职偏好未完整保存：${preferenceWarning}`);
+          return;
         }
       }
       const selected = await getCandidateWithRetry(createdId);
@@ -846,6 +863,7 @@ export function AttachmentBatchWorkflow({
             busy={createBusy}
             fieldsDisabled={Boolean(pendingCreatedCandidateId)}
             requireContact={false}
+            statusMessage={pendingCreateWarning || undefined}
             onCancel={closeCandidateCreate}
             onSubmit={(draft, options) => void createCandidate(draft, options)}
           />

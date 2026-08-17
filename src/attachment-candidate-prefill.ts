@@ -1,7 +1,67 @@
 // The explicit extension keeps this pure helper directly importable by Node's TypeScript test runner.
 // @ts-ignore TS5097 is safe here because this project is no-emit and Vite resolves TypeScript modules.
 import { emptyDraft } from "./types.ts";
-import type { AttachmentPreviewRecord, Candidate, CandidateDraft } from "./types";
+import type {
+  AttachmentPreviewRecord,
+  Candidate,
+  CandidateDraft,
+  CandidateProfileSectionDraft,
+} from "./types";
+
+const CANONICAL_PROFILE_SECTION_TYPES = new Set([
+  "education",
+  "experience",
+  "project",
+  "internship",
+  "skill",
+  "campus",
+  "language",
+  "certificate",
+  "award",
+  "training",
+  "publication",
+  "management",
+  "other",
+]);
+
+const PROFILE_SECTION_TYPE_ALIASES: Record<string, string> = {
+  education_experience: "education",
+  work_experience: "experience",
+  project_experience: "project",
+  skills: "skill",
+  additional: "other",
+  additional_information: "other",
+  resume_summary: "other",
+};
+
+function canonicalProfileSectionType(value: unknown): string {
+  const raw = String(value ?? "").trim().toLowerCase();
+  const canonical = PROFILE_SECTION_TYPE_ALIASES[raw] ?? raw;
+  return CANONICAL_PROFILE_SECTION_TYPES.has(canonical) ? canonical : "other";
+}
+
+function isSelfSummarySection(section: AttachmentPreviewRecord["sections"][number]): boolean {
+  if (String(section.section_type ?? "").trim().toLowerCase() === "self_summary") return true;
+  const structured = section.structured_data;
+  return Boolean(
+    structured
+    && !Array.isArray(structured)
+    && String(structured.semantic_type ?? "").trim().toLowerCase() === "self_summary",
+  );
+}
+
+export function attachmentProfileSectionDrafts(record: AttachmentPreviewRecord): CandidateProfileSectionDraft[] {
+  return record.sections
+    .filter((section) => section.default_selected && !isSelfSummarySection(section))
+    .map((section, index) => ({
+      section_type: canonicalProfileSectionType(section.section_type),
+      title: String(section.title ?? "").trim(),
+      content: String(section.content ?? "").trim(),
+      structured_data: section.structured_data ?? null,
+      sort_order: index,
+      sensitivity: "internal" as const,
+    }));
+}
 
 export function attachmentSuggestionValue(record: AttachmentPreviewRecord, field: string): unknown {
   return record.suggestions.find((item) => item.field === field)?.value;
@@ -23,8 +83,15 @@ export function candidateDraftFromAttachmentRecord(record: AttachmentPreviewReco
     .map((value) => String(value ?? "").trim())
     .filter(Boolean)
     .slice(0, 20);
+  const desiredLocationsValue = attachmentSuggestionValue(record, "desired_locations");
+  const desiredLocations = (Array.isArray(desiredLocationsValue) ? desiredLocationsValue : [desiredLocationsValue])
+    .map((value) => String(value ?? "").trim())
+    .filter(Boolean)
+    .slice(0, 20);
   const years = Number(attachmentSuggestionValue(record, "years_experience"));
   const expectedSalary = attachmentSuggestionText(record, "expected_salary");
+  const employmentType = attachmentSuggestionText(record, "employment_type");
+  const availability = attachmentSuggestionText(record, "availability");
 
   return {
     ...emptyDraft,
@@ -53,17 +120,23 @@ export function candidateDraftFromAttachmentRecord(record: AttachmentPreviewReco
     expected_salary: expectedSalary,
     preferences: {
       ...emptyDraft.preferences,
-      desired_locations: [...emptyDraft.preferences.desired_locations],
+      desired_locations: desiredLocations,
       employment_status: attachmentSuggestionText(record, "job_seeking_status"),
       desired_titles: desiredTitles,
+      employment_type: employmentType,
       expected_salary: expectedSalary,
+      availability,
     },
+    profile_sections: attachmentProfileSectionDrafts(record),
   };
 }
 
 export function hasCandidateValue(value: unknown): boolean {
   if (value === null || value === undefined) return false;
-  if (typeof value === "string") return Boolean(value.trim());
+  if (typeof value === "string") {
+    const text = value.trim();
+    return Boolean(text) && !/^(?:[-‐‑‒–—−－]+|未填写|未填|未提供|未提取|未知|暂无|无|n\/a|na|null|none)$/iu.test(text);
+  }
   if (Array.isArray(value)) return value.length > 0;
   if (typeof value === "number") return Number.isFinite(value);
   return true;
@@ -72,6 +145,12 @@ export function hasCandidateValue(value: unknown): boolean {
 export function candidateFieldValue(candidate: Candidate, field: string): unknown {
   if (field === "tags") return candidate.tags ?? [];
   if (field === "desired_titles") return candidate.preferences?.desired_titles ?? [];
+  if (field === "desired_locations") return candidate.preferences?.desired_locations ?? [];
+  if (field === "employment_type") return candidate.preferences?.employment_type ?? null;
+  if (field === "availability") return candidate.preferences?.availability ?? null;
+  if (field === "job_seeking_status") {
+    return candidate.job_seeking_status || candidate.preferences?.employment_status || null;
+  }
   if (field === "expected_salary") {
     return candidate.preferences?.expected_salary || candidate.expected_salary || null;
   }
@@ -79,7 +158,7 @@ export function candidateFieldValue(candidate: Candidate, field: string): unknow
 }
 
 export function sameCandidateFieldValue(field: string, left: unknown, right: unknown): boolean {
-  if (field === "tags" || field === "desired_titles") {
+  if (field === "tags" || field === "desired_titles" || field === "desired_locations") {
     return JSON.stringify(left ?? []) === JSON.stringify(right ?? []);
   }
   return (left ?? null) === (right ?? null);

@@ -42,6 +42,7 @@ const PARSER_VERSION = 'local-resume-parser-v2'
 const DEFAULT_PREVIEW_TTL_MS = 15 * 60 * 1000
 const DEFAULT_PARSE_CONCURRENCY = 2
 const MAX_CONFIRM_RECORDS = 1000
+const MAX_PROFILE_SECTIONS = 100
 const ATTACHMENT_SUGGESTION_TIMEOUT_MS = 5_000
 const ATTACHMENT_AVATAR_URL_PREFIX = 'attachment-avatar:'
 const PARSE_FAILURE_MESSAGES = Object.freeze({
@@ -95,8 +96,13 @@ const ALLOWED_UPDATE_FIELDS = new Set([
   'current_company', 'current_title', 'location',
   'years_experience', 'education', 'highest_school', 'highest_major',
   'job_seeking_status', 'resume_updated_at', 'self_summary', 'source', 'owner',
-  'tags', 'expected_salary', 'desired_titles'
+  'tags', 'expected_salary', 'desired_titles', 'desired_locations',
+  'employment_type', 'availability'
 ])
+// These values live in candidate_preferences rather than candidates.  Keep
+// them in the same suggestion contract so attachment confirmation cannot drop
+// fields that the ordinary candidate form can edit.
+const PREFERENCE_ONLY_FIELDS = new Set(['desired_locations', 'employment_type', 'availability'])
 const FIELD_LIMITS = Object.freeze({
   name: 200,
   phone: 80,
@@ -116,61 +122,175 @@ const FIELD_LIMITS = Object.freeze({
   source: 200,
   owner: 200,
   expected_salary: 200,
-  desired_titles: 4_000
+  desired_titles: 4_000,
+  desired_locations: 4_000,
+  employment_type: 200,
+  availability: 200
 })
 const ATTACHMENT_PREFERENCE_FIELD_ALIASES = Object.freeze({
   desired_titles: [
     'desired titles', 'desired_titles', 'intent position', 'desired position', 'target position',
     '意向岗位', '求职意向', '目标岗位', '应聘岗位', '期望职位', '期望岗位'
+  ],
+  desired_locations: [
+    'desired locations', 'desired_locations', 'desired location', 'target location',
+    '意向地点', '意向城市', '期望地点', '期望城市', '期望工作地点', '目标地点'
+  ],
+  employment_type: [
+    'employment type', 'employment_type', 'work type', '工作性质', '雇佣类型', '就业类型'
+  ],
+  availability: [
+    'availability', 'available date', 'available from',
+    '到岗时间', '可入职时间', '期望到岗时间', '预计到岗时间'
   ]
 })
+const ATTACHMENT_FIELD_ALIASES = Object.freeze({
+  highest_school: ['学校名称', '院校名称', '毕业院校', '毕业学校'],
+  highest_major: ['专业名称', '所学专业'],
+  current_company: ['现任公司', '当前任职公司'],
+  current_title: ['现任职位', '当前任职职位'],
+  job_seeking_status: [
+    '当前求职状态', '在职状态', 'employment status', 'employment_status',
+    'job status', 'job_status', '求职状态', '求职意向状态'
+  ]
+})
+// The talent/profile API accepts canonical section types.  Historical parser
+// aliases remain accepted as input and are normalized before persistence.
 const RESUME_SECTION_DEFINITIONS = Object.freeze([
   Object.freeze({
-    section_type: 'work_experience',
+    section_type: 'experience',
     title: '工作经历',
-    aliases: ['工作经历', '工作经验', '职业经历', '任职经历', 'work experience', 'employment history']
+    aliases: ['工作经历', '工作经验', '职业经历', '任职经历', '工作履历', 'work experience', 'employment history', 'professional experience', 'experience']
   }),
   Object.freeze({
-    section_type: 'project_experience',
+    section_type: 'project',
     title: '项目经历',
-    aliases: ['项目经历', '项目经验', '项目实践', 'projects', 'project experience']
+    aliases: ['项目经历', '项目经验', '项目实践', '项目履历', 'projects', 'project experience', 'project']
   }),
   Object.freeze({
-    section_type: 'education_experience',
+    section_type: 'education',
     title: '教育经历',
-    aliases: ['教育经历', '教育背景', '学历经历', '学习经历', 'education']
+    aliases: ['教育经历', '教育背景', '学历经历', '学习经历', '教育履历', 'education']
   }),
+  Object.freeze({
+    section_type: 'internship',
+    title: '实习经历',
+    aliases: ['实习经历', '实习经验', '实习履历', '实习', 'internship', 'intern experience']
+  }),
+  // self_summary is a scalar candidate field.  It is retained as an internal
+  // preview semantic for selection linkage, but is omitted from profile-section
+  // persistence to avoid storing the same content twice.
   Object.freeze({
     section_type: 'self_summary',
     title: '自我评价',
     aliases: ['自我评价', '个人评价', '自我概述', '自我总结', '个人总结', 'self summary', 'summary']
   }),
   Object.freeze({
-    section_type: 'skills',
-    title: '技能/荣誉',
+    section_type: 'skill',
+    title: '技能',
     aliases: [
       '技能/荣誉', '技能与荣誉', '技能及荣誉', '专业技能', '技能清单', '核心技能', '技能',
+      '技能证书', '技能与证书', '技能及证书', '技能/证书', '技能证书及荣誉',
       '荣誉证书', '证书/竞赛', '证书与竞赛', '证书及竞赛', '荣誉', '获奖经历',
-      'skills', 'technical skills', 'honors', 'awards', 'certificates'
+      'skills', 'technical skills', 'skills and certificates', 'skills/certificates',
+      'skills certificates', 'honors', 'awards', 'certificates', 'skill'
     ]
+  }),
+  Object.freeze({
+    section_type: 'language',
+    title: '语言能力',
+    aliases: ['语言能力', '语言技能', '语言水平', '外语能力', '语言', 'language skills', 'languages', 'language']
+  }),
+  Object.freeze({
+    section_type: 'campus',
+    title: '校园经历',
+    aliases: ['校园经历', '校园实践', '校内经历', 'campus experience', 'campus']
+  }),
+  Object.freeze({
+    section_type: 'certificate',
+    title: '证书',
+    aliases: ['证书', '资格证书', 'certificate']
+  }),
+  Object.freeze({
+    section_type: 'award',
+    title: '奖励与荣誉',
+    aliases: ['奖励与荣誉', '荣誉奖励', '获奖情况', 'award']
+  }),
+  Object.freeze({
+    section_type: 'training',
+    title: '培训经历',
+    aliases: ['培训经历', '培训', 'training']
+  }),
+  Object.freeze({
+    section_type: 'publication',
+    title: '论文与作品',
+    aliases: ['论文与作品', '论文', '作品', 'publication', 'publications']
+  }),
+  Object.freeze({
+    section_type: 'management',
+    title: '管理经历',
+    aliases: ['管理经历', '管理经验', 'management experience', 'management']
+  }),
+  Object.freeze({
+    section_type: 'other',
+    title: '附加信息',
+    aliases: ['附加信息', '附加资料', '补充信息', '补充资料', '其他信息', '其他经历', 'additional information', 'additional info', 'other']
   })
 ])
 
 const BOUNDARY_ONLY_LABELS = Object.freeze([
-  '政治面貌', '民族', '籍贯', '婚姻状况', '到岗时间', '可入职时间'
+  '政治面貌', '民族', '籍贯', '婚姻状况'
 ])
 
 const SECTION_TYPE_FAMILIES = Object.freeze({
-  work_experience: new Set(['work_experience', 'experience']),
-  project_experience: new Set(['project_experience', 'project']),
-  education_experience: new Set(['education_experience', 'education']),
-  self_summary: new Set(['self_summary']),
-  skills: new Set(['skills', 'skill', 'certificate', 'award'])
+  experience: new Set(['experience', 'work_experience']),
+  project: new Set(['project', 'project_experience']),
+  education: new Set(['education', 'education_experience']),
+  internship: new Set(['internship']),
+  skill: new Set(['skill', 'skills']),
+  language: new Set(['language']),
+  campus: new Set(['campus']),
+  certificate: new Set(['certificate']),
+  award: new Set(['award']),
+  training: new Set(['training']),
+  publication: new Set(['publication']),
+  management: new Set(['management']),
+  // self_summary/resume_summary are scalar legacy semantics and must never be
+  // archived as a side effect of replacing an `other` (附加信息) section.
+  other: new Set(['other'])
 })
 
-const SECTION_DEFINITION_BY_TYPE = new Map(
-  RESUME_SECTION_DEFINITIONS.map((definition) => [definition.section_type, definition])
-)
+const SECTION_DEFINITION_BY_TYPE = new Map()
+for (const definition of RESUME_SECTION_DEFINITIONS) {
+  SECTION_DEFINITION_BY_TYPE.set(definition.section_type, definition)
+  for (const alias of definition.aliases) {
+    SECTION_DEFINITION_BY_TYPE.set(alias, definition)
+    SECTION_DEFINITION_BY_TYPE.set(normalizeLabel(alias), definition)
+  }
+}
+
+const SECTION_TYPE_ALIASES = Object.freeze({
+  work_experience: 'experience',
+  project_experience: 'project',
+  education_experience: 'education',
+  skills: 'skill',
+  self_summary: 'other',
+  resume_summary: 'other',
+  additional: 'other',
+  additional_information: 'other'
+})
+const CANONICAL_PROFILE_SECTION_TYPES = new Set([
+  'education', 'experience', 'project', 'internship', 'skill', 'campus',
+  'language', 'certificate', 'award', 'training', 'publication', 'management', 'other'
+])
+
+function canonicalSectionType(value) {
+  const raw = String(value ?? '').trim()
+  if (!raw) return null
+  if (Object.prototype.hasOwnProperty.call(SECTION_TYPE_ALIASES, raw)) return SECTION_TYPE_ALIASES[raw]
+  const definition = SECTION_DEFINITION_BY_TYPE.get(raw) ?? SECTION_DEFINITION_BY_TYPE.get(normalizeLabel(raw))
+  return definition?.section_type ?? raw
+}
 
 function attachmentError(status, code, message, details) {
   const error = new Error(message)
@@ -231,9 +351,87 @@ function cleanValue(value, maximum = 20_000) {
   return text ? text.slice(0, maximum) : null
 }
 
+const PLACEHOLDER_VALUE_PATTERN = /^(?:[-\u2010\u2011\u2012\u2013\u2014\u2212]+|未填写|未填|未提供|未提取|未知|暂无|无|n\/a|na|null|none)$/iu
+
+function isPlaceholderValue(value) {
+  if (value === null || value === undefined) return true
+  return PLACEHOLDER_VALUE_PATTERN.test(String(value).replace(/[\u00a0\u3000]/g, ' ').trim())
+}
+
+// PDF text extraction often inserts spaces between every Han character.  Do
+// not remove every Han-to-Han space: spaces between real words (for example
+// "示例大学 本科") carry meaning.  A space is removed only when both sides
+// are singleton Han tokens, i.e. neither adjacent character belongs to a
+// contiguous Han word.  This joins "张 三"/"数 据 分 析" while preserving
+// ordinary multi-character word boundaries.
+function normalizeChineseSpacing(value) {
+  const text = String(value ?? '')
+  const isHan = (character) => Boolean(character && /[\u3400-\u9fff]/u.test(character))
+  return text.replace(/(?<=[\u3400-\u9fff])[ \t\u00a0\u3000]+(?=[\u3400-\u9fff])/gu, (spacing, offset, source) => {
+    const previous = source[offset - 2] ?? ''
+    const next = source[offset + spacing.length + 1] ?? ''
+    return !isHan(previous) && !isHan(next) ? '' : spacing
+  })
+}
+
+// Parser/OCR adapters occasionally append opaque tokens to a line.  Only
+// remove tokens with strong noise signatures; ordinary alphanumeric IDs,
+// emails, URLs and dates are deliberately left untouched.
+function isLikelyAttachmentNoiseToken(value) {
+  const token = String(value ?? '').trim().replace(/^[([<{]+|[\])}>.,;:，；。]+$/g, '')
+  if (!token || token.length < 12) return false
+  if (/^attachment-preview:/i.test(token) || /^source[-_](?:offset|record)/i.test(token)) return true
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(token)) return true
+  // Known parser fragments have a long lower-case hex prefix, an upper-case
+  // suffix, and often another opaque hyphen-delimited fragment.  Requiring this
+  // exact shape avoids deleting ordinary external/business IDs such as
+  // `abcDEF123456789012345678`.
+  if (/^[0-9a-f]{12,}[A-Z]{1,8}(?:-[A-Za-z0-9]{8,})+[-~]*$/.test(token)) return true
+  if (/^[0-9a-f]{12,}[A-Z]{1,8}$/.test(token)) return true
+  return false
+}
+
+// Opaque-looking identifiers are valid business data when the attachment
+// explicitly labels them as such.  Keep this allow-list contextual and narrow
+// so internal lineage labels such as source_record_id remain removable.
+const EXPLICIT_IDENTIFIER_LABEL_PATTERN = /(?:(?:(?:候选人|应聘者|人才|业务|项目|合同|订单|工单|员工|证书|客户|外部)?(?:编号|编码|代码|单号|工号|学号|证书号))|(?:(?:候选人|应聘者|人才|业务|项目|合同|订单|工单|员工|证书|客户|外部)\s*id)|(?:(?:external|business|candidate|applicant|project|order|contract|employee|certificate|customer|reference)\s*(?:id|number|code|identifier)))\s*[:：#]?\s*$/iu
+
+function hasExplicitIdentifierContext(value, offset) {
+  const prefix = String(value ?? '').slice(Math.max(0, offset - 120), offset)
+  return EXPLICIT_IDENTIFIER_LABEL_PATTERN.test(prefix)
+}
+
+function stripAttachmentNoise(value, maximum = 50_000) {
+  const source = normalizeChineseSpacing(String(value ?? '').replace(/\u0000/g, ''))
+  const lines = source.split(/\r?\n/)
+  const seenLongLines = new Set()
+  const cleanedLines = lines.flatMap((line) => {
+    const trimmed = line.trim()
+    if (!trimmed) return ['']
+    if (isLikelyAttachmentNoiseToken(trimmed)) return []
+    const scrubbed = trimmed.replace(/[A-Za-z0-9][A-Za-z0-9_~:-]{11,}/g, (token, offset, whole) => {
+      const previous = whole[offset - 1] ?? ''
+      const next = whole[offset + token.length] ?? ''
+      if (/^(?:attachment-preview:|source[-_](?:offset|record))/i.test(token)) return ''
+      if (hasExplicitIdentifierContext(whole, offset)) return token
+      if (previous === '@' || next === '@' || previous === '/' || next === '/' || next === '.') return token
+      return isLikelyAttachmentNoiseToken(token) ? '' : token
+    })
+    // Preserve ordinary Latin/number spacing (for example "Senior Software
+    // Engineer"). CJK-only spacing was normalized above; removing every
+    // whitespace token here would silently change legitimate resume text.
+    const cleaned = scrubbed.replace(/[ \t]{2,}/g, ' ').trim()
+    const repeatedKey = cleaned.replace(/\s+/g, ' ')
+    if (repeatedKey.length >= 40 && seenLongLines.has(repeatedKey)) return []
+    if (repeatedKey.length >= 40) seenLongLines.add(repeatedKey)
+    return cleaned ? [cleaned] : []
+  })
+  return cleanValue(cleanedLines.join('\n'), maximum)
+}
+
 function nonEmpty(value) {
-  if (Array.isArray(value)) return value.length > 0
-  return value !== null && value !== undefined && String(value).trim() !== ''
+  if (Array.isArray(value)) return value.some((item) => nonEmpty(item))
+  return value !== null && value !== undefined && String(value).trim() !== '' && !isPlaceholderValue(value)
 }
 
 function unique(values) {
@@ -243,7 +441,7 @@ function unique(values) {
 function isMissingIdentityValue(value) {
   if (value === null || value === undefined) return true
   const text = String(value).trim()
-  return text === '' || text === '未提取'
+  return text === '' || isPlaceholderValue(text)
 }
 
 function normalizedIdentityCandidates(values, normalizer) {
@@ -297,20 +495,38 @@ function normalizeHeader(value) {
 }
 
 function findHeaderValue(values, aliases) {
+  return findHeaderEntry(values, aliases)?.[1] ?? null
+}
+
+function findHeaderEntry(values, aliases) {
   const aliasesNormalized = new Set(aliases.map(normalizeHeader))
   for (const [header, value] of Object.entries(values ?? {})) {
-    if (aliasesNormalized.has(normalizeHeader(header)) && nonEmpty(value)) return value
+    if (aliasesNormalized.has(normalizeHeader(header)) && nonEmpty(value)) return [header, value]
   }
   return null
 }
 
+function findPhysicalHeaderValues(values, aliases) {
+  const aliasesNormalized = new Set(aliases.map(normalizeHeader))
+  return Object.entries(values ?? {}).flatMap(([header, value]) => {
+    // Spreadsheet workers preserve duplicate physical columns with `_2`,
+    // `_3`, ... suffixes. Identity matching must inspect every such column.
+    const physicalHeader = String(header).replace(/_\d+$/, '')
+    return aliasesNormalized.has(normalizeHeader(physicalHeader)) && nonEmpty(value) ? [value] : []
+  })
+}
+
 function extractTextIdentity(text, labeledData = extractLabeledCandidateData(text)) {
-  const labeledEmails = labeledData.candidates.email
-  const labeledPhones = labeledData.candidates.phone
-  const emails = labeledData.identity_labels.email ? labeledEmails : emailCandidates(text)
-  const phones = labeledData.identity_labels.phone
+  const safeText = stripAttachmentNoise(text, 2_000_000) ?? ''
+  const safeLabeledData = safeText && safeText !== String(text ?? '')
+    ? extractLabeledCandidateData(safeText)
+    : labeledData
+  const labeledEmails = safeLabeledData.candidates.email
+  const labeledPhones = safeLabeledData.candidates.phone
+  const emails = safeLabeledData.identity_labels.email ? labeledEmails : emailCandidates(safeText)
+  const phones = safeLabeledData.identity_labels.phone
     ? labeledPhones
-    : phoneCandidates(text, { fallbackScan: true })
+    : phoneCandidates(safeText, { fallbackScan: true })
   return normalizedIdentity({ phone_candidates: phones, email_candidates: emails })
 }
 
@@ -323,24 +539,22 @@ function looksLikeResumeDate(value) {
 }
 
 function extractRowIdentity(values) {
-  const phoneRaw = findHeaderValue(values, ['phone', 'mobile', 'telephone', '手机号', '手机号码', '电话', '联系电话'])
-  const emailRaw = findHeaderValue(values, ['email', 'e-mail', '邮箱', '电子邮箱', '邮箱地址'])
-  const phone = normalizePhone(phoneRaw)
-  const email = normalizeEmail(emailRaw)
-  return {
-    phone,
-    email,
-    phone_candidates: phone ? [phone] : [],
-    email_candidates: email ? [email] : [],
-    ambiguous: false
-  }
+  const phones = findPhysicalHeaderValues(
+    values,
+    ['phone', 'mobile', 'telephone', '手机号', '手机号码', '电话', '联系电话']
+  )
+  const emails = findPhysicalHeaderValues(
+    values,
+    ['email', 'e-mail', '邮箱', '电子邮箱', '邮箱地址']
+  )
+  return normalizedIdentity({ phone_candidates: phones, email_candidates: emails })
 }
 
 function normalizeLabel(value) {
   return String(value ?? '')
     .trim()
     .toLocaleLowerCase()
-    .replace(/([\u3400-\u9fff])\s+(?=[\u3400-\u9fff])/g, '$1')
+    .replace(/(?<=[\u3400-\u9fff])\s+(?=[\u3400-\u9fff])/g, '')
     .replace(/\s+/g, ' ')
 }
 
@@ -366,6 +580,9 @@ const LABEL_DESCRIPTORS = (() => {
   for (const [field, aliases] of Object.entries(HEADER_ALIASES)) {
     for (const alias of aliases) descriptorFor(alias).fields.add(field)
   }
+  for (const [field, aliases] of Object.entries(ATTACHMENT_FIELD_ALIASES)) {
+    for (const alias of aliases) descriptorFor(alias).fields.add(field)
+  }
   for (const [field, aliases] of Object.entries(ATTACHMENT_PREFERENCE_FIELD_ALIASES)) {
     for (const alias of aliases) descriptorFor(alias).fields.add(field)
   }
@@ -379,7 +596,7 @@ const LABEL_DESCRIPTORS = (() => {
 const LABEL_PATTERN = [...LABEL_DESCRIPTORS.values()]
   .map((descriptor) => descriptor.alias)
   .sort((left, right) => right.length - left.length)
-  .map(escapeRegex)
+  .map(labelRegex)
   .join('|')
 const SPACED_IDENTITY_LABEL_PATTERN = [...LABEL_DESCRIPTORS.entries()]
   .filter(([, descriptor]) => [...descriptor.fields].some((field) => field === 'phone' || field === 'email'))
@@ -397,6 +614,10 @@ const EMBEDDED_IDENTITY_LABEL_PATTERN = [...LABEL_DESCRIPTORS.entries()]
 const SECTION_ALIAS_ENTRIES = RESUME_SECTION_DEFINITIONS
   .flatMap((definition) => definition.aliases.map((alias) => ({ alias, definition })))
   .sort((left, right) => right.alias.length - left.alias.length)
+const SECTION_ALIAS_REGEX_ENTRIES = SECTION_ALIAS_ENTRIES.map((entry) => ({
+  ...entry,
+  matcher: new RegExp(`^(${labelRegex(entry.alias)})(?=$|[\\s:：])`, 'iu')
+}))
 
 function scanColonMarkers(text) {
   const source = String(text ?? '')
@@ -415,7 +636,7 @@ function scanColonMarkers(text) {
       })
     }
   }
-  collect(new RegExp(`(^|[\\s|｜;；,，])(${LABEL_PATTERN})\\s*[:：]\\s*`, 'gimu'))
+  collect(new RegExp(`(^|[\\s|｜;；,，.．、。()（）\\[\\]【】])(${LABEL_PATTERN})\\s*[:：]\\s*`, 'gimu'))
   // PDF text commonly keeps this label contiguous while inserting spaces around nearby fields.
   collect(new RegExp(`(^|[^\\p{L}\\p{N}])(移动\\s*电\\s*话)\\s*[:：]\\s*`, 'gimu'))
   if (SPACED_IDENTITY_LABEL_PATTERN) {
@@ -423,6 +644,45 @@ function scanColonMarkers(text) {
   }
   if (EMBEDDED_IDENTITY_LABEL_PATTERN) {
     collect(new RegExp(`(^|.)(${EMBEDDED_IDENTITY_LABEL_PATTERN})\\s*[:：]\\s*`, 'gimu'))
+  }
+  // Some PDF text extractors concatenate adjacent labels without whitespace
+  // (for example “姓名：张三邮箱：a@example.com”).  Recover any known label
+  // followed by a colon; the value boundary logic below still limits it to the
+  // current line/next marker.
+  let embedded
+  const embeddedMatcher = new RegExp(`(${LABEL_PATTERN})\\s*[:：]\\s*`, 'gimu')
+  while ((embedded = embeddedMatcher.exec(source))) {
+    const descriptor = LABEL_DESCRIPTORS.get(normalizeLabel(embedded[1]))
+    if (!descriptor) continue
+    // The generic matcher is needed for adjacent labels such as
+    // “姓名：张三邮箱：...”, but short identity labels also occur inside
+    // ordinary prose (for example “项目邮箱：...”).  When a short label is
+    // immediately preceded by Han text, only accept it when the preceding
+    // text looks like a value following a candidate-level label.  This keeps
+    // the boundary recovery without manufacturing a second identity value.
+    const previousCharacter = source[embedded.index - 1] ?? ''
+    const compactAlias = normalizeLabel(embedded[1]).replace(/\s+/g, '')
+    const identityField = [...descriptor.fields].some((field) => field === 'phone' || field === 'email')
+    if (identityField && /[\u3400-\u9fff]/u.test(previousCharacter) && compactAlias.length <= 2) {
+      const lineStart = source.lastIndexOf('\n', embedded.index - 1) + 1
+      const prefix = source.slice(lineStart, embedded.index)
+      const lastColon = Math.max(prefix.lastIndexOf(':'), prefix.lastIndexOf('：'))
+      if (lastColon < 0) continue
+      const precedingValue = prefix.slice(lastColon + 1).trim()
+      if (!precedingValue || /[\s@,，;；|｜]/u.test(precedingValue)) continue
+      const labelPrefix = prefix.slice(0, lastColon).trim()
+      const followsSectionHeading = SECTION_ALIAS_ENTRIES.some((entry) => (
+        labelPrefix.endsWith(entry.alias)
+      ))
+      if (followsSectionHeading) continue
+    }
+    markers.push({
+      start: embedded.index,
+      end: embeddedMatcher.lastIndex,
+      label: embedded[1],
+      descriptor,
+      inline: true
+    })
   }
   return markers
 }
@@ -436,12 +696,28 @@ function scanStandaloneSectionMarkers(text) {
     const rawLine = lineMatch[0]
     const leading = rawLine.search(/\S/)
     if (leading < 0) continue
-    const trimmed = rawLine.trim()
+    const rawContent = rawLine.slice(leading).trimEnd()
+    let headingPrefix = ''
+    let headingRemainder = rawContent
+    const headingPrefixPattern = /^(?:(?:#{1,6}|[\u2022•●▪◦*-])\s*|(?:\d+|[一二三四五六七八九十百]+)[、.．)）]\s*)/u
+    for (let prefixCount = 0; prefixCount < 2; prefixCount += 1) {
+      const prefix = headingPrefixPattern.exec(headingRemainder)?.[0]
+      if (!prefix) break
+      headingPrefix += prefix
+      headingRemainder = headingRemainder.slice(prefix.length)
+    }
+    const contentOffset = leading + headingPrefix.length
+    const content = rawContent.slice(headingPrefix.length)
+    const trimmed = content.trim()
     const label = trimmed.replace(/\s*[:：]\s*$/, '')
     const descriptor = LABEL_DESCRIPTORS.get(normalizeLabel(label))
     if (descriptor?.section) {
       markers.push({
-        start: lineMatch.index + leading,
+        start: lineMatch.index + contentOffset,
+        // Keep the physical line start separately from the semantic label
+        // start.  A numbered/Markdown heading's prefix (for example
+        // "### 2. ") belongs to the heading, not to the preceding section.
+        boundary_start: lineMatch.index + leading,
         end: lineMatch.index + rawLine.length,
         label,
         descriptor,
@@ -450,19 +726,56 @@ function scanStandaloneSectionMarkers(text) {
       continue
     }
 
-    const content = rawLine.slice(leading).trimEnd()
-    const inlineHeading = SECTION_ALIAS_ENTRIES.find(({ alias }) => (
-      content.slice(0, alias.length).toLocaleLowerCase() === alias.toLocaleLowerCase()
-      && /^[ \t]+/.test(content.slice(alias.length))
-    ))
+    let inlineHeading = null
+    for (const entry of SECTION_ALIAS_REGEX_ENTRIES) {
+      const match = entry.matcher.exec(content)
+      if (match) {
+        inlineHeading = { ...entry, matchedLength: match[0].length }
+        break
+      }
+    }
     if (!inlineHeading) continue
-    const separator = /^[ \t]+/.exec(content.slice(inlineHeading.alias.length))?.[0] ?? ''
+    const separator = /^[ \t:：]+/.exec(content.slice(inlineHeading.matchedLength))?.[0] ?? ''
     markers.push({
-      start: lineMatch.index + leading,
-      end: lineMatch.index + leading + inlineHeading.alias.length + separator.length,
+      start: lineMatch.index + contentOffset,
+      boundary_start: lineMatch.index + leading,
+      end: lineMatch.index + contentOffset + inlineHeading.matchedLength + separator.length,
       label: inlineHeading.alias,
       descriptor: LABEL_DESCRIPTORS.get(normalizeLabel(inlineHeading.alias)),
       inline: true
+    })
+  }
+  return markers
+}
+
+function markerBoundaryStart(marker) {
+  return marker?.boundary_start ?? marker?.start ?? 0
+}
+
+// A number of exported resumes put a label on its own line and the value on
+// the following line (without a colon).  Treat only known scalar labels as
+// standalone boundaries; section headings are handled separately above.
+function scanStandaloneFieldMarkers(text) {
+  const source = String(text ?? '')
+  const markers = []
+  const lineMatcher = /[^\r\n]+/g
+  let lineMatch
+  while ((lineMatch = lineMatcher.exec(source))) {
+    const rawLine = lineMatch[0]
+    const leading = rawLine.search(/\S/)
+    if (leading < 0) continue
+    const trimmed = rawLine.trim().replace(/\s*[:：]\s*$/, '')
+    const descriptor = LABEL_DESCRIPTORS.get(normalizeLabel(trimmed))
+    if (!descriptor || descriptor.section) continue
+    // A standalone label must occupy the whole physical line.  This avoids
+    // treating ordinary prose containing e.g. “专业” as a field marker.
+    markers.push({
+      start: lineMatch.index + leading,
+      end: lineMatch.index + rawLine.length,
+      label: trimmed,
+      descriptor,
+      inline: false,
+      standalone: true
     })
   }
   return markers
@@ -473,7 +786,11 @@ function uniqueMarkers(markers) {
   for (const marker of markers.sort((left, right) => left.start - right.start || right.end - left.end)) {
     const previous = result.at(-1)
     if (previous && previous.start === marker.start) {
-      if (marker.end > previous.end) result[result.length - 1] = marker
+      const preferred = marker.end > previous.end ? marker : previous
+      const boundaryStart = Math.min(markerBoundaryStart(previous), markerBoundaryStart(marker))
+      result[result.length - 1] = boundaryStart < preferred.start
+        ? { ...preferred, boundary_start: boundaryStart }
+        : preferred
       continue
     }
     result.push(marker)
@@ -482,18 +799,47 @@ function uniqueMarkers(markers) {
 }
 
 function looksLikeYearsField(text, marker) {
-  if (marker.descriptor.section?.section_type !== 'work_experience') return false
+  if (canonicalSectionType(marker.descriptor.section?.section_type) !== 'experience') return false
   if (!marker.descriptor.fields.has('years_experience')) return false
-  const lineEnd = String(text).indexOf('\n', marker.end)
-  const tail = String(text).slice(marker.end, lineEnd < 0 ? undefined : lineEnd).trim()
+  const source = String(text ?? '')
+  const lineEnd = source.indexOf('\n', marker.end)
+  let tail
+  if (marker.standalone) {
+    const valueStart = lineEnd < 0 ? source.length : lineEnd + 1
+    const valueEnd = source.indexOf('\n', valueStart)
+    tail = source.slice(valueStart, valueEnd < 0 ? source.length : valueEnd).trim()
+  } else {
+    tail = source.slice(marker.end, lineEnd < 0 ? undefined : lineEnd).trim()
+  }
   return /^\d+(?:\.\d+)?\s*(?:年|years?)?(?:以上)?$/i.test(tail)
+}
+
+function markerValueLine(text, marker) {
+  const source = String(text ?? '')
+  const lineEnd = source.indexOf('\n', marker.end)
+  if (!marker.standalone) return source.slice(marker.end, lineEnd < 0 ? source.length : lineEnd).trim()
+  const valueStart = lineEnd < 0 ? source.length : lineEnd + 1
+  const valueEnd = source.indexOf('\n', valueStart)
+  return source.slice(valueStart, valueEnd < 0 ? source.length : valueEnd).trim()
+}
+
+// Some aliases (Education/Experience) are also section headings.  When the
+// heading carries a short scalar value, keep it as a profile-field marker and
+// do not manufacture a履历 section from it.
+function isScalarSectionMarker(text, marker) {
+  const sectionType = canonicalSectionType(marker.descriptor.section?.section_type)
+  const label = normalizeLabel(marker.label).replace(/\s+/g, '')
+  const value = markerValueLine(text, marker)
+  if (sectionType === 'experience' && label === 'experience') return looksLikeYearsField(text, marker)
+  if (sectionType !== 'education' || !value || value.length > 80 || /[\n;；|｜]/u.test(value)) return false
+  return new Set(['education', 'degree', 'highesteducation']).has(label)
 }
 
 function scanSectionMarkers(text) {
   return uniqueMarkers([
     ...scanColonMarkers(text).filter((marker) => marker.descriptor.section && !looksLikeYearsField(text, marker)),
     ...scanStandaloneSectionMarkers(text)
-  ])
+  ].filter((marker) => marker.descriptor.section && !isScalarSectionMarker(text, marker)))
 }
 
 function cleanExtractedSegment(value, maximum) {
@@ -503,6 +849,30 @@ function cleanExtractedSegment(value, maximum) {
     .replace(/[ \t]+\n/g, '\n')
     .trim()
   return text ? text.slice(0, maximum) : null
+}
+
+function cleanResumeSegment(value, maximum) {
+  const segment = cleanExtractedSegment(normalizeChineseSpacing(value), maximum)
+  if (!segment || isPlaceholderValue(segment)) return null
+  return stripAttachmentNoise(segment, maximum)
+}
+
+// Evidence is user-facing, so opaque parser/lineage tokens must not leak into
+// it.  Keep the prefix before a noise token instead of deleting characters in
+// the middle; the returned fragment therefore remains an exact substring of
+// the attachment source and can still be audited back to the original text.
+function cleanEvidenceSegment(value, maximum = 1_000) {
+  const source = String(value ?? '')
+  const matcher = /[A-Za-z0-9][A-Za-z0-9_~:-]{11,}/g
+  let match
+  while ((match = matcher.exec(source))) {
+    const token = match[0]
+    const lineageToken = /^(?:attachment-preview:|source[-_](?:offset|record))/i.test(token)
+    if (lineageToken || (!hasExplicitIdentifierContext(source, match.index) && isLikelyAttachmentNoiseToken(token))) {
+      return cleanExtractedSegment(source.slice(0, match.index), maximum)
+    }
+  }
+  return cleanExtractedSegment(source, maximum)
 }
 
 const DOMESTIC_PHONE_PATTERN = /(?:\+?86|0086)?[\s().-]*1[3-9](?:[\s().-]*\d){9}(?!\d)/g
@@ -627,7 +997,7 @@ function contactEvidenceFromText(text, field, normalized, preferredEvidence = nu
         .at(-1)
       if (marker) start = lineStart + marker.start
       else if (!marker) start = lineStart + relativeMatchIndex
-      const fragment = cleanExtractedSegment(source.slice(start, match.index + match[0].length), 1_000)
+       const fragment = cleanEvidenceSegment(source.slice(start, match.index + match[0].length), 1_000)
       if (fragment) return fragment
     }
   }
@@ -641,18 +1011,18 @@ function uniqueExtractedContact(field, rawValue) {
 
 function normalizeExtractedField(field, rawValue) {
   const maximum = FIELD_LIMITS[field] ?? (field === 'tags' ? 20_000 : 300)
-  const multiline = cleanExtractedSegment(rawValue, maximum)
+  const multiline = cleanResumeSegment(rawValue, maximum)
   if (!multiline) return null
   if (field === 'phone' || field === 'email') return uniqueExtractedContact(field, multiline)
   if (field === 'years_experience') {
     const match = multiline.match(/^(\d+(?:\.\d+)?)\s*(?:年|years?)?(?:以上)?$/i)
     return match ? Number(match[1]) : null
   }
-  if (field === 'tags' || field === 'desired_titles') {
+  if (field === 'tags' || field === 'desired_titles' || field === 'desired_locations') {
     const values = multiline
       .split(/[\n,，;；|｜/、·•]+/)
       .map((item) => item.replace(/^[-*–—]\s*/, '').replace(/\s+/g, ' ').trim())
-      .filter(Boolean)
+      .filter((item) => item && !isPlaceholderValue(item) && !isLikelyAttachmentNoiseToken(item))
       .slice(0, field === 'tags' ? 50 : 20)
     return values.length ? values : null
   }
@@ -666,34 +1036,107 @@ function normalizeExtractedField(field, rawValue) {
   return cleanValue(value, maximum)
 }
 
+function sectionContainingMarker(sectionMarkers, marker) {
+  for (const [index, sectionMarker] of sectionMarkers.entries()) {
+    const next = sectionMarkers[index + 1]
+    if (marker.start >= markerBoundaryStart(sectionMarker) && marker.start < (next ? markerBoundaryStart(next) : Number.POSITIVE_INFINITY)) {
+      return sectionMarker
+    }
+  }
+  return null
+}
+
+function fieldAllowedInsideSection(marker, field, sectionMarker) {
+  if (!sectionMarker) return true
+  if (field === 'phone' || field === 'email') return true
+  const sectionType = sectionMarker.descriptor.section?.section_type
+  if (field === 'self_summary') return sectionType === 'self_summary'
+  if (
+    canonicalSectionType(sectionType) === 'education' &&
+    marker.start > sectionMarker.start &&
+    ['education', 'highest_school', 'highest_major'].includes(field)
+  ) return true
+  // A skill heading doubles as the canonical `tags` field in many exports.
+  // Keep both projections: the section preserves the resume text while the
+  // profile tag field remains editable/searchable.
+  if (marker.start === sectionMarker.start && canonicalSectionType(sectionType) === 'skill' && field === 'tags') return true
+  if (marker.start === sectionMarker.start) return false
+
+  const label = normalizeLabel(marker.label)
+  if (field === 'current_company') return /^(?:当前公司|目前公司|现公司|current company)$/iu.test(label)
+  if (field === 'current_title') return /^(?:当前职位|目前职位|现职位|current title)$/iu.test(label)
+  if (field === 'highest_school') return /^(?:最高学历学校|最高学历院校|highest school)$/iu.test(label)
+  if (field === 'highest_major') return /^(?:最高学历专业|highest major)$/iu.test(label)
+  if (field === 'location') return /^(?:所在地|当前所在地|工作地点|location)$/iu.test(label)
+  if (field === 'years_experience') return /^(?:工作年限|经验年限|years experience)$/iu.test(label)
+  // These labels are unambiguously candidate-level even when a preceding
+  // resume section happens to extend to the end of the document.
+  return [
+    'name', 'gender', 'birth_date', 'age', 'job_seeking_status', 'resume_updated_at',
+    'desired_titles', 'desired_locations', 'employment_type', 'availability'
+  ].includes(field)
+}
+
 function extractLabeledCandidateData(text) {
   const source = String(text ?? '')
   const colonMarkers = scanColonMarkers(source)
-  const boundaries = uniqueMarkers([...colonMarkers, ...scanStandaloneSectionMarkers(source)])
+  const standaloneSectionMarkers = scanStandaloneSectionMarkers(source)
+  const sectionMarkers = scanSectionMarkers(source)
+  const standaloneFieldMarkers = scanStandaloneFieldMarkers(source)
+  const boundaries = uniqueMarkers([...colonMarkers, ...standaloneSectionMarkers, ...standaloneFieldMarkers])
   const values = {}
   const evidence = {}
   const candidates = { phone: [], email: [] }
   const identityLabels = { phone: false, email: false }
-  for (const marker of colonMarkers) {
+  for (const marker of [...colonMarkers, ...standaloneFieldMarkers].sort((left, right) => left.start - right.start)) {
     const boundaryIndex = boundaries.findIndex((item) => item.start === marker.start)
     const next = boundaryIndex >= 0 ? boundaries[boundaryIndex + 1] : null
-    const rawValue = source.slice(marker.end, next?.start ?? source.length)
+    // A standalone/Markdown section marker's semantic start begins after its
+    // numbering prefix. Scalar values must stop at the physical line start so
+    // that prefixes such as `### 2.` never leak into the preceding field.
+    const nextBoundaryStart = next ? markerBoundaryStart(next) : source.length
     const lineEnd = source.indexOf('\n', marker.end)
     const identityField = [...marker.descriptor.fields].some((field) => field === 'phone' || field === 'email')
+    const multilineField = [...marker.descriptor.fields].some((field) => field === 'self_summary')
+    const valueStart = marker.standalone
+      ? (lineEnd < 0 ? source.length : lineEnd + 1)
+      : marker.end
+    const valueLineEnd = marker.standalone
+      ? source.indexOf('\n', valueStart)
+      : lineEnd
+    const scalarEnd = Math.min(
+      nextBoundaryStart,
+      marker.standalone
+        ? (valueLineEnd < 0 ? source.length : valueLineEnd)
+        : (lineEnd < 0 ? source.length : lineEnd)
+    )
+    const valueEnd = marker.standalone
+      ? (multilineField
+          ? nextBoundaryStart
+          : Math.min(
+              nextBoundaryStart,
+              valueLineEnd < 0 ? source.length : valueLineEnd
+            ))
+      : (multilineField ? nextBoundaryStart : scalarEnd)
+    const rawValue = source.slice(valueStart, Math.max(valueStart, valueEnd))
     const sameLine = source.slice(marker.end, lineEnd < 0 ? source.length : lineEnd)
     const nextColonOffset = identityField ? sameLine.search(/[:：]/) : -1
     const identityRawValue = source.slice(
-      marker.end,
-      Math.min(
-        next?.start ?? source.length,
-        lineEnd < 0 ? source.length : lineEnd,
-        nextColonOffset >= 0 ? marker.end + nextColonOffset : source.length
-      )
+      valueStart,
+      marker.standalone
+        ? valueEnd
+        : Math.min(
+            scalarEnd,
+            lineEnd < 0 ? source.length : lineEnd,
+            nextColonOffset >= 0 ? marker.end + nextColonOffset : source.length
+          )
     )
     for (const field of marker.descriptor.fields) {
       if (field === 'phone' || field === 'email') identityLabels[field] = true
       if (field === 'phone') candidates.phone.push(...phoneCandidates(identityRawValue))
       if (field === 'email') candidates.email.push(...emailCandidates(identityRawValue))
+      const containingSection = sectionContainingMarker(sectionMarkers, marker)
+      if (!fieldAllowedInsideSection(marker, field, containingSection)) continue
       if (!ALLOWED_UPDATE_FIELDS.has(field) || Object.prototype.hasOwnProperty.call(values, field)) continue
       const value = field === 'phone' || field === 'email'
         ? normalizeExtractedField(field, identityRawValue)
@@ -701,8 +1144,8 @@ function extractLabeledCandidateData(text) {
       if (!nonEmpty(value)) continue
       values[field] = value
       evidence[field] = field === 'phone' || field === 'email'
-        ? contactEvidenceFromText(source, field, value, source.slice(marker.start, next?.start ?? source.length))
-        : cleanExtractedSegment(source.slice(marker.start, next?.start ?? source.length), 1000)
+        ? contactEvidenceFromText(source, field, value, source.slice(marker.start, Math.max(marker.start, scalarEnd)))
+        : cleanEvidenceSegment(source.slice(marker.start, Math.max(marker.start, valueEnd)), 1000)
     }
   }
   return {
@@ -724,73 +1167,245 @@ function textCandidateValues(text, identity, labeledData = extractLabeledCandida
   }
   if (!nonEmpty(values.years_experience)) {
     const years = String(text).match(/(\d+(?:\.\d+)?)\s*(?:年|years?)\s*(?:以上)?(?:工作|从业|开发|经验|experience)/i)
-    if (years) values.years_experience = Number(years[1])
+    if (years) {
+      values.years_experience = Number(years[1])
+      if (!labeledData.evidence.years_experience) labeledData.evidence.years_experience = years[0]
+    }
   }
   return Object.fromEntries(Object.entries(values).filter(([, value]) => nonEmpty(value)))
 }
 
-function spreadsheetCandidateValues(values) {
+function spreadsheetEvidence(header, value) {
+  const rendered = cleanEvidenceSegment(`${String(header).trim()}: ${String(value ?? '').trim()}`, 1_000)
+  return rendered && !isPlaceholderValue(value) ? rendered : null
+}
+
+const SPREADSHEET_SECTION_FIELD_PATTERNS = Object.freeze([
+  ['internship', /^(?:实习(?:公司|单位|机构|职位|岗位|职务|时间|日期|内容|职责|描述)|internship(?:company|organization|role|position|period|date|description))$/i],
+  ['education', /^(?:教育(?:院校|学校|专业|学位|学历|时间|内容)|院校名称|学校名称|专业名称|education(?:school|major|degree|period|description))$/i],
+  ['experience', /^(?:工作(?:公司|单位|职位|岗位|职务|时间|内容|职责|描述)|work(?:company|role|position|period|description))$/i],
+  ['project', /^(?:项目(?:名称|角色|时间|内容|职责|描述)|project(?:name|role|period|description))$/i],
+  ['language', /^(?:语言(?:名称|等级|水平|证书|描述)|外语(?:名称|等级|水平)|language(?:name|level|certificate|description))$/i],
+  ['skill', /^(?:技能(?:名称|等级|描述)|skill(?:name|level|description))$/i]
+])
+
+function spreadsheetSectionDefinition(header, value) {
+  const withoutDuplicateSuffix = String(header ?? '').replace(/_\d+$/, '')
+  const normalized = normalizeLabel(withoutDuplicateSuffix)
+  const canonicalType = canonicalSectionType(withoutDuplicateSuffix)
+  let definition = SECTION_DEFINITION_BY_TYPE.get(withoutDuplicateSuffix) ??
+    SECTION_DEFINITION_BY_TYPE.get(normalized) ??
+    SECTION_DEFINITION_BY_TYPE.get(canonicalType)
+  if (!definition) {
+    const compactHeader = normalizeHeader(withoutDuplicateSuffix)
+    const matchedType = SPREADSHEET_SECTION_FIELD_PATTERNS.find(([, pattern]) => pattern.test(compactHeader))?.[0]
+    if (matchedType) definition = SECTION_DEFINITION_BY_TYPE.get(matchedType)
+  }
+  if (!definition || definition.section_type === 'self_summary') return null
+  const content = cleanResumeSegment(value, 50_000)
+  if (!content) return null
+
+  // `education` and `experience` are also common scalar spreadsheet headers.
+  // A short degree or numeric year count should stay a candidate field rather
+  // than becoming a misleading profile section.
+  if (normalized === 'education' && !/[\r\n;；|｜]/.test(content) && content.length <= 20) return null
+  if (normalized === 'experience' && /^\d+(?:\.\d+)?\s*(?:年|years?)?$/i.test(content)) return null
+  return definition
+}
+
+function spreadsheetResumeSections(values) {
+  const grouped = new Map()
+  for (const [columnIndex, [header, rawValue]] of Object.entries(values ?? {}).entries()) {
+    const definition = spreadsheetSectionDefinition(header, rawValue)
+    if (!definition) continue
+    const content = cleanResumeSegment(rawValue, 50_000)
+    const evidence = spreadsheetEvidence(header, rawValue)
+    if (!content || !evidence) continue
+    if (!grouped.has(definition.section_type)) {
+      grouped.set(definition.section_type, { definition, firstColumnIndex: columnIndex, entries: [] })
+    }
+    grouped.get(definition.section_type).entries.push({ header: String(header), content, evidence, columnIndex })
+  }
+  return [...grouped.values()]
+    .sort((left, right) => left.firstColumnIndex - right.firstColumnIndex)
+    .slice(0, 50)
+    .map(({ definition, entries }, sourceOrder) => {
+      const content = entries.length === 1
+        ? entries[0].content
+        : entries.map((entry) => `${entry.header}：${entry.content}`).join('\n')
+      return {
+        section_id: randomUUID(),
+        section_type: definition.section_type,
+        title: definition.title,
+        content,
+        structured_data: {
+          parser: PARSER_VERSION,
+          canonical_type: definition.section_type,
+          source_order: sourceOrder,
+          source_headers: entries.map((entry) => entry.header),
+          source_column_indexes: entries.map((entry) => entry.columnIndex),
+          source_fields: Object.fromEntries(entries.map((entry) => [entry.header, entry.content])),
+          ...extractStructuredSectionFields(definition.section_type, content)
+        },
+        confidence: 'high',
+        evidence: entries[0].evidence,
+        default_selected: true
+      }
+    })
+}
+
+function spreadsheetRecordData(values) {
   const headers = Object.keys(values ?? {})
-  const { mapping } = buildHeaderMapping(headers)
-  const desiredTitles = normalizeExtractedField(
-    'desired_titles',
-    findHeaderValue(values, ATTACHMENT_PREFERENCE_FIELD_ALIASES.desired_titles)
+  const { mapping: baseMapping } = buildHeaderMapping(headers)
+  const mapping = { ...baseMapping }
+  for (const [field, aliases] of Object.entries(ATTACHMENT_FIELD_ALIASES)) {
+    if (mapping[field]) continue
+    const entry = findHeaderEntry(values, aliases)
+    if (entry) mapping[field] = entry[0]
+  }
+  const preferenceEntries = Object.fromEntries(
+    Object.entries(ATTACHMENT_PREFERENCE_FIELD_ALIASES)
+      .map(([field, aliases]) => [field, findHeaderEntry(values, aliases)])
+  )
+  const preferenceValues = Object.fromEntries(
+    Object.entries(preferenceEntries)
+      .map(([field, entry]) => [field, normalizeExtractedField(field, entry?.[1])])
+      .filter(([, value]) => nonEmpty(value))
   )
   const imported = {
     ...mapImportedRow(values, mapping),
-    ...(desiredTitles ? { desired_titles: desiredTitles } : {})
+    ...preferenceValues
   }
-  return Object.fromEntries(
-    Object.entries(imported).filter(([field]) => ALLOWED_UPDATE_FIELDS.has(field))
+  const sourceValues = Object.fromEntries(
+    Object.entries(imported)
+      .filter(([field, value]) => ALLOWED_UPDATE_FIELDS.has(field) && nonEmpty(value))
   )
+  const evidence = {}
+  for (const [field, header] of Object.entries(mapping)) {
+    if (!ALLOWED_UPDATE_FIELDS.has(field) || !nonEmpty(sourceValues[field])) continue
+    const fragment = spreadsheetEvidence(header, values?.[header])
+    if (fragment) evidence[field] = fragment
+  }
+  for (const [field, entry] of Object.entries(preferenceEntries)) {
+    if (!entry || !nonEmpty(sourceValues[field])) continue
+    const fragment = spreadsheetEvidence(entry[0], entry[1])
+    if (fragment) evidence[field] = fragment
+  }
+  return {
+    values: sourceValues,
+    evidence,
+    sections: spreadsheetResumeSections(values),
+    corpus: Object.entries(values ?? {})
+      .map(([header, value]) => spreadsheetEvidence(header, value))
+      .filter(Boolean)
+      .join('\n')
+  }
 }
 
 function sectionTitle(type) {
   return {
+    experience: '工作经历',
     work_experience: '工作经历',
+    project: '项目经历',
     project_experience: '项目经历',
+    education: '教育经历',
     education_experience: '教育经历',
+    internship: '实习经历',
     self_summary: '自我评价',
+    skill: '技能',
     skills: '技能/荣誉',
+    language: '语言能力',
+    campus: '校园经历',
+    certificate: '证书',
+    award: '奖励与荣誉',
+    training: '培训经历',
+    publication: '论文与作品',
+    management: '管理经历',
+    other: '附加信息',
     resume_summary: '简历正文'
   }[type] ?? type
+}
+
+function extractStructuredSectionFields(sectionType, content) {
+  const source = String(content ?? '')
+  const result = {}
+  const aliases = {
+    organization: ['实习公司', '公司名称', '公司', '机构名称', '机构', '单位名称', '单位', 'organization', 'company'],
+    role: ['实习职位', '实习岗位', '职位名称', '职位', '岗位', '职务', 'role', 'position', 'title'],
+    period: ['实习时间', '起止时间', '任职时间', '时间', '日期', 'period', 'date'],
+    description: ['实习内容', '工作内容', '主要职责', '职责', '经历内容', '描述', 'description', 'responsibilities']
+  }
+  for (const [field, labels] of Object.entries(aliases)) {
+    for (const label of labels) {
+      const match = new RegExp(`(?:^|\\n|[;；|｜])\\s*${labelRegex(label)}\\s*[:：]\\s*([^\\n;；|｜]+)`, 'iu').exec(source)
+      const value = match ? cleanResumeSegment(match[1], 5_000) : null
+      if (value) {
+        result[field] = value
+        break
+      }
+    }
+  }
+  if (!result.period) {
+    const range = source.match(/(?:19|20)\d{2}(?:[./-]\d{1,2})?\s*[-–—~至]\s*(?:(?:19|20)\d{2}(?:[./-]\d{1,2})?|至今|现在|present)/i)
+    if (range) result.period = range[0].trim()
+  }
+  return sectionType === 'internship' || Object.keys(result).length ? result : {}
 }
 
 export function extractResumeSections(text) {
   const source = String(text ?? '')
   const markers = scanSectionMarkers(source)
+  // Self-summary is the one intentionally multiline scalar.  Its section must
+  // still stop at the next recognized field/section marker; otherwise a later
+  // `意向岗位` or `期望薪资` line gets persisted as part of the summary.
+  const fieldBoundaries = uniqueMarkers([
+    ...scanColonMarkers(source),
+    ...scanStandaloneFieldMarkers(source)
+  ])
   const sections = []
   for (const [index, marker] of markers.entries()) {
     const next = markers[index + 1]
-    const content = cleanExtractedSegment(source.slice(marker.end, next?.start ?? source.length), 50_000)
+    let boundary = next ? markerBoundaryStart(next) : source.length
+    if (marker.descriptor.section?.section_type === 'self_summary') {
+      const nextField = fieldBoundaries.find((candidate) => (
+        candidate.start > marker.start && candidate.start < boundary
+      ))
+      if (nextField) boundary = nextField.start
+    }
+    const content = cleanResumeSegment(source.slice(marker.end, boundary), 50_000)
     if (!content) continue
     const definition = marker.descriptor.section
+    const sectionType = definition.section_type
     sections.push({
       section_id: randomUUID(),
-      section_type: definition.section_type,
+      section_type: sectionType,
       title: definition.title,
       content,
       structured_data: {
         parser: PARSER_VERSION,
         source_order: sections.length,
-        source_heading: marker.label
+        source_heading: marker.label,
+        canonical_type: canonicalSectionType(sectionType),
+        source_offset: markerBoundaryStart(marker),
+        ...extractStructuredSectionFields(sectionType, content)
       },
       confidence: marker.inline ? 'medium' : 'high',
-      evidence: content.slice(0, 240),
+      // Keep evidence as a literal fragment of the original attachment text.
+       evidence: cleanEvidenceSegment(source.slice(markerBoundaryStart(marker), boundary), 1_000) ?? content.slice(0, 240),
       default_selected: true
     })
   }
   if (sections.length) return sections.slice(0, 50)
-  const fallback = cleanValue(source, 50_000)
+  const fallback = cleanResumeSegment(source, 50_000)
   return fallback
     ? [{
         section_id: randomUUID(),
-        section_type: 'resume_summary',
+        section_type: 'other',
         title: '简历正文',
         content: fallback,
-        structured_data: { parser: PARSER_VERSION },
+        structured_data: { parser: PARSER_VERSION, canonical_type: 'other', source_order: 0, fallback: true },
         confidence: 'low',
-        evidence: fallback.slice(0, 240),
+         evidence: cleanEvidenceSegment(source, 240) ?? fallback.slice(0, 240),
         default_selected: false
       }]
     : []
@@ -855,23 +1470,36 @@ function fieldConfidence(field, sourceValues) {
 
 function candidateRawValue(candidate, field) {
   if (!candidate) return null
-  if (field === 'tags' || field === 'desired_titles') return parseJson(candidate[field], [])
+  if (field === 'tags') return Array.isArray(candidate.tags) ? candidate.tags : parseJson(candidate.tags, [])
+  if (field === 'desired_titles' || field === 'desired_locations') {
+    const value = candidate[field]
+    return Array.isArray(value) ? value : parseJson(value, [])
+  }
+  if (PREFERENCE_ONLY_FIELDS.has(field)) return candidate[field] ?? null
   return candidate[field] ?? null
 }
 
 function sanitizeAttachmentPatch(input) {
   const candidateInput = Object.fromEntries(
-    Object.entries(input ?? {}).filter(([field]) => field !== 'desired_titles')
+    Object.entries(input ?? {}).filter(([field]) => !PREFERENCE_ONLY_FIELDS.has(field) && field !== 'desired_titles')
   )
   const result = sanitizeCandidateInput(candidateInput, { partial: true })
-  const desiredTitles = Object.prototype.hasOwnProperty.call(input ?? {}, 'desired_titles')
-    ? normalizeExtractedField('desired_titles', input.desired_titles)
-    : null
+  const preferenceValues = {}
+  for (const field of ['desired_titles', 'desired_locations']) {
+    if (!Object.prototype.hasOwnProperty.call(input ?? {}, field)) continue
+    const normalized = normalizeExtractedField(field, input[field])
+    if (normalized) preferenceValues[field] = normalized
+  }
+  for (const field of ['employment_type', 'availability']) {
+    if (!Object.prototype.hasOwnProperty.call(input ?? {}, field)) continue
+    const normalized = normalizeExtractedField(field, input[field])
+    if (normalized) preferenceValues[field] = normalized
+  }
   return {
     ...result,
     value: {
       ...result.value,
-      ...(desiredTitles ? { desired_titles: desiredTitles } : {})
+      ...preferenceValues
     }
   }
 }
@@ -883,35 +1511,53 @@ function buildSuggestions(sourceValues, candidate, sourceEvidence = {}) {
   const { value } = sanitizeAttachmentPatch(safeInput)
   return Object.entries(value)
     .filter(([field, suggested]) => ALLOWED_UPDATE_FIELDS.has(field) && nonEmpty(suggested))
-    .map(([field, suggested]) => {
+    .flatMap(([field, suggested]) => {
       const current = candidateRawValue(candidate, field)
       const confidence = fieldConfidence(field, sourceValues)
       const evidence = field === 'phone' || field === 'email'
-        ? contactEvidenceFromText(String(sourceEvidence[field] ?? ''), field, suggested) ?? String(suggested)
+        ? contactEvidenceFromText(String(sourceEvidence[field] ?? ''), field, suggested)
         : cleanValue(sourceEvidence[field], 1000)
-      return {
+      if (!evidence) return []
+      return [{
         field,
         value: suggested,
         confidence,
-        evidence: evidence ?? (field === 'phone' || field === 'email'
-          ? '从附件身份字段提取并按系统规则标准化'
-          : '从附件中的同名字段或明确标签提取'),
+        evidence,
         current_value: current,
         default_selected: !nonEmpty(current) && confidence !== 'low'
-      }
+      }]
     })
 }
 
 function truncateAtKnownBoundary(value) {
   if (typeof value !== 'string') return value
   const markers = uniqueMarkers([...scanColonMarkers(value), ...scanStandaloneSectionMarkers(value)])
-  const boundary = markers.find((marker) => marker.start > 0) ?? markers.find((marker) => marker.start === 0)
+    .sort((left, right) => markerBoundaryStart(left) - markerBoundaryStart(right) || left.start - right.start)
+  const boundary = markers[0]
   if (!boundary) return value
-  return boundary.start === 0 ? null : value.slice(0, boundary.start)
+  const boundaryStart = markerBoundaryStart(boundary)
+  if (boundaryStart > 0) return value.slice(0, boundaryStart)
+  // Model gateways sometimes echo the label together with its value.  Strip
+  // that leading label and stop at the next physical marker boundary. Scalar
+  // values also remain limited to the same physical line, except for the
+  // explicitly multiline self-summary field.
+  const nextBoundary = markers
+    .slice(1)
+    .map(markerBoundaryStart)
+    .find((start) => start >= boundary.end)
+  const lineEnd = value.indexOf('\n', boundary.end)
+  const end = boundary.descriptor?.fields?.has('self_summary')
+    ? (nextBoundary ?? value.length)
+    : Math.min(
+        nextBoundary ?? value.length,
+        lineEnd < 0 ? value.length : lineEnd
+      )
+  return value.slice(boundary.end, end)
 }
 
 function recordSourceCorpus(record) {
   return [
+    String(record.source_corpus ?? ''),
     ...Object.values(record.source_values ?? {}).flatMap((value) => (
       Array.isArray(value) ? value.map(String) : [String(value ?? '')]
     )),
@@ -920,7 +1566,7 @@ function recordSourceCorpus(record) {
 }
 
 function sourceEvidence(corpus, value, proposedEvidence) {
-  const evidence = cleanValue(proposedEvidence, 1000)
+  const evidence = cleanEvidenceSegment(proposedEvidence, 1000)
   if (evidence && corpus.includes(evidence)) return evidence
   const needles = (Array.isArray(value) ? value : [value])
     .map((item) => String(item ?? '').trim())
@@ -928,7 +1574,10 @@ function sourceEvidence(corpus, value, proposedEvidence) {
   for (const needle of needles) {
     const index = corpus.indexOf(needle)
     if (index >= 0) {
-      return corpus.slice(Math.max(0, index - 80), Math.min(corpus.length, index + needle.length + 80)).trim()
+      return cleanEvidenceSegment(
+        corpus.slice(Math.max(0, index - 80), Math.min(corpus.length, index + needle.length + 80)),
+        1_000
+      )
     }
   }
   return null
@@ -955,7 +1604,9 @@ function mergeModelSuggestions(baseRecord, modelRecord) {
         ? strictContactCandidate(item.field, item.value)
         : ['tags', 'desired_titles'].includes(item.field) && Array.isArray(item.value)
           ? item.value
-          : truncateAtKnownBoundary(String(item.value))
+              .map((entry) => cleanResumeSegment(entry, 1_000))
+              .filter((entry) => nonEmpty(entry) && !isLikelyAttachmentNoiseToken(entry))
+          : cleanResumeSegment(truncateAtKnownBoundary(String(item.value)), FIELD_LIMITS[item.field] ?? 20_000)
       if (!nonEmpty(boundedValue)) continue
       const evidence = contactField
         ? contactEvidenceFromText(corpus, item.field, boundedValue, item.evidence)
@@ -979,9 +1630,10 @@ function mergeModelSuggestions(baseRecord, modelRecord) {
   const baseSections = baseRecord.sections ?? []
   const verifiedModelSections = Array.isArray(modelRecord.sections)
     ? modelRecord.sections.flatMap((item) => {
-        const definition = SECTION_DEFINITION_BY_TYPE.get(item?.section_type)
+        const canonicalType = canonicalSectionType(item?.section_type)
+        const definition = SECTION_DEFINITION_BY_TYPE.get(item?.section_type) ?? SECTION_DEFINITION_BY_TYPE.get(canonicalType)
         if (!definition || typeof item.content !== 'string' || !item.content.trim()) return []
-        const bounded = cleanExtractedSegment(truncateAtKnownBoundary(item.content), 50_000)
+        const bounded = cleanResumeSegment(truncateAtKnownBoundary(item.content), 50_000)
         if (!bounded) return []
         const sourceOffset = corpus.indexOf(bounded)
         if (sourceOffset < 0) return []
@@ -990,14 +1642,20 @@ function mergeModelSuggestions(baseRecord, modelRecord) {
           section_type: definition.section_type,
           title: definition.title,
           content: bounded,
-          structured_data: { parser: PARSER_VERSION, source_offset: sourceOffset },
+          structured_data: {
+            parser: PARSER_VERSION,
+            source_offset: sourceOffset,
+            canonical_type: canonicalSectionType(definition.section_type)
+          },
           confidence: ['high', 'medium', 'low'].includes(item.confidence) ? item.confidence : 'low',
           evidence: sourceEvidence(corpus, bounded, item.evidence) ?? bounded.slice(0, 240),
           default_selected: item.default_selected === true && item.confidence !== 'low'
         }]
       }).slice(0, 50)
     : []
-  const deterministicSections = baseSections.filter((section) => section.section_type !== 'resume_summary')
+  const deterministicSections = baseSections.filter((section) => (
+    section.section_type !== 'resume_summary' && section.structured_data?.fallback !== true
+  ))
   const sections = deterministicSections.length
     ? deterministicSections
     : (verifiedModelSections.length ? verifiedModelSections : baseSections)
@@ -1027,6 +1685,7 @@ function buildPreviewRecord(db, parsedRecord, index, format, requestedCandidateI
   const values = parsedRecord?.values ?? {}
   const rawText = cleanValue(values.raw_text, 2_000_000)
   const labeledData = rawText ? extractLabeledCandidateData(rawText) : null
+  const spreadsheetData = rawText ? null : spreadsheetRecordData(values)
   const identity = rawText ? extractTextIdentity(rawText, labeledData) : extractRowIdentity(values)
   const match = matchCandidateIdentity(db, identity)
   const requestedCandidate = requestedCandidateId
@@ -1036,27 +1695,43 @@ function buildPreviewRecord(db, parsedRecord, index, format, requestedCandidateI
     ? db.prepare('SELECT * FROM candidates WHERE id = ?').get(match.candidate_id)
     : requestedCandidate
   const suggestionPreferences = suggestionCandidate
-    ? db.prepare('SELECT desired_titles FROM candidate_preferences WHERE candidate_id = ?').get(suggestionCandidate.id)
+    ? db.prepare(`
+        SELECT employment_status, desired_titles, desired_locations,
+               employment_type, expected_salary, availability
+        FROM candidate_preferences WHERE candidate_id = ?
+      `).get(suggestionCandidate.id)
     : null
   const suggestionContext = suggestionCandidate
-    ? { ...suggestionCandidate, desired_titles: suggestionPreferences?.desired_titles ?? '[]' }
+      ? {
+        ...suggestionCandidate,
+        job_seeking_status: suggestionPreferences?.employment_status ?? suggestionCandidate.job_seeking_status,
+        expected_salary: suggestionPreferences?.expected_salary ?? suggestionCandidate.expected_salary,
+        desired_titles: suggestionPreferences?.desired_titles ?? '[]',
+        desired_locations: suggestionPreferences?.desired_locations ?? '[]',
+        employment_type: suggestionPreferences?.employment_type ?? '',
+        availability: suggestionPreferences?.availability ?? ''
+      }
     : null
-  const sections = rawText ? extractResumeSections(rawText) : []
+  const sections = rawText ? extractResumeSections(rawText) : spreadsheetData.sections
   const selfSummarySection = sections.find((section) => section.section_type === 'self_summary')
-  if (labeledData && selfSummarySection) {
+  if (labeledData && selfSummarySection && !nonEmpty(labeledData.values.self_summary)) {
     labeledData.values.self_summary = selfSummarySection.content
     labeledData.evidence.self_summary = selfSummarySection.evidence
   }
   const sourceValues = rawText
     ? textCandidateValues(rawText, identity, labeledData)
-    : spreadsheetCandidateValues(values)
+    : Object.fromEntries(Object.entries({
+        ...spreadsheetData.values,
+        phone: identity.phone,
+        email: identity.email
+      }).filter(([, value]) => nonEmpty(value)))
   const sourceEvidence = rawText
     ? {
         ...labeledData.evidence,
-        phone: labeledData.evidence.phone ?? identity.phone,
-        email: labeledData.evidence.email ?? identity.email
+        phone: labeledData.evidence.phone ?? contactEvidenceFromText(rawText, 'phone', identity.phone),
+        email: labeledData.evidence.email ?? contactEvidenceFromText(rawText, 'email', identity.email)
       }
-    : {}
+    : spreadsheetData.evidence
   const suggestions = buildSuggestions(sourceValues, suggestionContext, sourceEvidence)
   const selfSummarySuggestion = suggestions.find((suggestion) => suggestion.field === 'self_summary')
   for (const section of sections) {
@@ -1077,6 +1752,7 @@ function buildPreviewRecord(db, parsedRecord, index, format, requestedCandidateI
     suggestions,
     sections,
     source_values: sourceValues,
+    source_corpus: rawText ?? spreadsheetData.corpus,
     current_values: suggestionContext
       ? Object.fromEntries([...ALLOWED_UPDATE_FIELDS].map((field) => [field, candidateRawValue(suggestionContext, field)]))
       : {}
@@ -1213,7 +1889,9 @@ function safeJson(value) {
 }
 
 function sameValue(field, left, right) {
-  if (field === 'tags' || field === 'desired_titles') return safeJson(left ?? []) === safeJson(right ?? [])
+  if (field === 'tags' || field === 'desired_titles' || field === 'desired_locations') {
+    return safeJson(left ?? []) === safeJson(right ?? [])
+  }
   return (left ?? null) === (right ?? null)
 }
 
@@ -1253,7 +1931,7 @@ function validateSelectedList(value, allowed, field) {
 
 function sectionSignature(section) {
   return createHash('sha256')
-    .update(`${section.section_type}\u0000${cleanValue(section.title, 300) ?? ''}\u0000${cleanValue(section.content, 50_000) ?? ''}`, 'utf8')
+    .update(`${canonicalSectionType(section.section_type) ?? ''}\u0000${cleanValue(section.title, 300) ?? ''}\u0000${cleanValue(section.content, 50_000) ?? ''}`, 'utf8')
     .digest('hex')
 }
 
@@ -1265,7 +1943,8 @@ function existingSectionSignatures(db, candidateId) {
 }
 
 function semanticSectionTypes(sectionType) {
-  return SECTION_TYPE_FAMILIES[sectionType] ?? new Set([sectionType])
+  const canonicalType = canonicalSectionType(sectionType)
+  return SECTION_TYPE_FAMILIES[canonicalType] ?? new Set([canonicalType].filter(Boolean))
 }
 
 function isImportedSection(section) {
@@ -1285,17 +1964,29 @@ function updateCandidateFields(db, candidate, record, selectedFields, attachment
   if (errors.length) throw attachmentError(422, 'validation_error', '附件建议字段格式无效', errors)
 
   const currentPreferences = db.prepare(`
-    SELECT expected_salary, desired_titles FROM candidate_preferences WHERE candidate_id = ?
+    SELECT employment_status, desired_titles, desired_locations,
+           employment_type, expected_salary, availability, raw_payload
+    FROM candidate_preferences WHERE candidate_id = ?
   `).get(candidate.id)
   const current = {
     ...candidate,
     tags: parseJson(candidate.tags, []),
-    desired_titles: parseJson(currentPreferences?.desired_titles, [])
+    desired_titles: parseJson(currentPreferences?.desired_titles, []),
+    desired_locations: parseJson(currentPreferences?.desired_locations, []),
+    employment_type: currentPreferences?.employment_type ?? null,
+    availability: currentPreferences?.availability ?? null
   }
+  // Older/manual candidates may have these values only on the main record.
+  // Seed a newly-created preferences row from the effective displayed value
+  // so updating an unrelated preference never clears an unselected field.
+  const currentEmploymentStatus = currentPreferences?.employment_status ?? current.job_seeking_status ?? null
+  const currentExpectedSalary = currentPreferences?.expected_salary ?? current.expected_salary ?? null
   const patch = {}
   for (const [field, suggested] of Object.entries(sanitized)) {
     if (!ALLOWED_UPDATE_FIELDS.has(field) || !nonEmpty(suggested)) continue
-    patch[field] = field === 'tags' ? mergeTags(current.tags, suggested) : suggested
+    patch[field] = field === 'tags'
+      ? mergeTags(current.tags, suggested)
+      : suggested
   }
 
   for (const field of ['phone', 'email']) {
@@ -1310,13 +2001,22 @@ function updateCandidateFields(db, candidate, record, selectedFields, attachment
   }
 
   const changed = Object.entries(patch).filter(([field, next]) => {
-    if (field !== 'expected_salary') return !sameValue(field, current[field], next)
-    return !sameValue(field, current[field], next) || (
-      currentPreferences && !sameValue(field, currentPreferences.expected_salary, next)
-    )
+    if (field === 'expected_salary') {
+      return !sameValue(field, current[field], next) || (
+        currentPreferences && !sameValue(field, currentPreferences.expected_salary, next)
+      )
+    }
+    if (field === 'job_seeking_status') {
+      return !sameValue(field, current[field], next) || (
+        currentPreferences && !sameValue('employment_status', currentPreferences.employment_status, next)
+      )
+    }
+    return !sameValue(field, current[field], next)
   })
   if (!changed.length) return []
-  const candidateChanges = changed.filter(([field]) => field !== 'desired_titles')
+  const candidateChanges = changed.filter(([field]) => (
+    !['desired_titles', 'desired_locations', 'employment_type', 'availability'].includes(field)
+  ))
   if (candidateChanges.length) {
     const assignments = candidateChanges.map(([field]) => `${field} = ?`)
     assignments.push('updated_at = ?')
@@ -1326,19 +2026,48 @@ function updateCandidateFields(db, candidate, record, selectedFields, attachment
       candidate.id
     )
   }
+  const employmentStatus = changed.find(([field]) => field === 'job_seeking_status')?.[1]
   const expectedSalary = changed.find(([field]) => field === 'expected_salary')?.[1]
   const desiredTitles = changed.find(([field]) => field === 'desired_titles')?.[1]
-  if (expectedSalary !== undefined || desiredTitles !== undefined) {
-    const nextExpectedSalary = expectedSalary ?? currentPreferences?.expected_salary ?? null
+  const desiredLocations = changed.find(([field]) => field === 'desired_locations')?.[1]
+  const employmentType = changed.find(([field]) => field === 'employment_type')?.[1]
+  const availability = changed.find(([field]) => field === 'availability')?.[1]
+  if (
+    employmentStatus !== undefined || expectedSalary !== undefined || desiredTitles !== undefined ||
+    desiredLocations !== undefined || employmentType !== undefined || availability !== undefined
+  ) {
+    const nextEmploymentStatus = employmentStatus ?? currentEmploymentStatus
+    const nextExpectedSalary = expectedSalary ?? currentExpectedSalary
     const nextDesiredTitles = desiredTitles ?? current.desired_titles
+    const nextDesiredLocations = desiredLocations ?? current.desired_locations
+    const nextEmploymentType = employmentType ?? current.employment_type ?? null
+    const nextAvailability = availability ?? current.availability ?? null
+    const nextRawPayload = currentPreferences?.raw_payload ?? '{}'
     db.prepare(`
-      INSERT INTO candidate_preferences(candidate_id, expected_salary, desired_titles, updated_at)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO candidate_preferences(
+        candidate_id, employment_status, desired_titles, desired_locations,
+        employment_type, expected_salary, availability, raw_payload, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(candidate_id) DO UPDATE SET
+        employment_status = excluded.employment_status,
+        desired_locations = excluded.desired_locations,
+        employment_type = excluded.employment_type,
         expected_salary = excluded.expected_salary,
         desired_titles = excluded.desired_titles,
+        availability = excluded.availability,
+        raw_payload = excluded.raw_payload,
         updated_at = excluded.updated_at
-    `).run(candidate.id, nextExpectedSalary, JSON.stringify(nextDesiredTitles), timestamp)
+    `).run(
+      candidate.id,
+      nextEmploymentStatus,
+      JSON.stringify(nextDesiredTitles),
+      JSON.stringify(nextDesiredLocations),
+      nextEmploymentType,
+      nextExpectedSalary,
+      nextAvailability,
+      nextRawPayload,
+      timestamp
+    )
   }
   const insertSource = db.prepare(`
     INSERT INTO candidate_field_sources(
@@ -1347,11 +2076,16 @@ function updateCandidateFields(db, candidate, record, selectedFields, attachment
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `)
   for (const [field, next] of changed) {
+    const previous = field === 'job_seeking_status'
+      ? currentEmploymentStatus
+      : ['desired_titles', 'desired_locations', 'employment_type', 'availability'].includes(field)
+        ? current[field]
+        : field === 'expected_salary'
+          ? currentExpectedSalary
+          : current[field]
     insertSource.run(
       randomUUID(), candidate.id, field, attachmentId, PARSER_VERSION,
-      safeJson(field === 'expected_salary' && currentPreferences
-        ? currentPreferences.expected_salary
-        : current[field]), safeJson(next), timestamp
+      safeJson(previous), safeJson(next), timestamp
     )
   }
   return changed.map(([field]) => field)
@@ -1366,18 +2100,29 @@ function applySections(db, candidateId, record, selectedSectionIds, attachmentId
   }
 
   const normalizedSections = selected.flatMap((section, sourceIndex) => {
+    const originalSectionType = cleanValue(section.section_type, 80)
+    if (originalSectionType === 'self_summary') return []
+    const canonicalType = canonicalSectionType(originalSectionType)
     const normalized = {
-      section_type: cleanValue(section.section_type, 80),
+      section_type: canonicalType,
       title: cleanValue(section.title, 300),
-      content: cleanValue(section.content, 50_000),
+      content: cleanResumeSegment(section.content, 50_000),
       structured_data: section.structured_data && typeof section.structured_data === 'object'
-        ? section.structured_data
+        ? {
+            ...section.structured_data,
+            canonical_type: canonicalType,
+            ...(originalSectionType && originalSectionType !== canonicalType
+              ? { semantic_type: originalSectionType }
+              : {})
+          }
         : {},
       source_order: Number.isInteger(section.structured_data?.source_order)
         ? section.structured_data.source_order
         : sourceIndex
     }
-    return normalized.section_type && normalized.content ? [normalized] : []
+    return normalized.section_type && CANONICAL_PROFILE_SECTION_TYPES.has(normalized.section_type) && normalized.content
+      ? [normalized]
+      : []
   }).sort((left, right) => left.source_order - right.source_order)
   if (!normalizedSections.length) return []
 
@@ -1386,14 +2131,30 @@ function applySections(db, candidateId, record, selectedSectionIds, attachmentId
     for (const type of semanticSectionTypes(section.section_type)) replacementTypes.add(type)
   }
   const activeSections = db.prepare(`
-    SELECT id, section_type, structured_data, source_record_id, sort_order, created_at
+    SELECT id, section_type, title, content, structured_data, source_record_id, sort_order, created_at
     FROM candidate_profile_sections
     WHERE candidate_id = ? AND archived_at IS NULL
     ORDER BY sort_order, created_at, id
   `).all(candidateId)
-  const archivedIds = activeSections
-    .filter((section) => replacementTypes.has(section.section_type) && isImportedSection(section))
-    .map((section) => section.id)
+  const desiredSignatures = new Set(normalizedSections.map(sectionSignature))
+  const manualSignatures = new Set(activeSections
+    .filter((section) => !isImportedSection(section))
+    .map(sectionSignature))
+  const retainedImportedBySignature = new Map()
+  const archivedIds = []
+  for (const section of activeSections) {
+    if (!replacementTypes.has(section.section_type) || !isImportedSection(section)) continue
+    const signature = sectionSignature(section)
+    if (
+      desiredSignatures.has(signature) &&
+      !manualSignatures.has(signature) &&
+      !retainedImportedBySignature.has(signature)
+    ) {
+      retainedImportedBySignature.set(signature, section.id)
+      continue
+    }
+    archivedIds.push(section.id)
+  }
   if (archivedIds.length) {
     const placeholders = archivedIds.map(() => '?').join(', ')
     db.prepare(`
@@ -1404,6 +2165,8 @@ function applySections(db, candidateId, record, selectedSectionIds, attachmentId
 
   const signatures = existingSectionSignatures(db, candidateId)
   const inserted = []
+  const appliedIds = []
+  const appliedIdSet = new Set()
   const insert = db.prepare(`
     INSERT INTO candidate_profile_sections(
       id, candidate_id, section_type, title, content, structured_data, sort_order,
@@ -1412,6 +2175,14 @@ function applySections(db, candidateId, record, selectedSectionIds, attachmentId
   `)
   for (const normalized of normalizedSections) {
     const signature = sectionSignature(normalized)
+    const retainedId = retainedImportedBySignature.get(signature)
+    if (retainedId) {
+      if (!appliedIdSet.has(retainedId)) {
+        appliedIdSet.add(retainedId)
+        appliedIds.push(retainedId)
+      }
+      continue
+    }
     if (signatures.has(signature)) continue
     signatures.add(signature)
     const id = randomUUID()
@@ -1426,11 +2197,13 @@ function applySections(db, candidateId, record, selectedSectionIds, attachmentId
       inserted.length, `attachment:${attachmentId}`, timestamp, timestamp
     )
     inserted.push(id)
+    appliedIdSet.add(id)
+    appliedIds.push(id)
   }
 
   const archivedSet = new Set(archivedIds)
   const survivorIds = activeSections.filter((section) => !archivedSet.has(section.id)).map((section) => section.id)
-  const finalOrder = [...inserted, ...survivorIds]
+  const finalOrder = [...appliedIds, ...survivorIds.filter((id) => !appliedIdSet.has(id))]
   const reorder = db.prepare(`
     UPDATE candidate_profile_sections SET sort_order = ?, updated_at = ?
     WHERE id = ? AND candidate_id = ? AND archived_at IS NULL
@@ -1439,6 +2212,122 @@ function applySections(db, candidateId, record, selectedSectionIds, attachmentId
     reorder.run(sortOrder, timestamp, sectionId, candidateId)
   }
   return inserted
+}
+
+function normalizeAttachmentCreateSections(input, sourceRecordId) {
+  if (input === undefined || input === null) return []
+  if (!Array.isArray(input)) {
+    throw attachmentError(422, 'validation_error', 'profile_sections 必须是数组')
+  }
+  if (input.length > MAX_PROFILE_SECTIONS) {
+    throw attachmentError(413, 'limit_exceeded', `单次最多保存 ${MAX_PROFILE_SECTIONS} 个资料区块`)
+  }
+
+  const normalized = []
+  const signatures = new Set()
+  for (const [index, section] of input.entries()) {
+    if (!section || typeof section !== 'object' || Array.isArray(section)) {
+      throw attachmentError(422, 'validation_error', `profile_sections.${index} 无效`)
+    }
+    const rawType = typeof section.section_type === 'string' ? section.section_type.trim() : ''
+    if (!rawType) {
+      throw attachmentError(422, 'validation_error', `profile_sections.${index}.section_type 无效`)
+    }
+    // Self summaries belong to candidates.self_summary. Older preview clients
+    // may still send the semantic section, so ignore it instead of duplicating
+    // the same text in a profile section.
+    if (rawType === 'self_summary' || rawType === 'resume_summary') continue
+    const sectionType = canonicalSectionType(rawType)
+    if (!sectionType || !CANONICAL_PROFILE_SECTION_TYPES.has(sectionType)) {
+      throw attachmentError(422, 'validation_error', `profile_sections.${index}.section_type 无效`)
+    }
+
+    if (section.title != null && typeof section.title !== 'string') {
+      throw attachmentError(422, 'validation_error', `profile_sections.${index}.title 无效`)
+    }
+    if (section.content != null && typeof section.content !== 'string') {
+      throw attachmentError(422, 'validation_error', `profile_sections.${index}.content 无效`)
+    }
+    if ((section.title?.length ?? 0) > 300 || (section.content?.length ?? 0) > 100_000) {
+      throw attachmentError(422, 'validation_error', `profile_sections.${index} 文本超过限制`)
+    }
+    const title = cleanValue(section.title, 300) ?? sectionTitle(sectionType)
+    const content = cleanExtractedSegment(section.content, 100_000)
+
+    let structuredData = {}
+    if (section.structured_data != null) {
+      if (typeof section.structured_data !== 'object' || Array.isArray(section.structured_data)) {
+        throw attachmentError(422, 'validation_error', `profile_sections.${index}.structured_data 必须是对象`)
+      }
+      let encoded
+      try {
+        encoded = JSON.stringify(section.structured_data)
+      } catch {
+        throw attachmentError(422, 'validation_error', `profile_sections.${index}.structured_data 无效`)
+      }
+      if (encoded.length > 200_000) {
+        throw attachmentError(413, 'limit_exceeded', `profile_sections.${index}.structured_data 超过大小限制`)
+      }
+      structuredData = JSON.parse(encoded)
+    }
+    if (!content && Object.keys(structuredData).length === 0) continue
+
+    const sensitivity = section.sensitivity == null
+      ? 'internal'
+      : String(section.sensitivity).trim().toLowerCase()
+    if (!['public', 'internal', 'high'].includes(sensitivity)) {
+      throw attachmentError(422, 'validation_error', `profile_sections.${index}.sensitivity 无效`)
+    }
+    const sortOrder = Number.isInteger(section.sort_order) && section.sort_order >= 0 && section.sort_order <= 10_000
+      ? section.sort_order
+      : index
+    const canonicalStructuredData = rawType === sectionType
+      ? structuredData
+      : { ...structuredData, semantic_type: rawType }
+    const signature = JSON.stringify([sectionType, title, content, canonicalStructuredData])
+    if (signatures.has(signature)) continue
+    signatures.add(signature)
+    normalized.push({
+      id: randomUUID(),
+      section_type: sectionType,
+      title,
+      content,
+      structured_data: canonicalStructuredData,
+      sort_order: sortOrder,
+      sensitivity,
+      source_record_id: `${sourceRecordId}:profile-section:${normalized.length}`
+    })
+  }
+  return normalized.sort((left, right) => left.sort_order - right.sort_order)
+}
+
+function insertAttachmentCreateSections(db, candidateId, sections, timestamp) {
+  if (!sections.length) return
+  const insert = db.prepare(`
+    INSERT INTO candidate_profile_sections(
+      id, candidate_id, section_type, title, content, structured_data,
+      sort_order, sensitivity, source_record_id, created_at, updated_at, archived_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+  `)
+  for (const [sortOrder, section] of sections.entries()) {
+    insert.run(
+      section.id,
+      candidateId,
+      section.section_type,
+      section.title,
+      section.content,
+      JSON.stringify(section.structured_data),
+      sortOrder,
+      section.sensitivity,
+      section.source_record_id,
+      timestamp,
+      timestamp
+    )
+  }
+  addActivity(db, candidateId, 'profile_sections_updated', '更新人才资料区块', {
+    section_count: sections.length,
+    source: 'attachment_preview'
+  })
 }
 
 export function createAttachmentService({
@@ -2072,6 +2961,7 @@ export function createAttachmentService({
     const validStages = db.prepare('SELECT value FROM stages ORDER BY position, value').all().map((stage) => stage.value)
     const { value, errors } = sanitizeCandidateInput(candidateInput, { validStages })
     if (errors.length) throw attachmentError(422, 'validation_error', '候选人字段校验失败', errors)
+    const profileSections = normalizeAttachmentCreateSections(input.profile_sections, sourceRecordId)
 
     let avatarResult = null
     let localAvatar = null
@@ -2173,6 +3063,7 @@ export function createAttachmentService({
         hydrate: false
       })
       candidateId = created.id
+      insertAttachmentCreateSections(db, candidateId, profileSections, timestamp)
       if (localAvatar && avatarId && avatarPath) {
         db.prepare(`
           INSERT INTO candidate_attachments(

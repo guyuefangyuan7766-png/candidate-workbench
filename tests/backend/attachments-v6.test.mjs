@@ -1529,10 +1529,10 @@ test('text resume fields and sections use shared boundaries and preserve source 
   assert.equal(suggestions.self_summary.evidence.includes('技能/荣誉'), false)
   assert.deepEqual(record.sections.map((section) => section.section_type), [
     'self_summary',
-    'skills',
-    'work_experience',
-    'project_experience',
-    'education_experience'
+    'skill',
+    'experience',
+    'project',
+    'education'
   ])
   assert.deepEqual(record.sections.map((section) => section.structured_data.source_order), [0, 1, 2, 3, 4])
   assert.match(record.sections[1].content, /匿名数据竞赛一等奖/)
@@ -1590,14 +1590,14 @@ test('confirmation replaces selected imported section families, preserves manual
   })
   const record = preview.records[0]
   const selectedSections = record.sections
-    .filter((section) => section.section_type !== 'project_experience')
+    .filter((section) => section.section_type !== 'project')
     .map((section) => section.section_id)
   const result = service.confirmPreview(preview.preview_id, confirmationFor(preview, candidate.id, {
     selected_fields: ['desired_titles'],
     selected_sections: selectedSections,
     merge_mode: 'merge'
   }))
-  assert.equal(result.records[0].inserted_section_ids.length, 4)
+  assert.equal(result.records[0].inserted_section_ids.length, 3)
 
   const active = db.prepare(`
     SELECT id, section_type, title, content, sort_order, source_record_id, structured_data
@@ -1605,11 +1605,11 @@ test('confirmation replaces selected imported section families, preserves manual
     WHERE candidate_id = ? AND archived_at IS NULL
     ORDER BY sort_order, created_at, id
   `).all(candidate.id)
-  assert.deepEqual(active.slice(0, 4).map((section) => section.section_type), [
-    'education_experience', 'skills', 'work_experience', 'self_summary'
+  assert.deepEqual(active.slice(0, 3).map((section) => section.section_type), [
+    'education', 'skill', 'experience'
   ])
-  assert.deepEqual(active.map((section) => section.sort_order), [0, 1, 2, 3, 4, 5, 6])
-  assert.deepEqual(active.slice(4).map((section) => section.id), [
+  assert.deepEqual(active.map((section) => section.sort_order), [0, 1, 2, 3, 4, 5])
+  assert.deepEqual(active.slice(3).map((section) => section.id), [
     'manual-work-section', 'manual-parser-metadata-section', 'unselected-project-section'
   ])
   assert.equal(db.prepare(`
@@ -1628,8 +1628,7 @@ test('confirmation replaces selected imported section families, preserves manual
   const summary = db.prepare(`SELECT self_summary FROM candidates WHERE id = ?`).get(candidate.id).self_summary
   const summarySection = active.find((section) => section.section_type === 'self_summary')
   assert.equal(summary, '以真实证据为依据完成分析')
-  assert.equal(summarySection.content, summary)
-  assert.equal(JSON.parse(summarySection.structured_data).source_order, 4)
+  assert.equal(summarySection, undefined)
   assert.deepEqual(JSON.parse(db.prepare(`
     SELECT desired_titles FROM candidate_preferences WHERE candidate_id = ?
   `).get(candidate.id).desired_titles), ['数据分析师'])
@@ -1644,7 +1643,7 @@ test('confirmation replaces selected imported section families, preserves manual
     {
       selected_fields: [],
       selected_sections: repeatedRecord.sections
-        .filter((section) => section.section_type !== 'project_experience')
+        .filter((section) => section.section_type !== 'project')
         .map((section) => section.section_id),
       merge_mode: 'merge'
     }
@@ -1653,7 +1652,7 @@ test('confirmation replaces selected imported section families, preserves manual
   assert.equal(db.prepare(`
     SELECT COUNT(*) AS count FROM candidate_profile_sections
     WHERE candidate_id = ? AND archived_at IS NULL
-  `).get(candidate.id).count, 7)
+  `).get(candidate.id).count, 6)
 })
 
 test('desired title updates preserve unrelated preferences and audit exact previous and new arrays', async () => {

@@ -6,6 +6,7 @@ import type {
   CandidateFacets,
   CandidateNote,
   CandidatePreferencesDraft,
+  CandidateProfileSectionDraft,
   CandidateAttachment,
   CandidateAttachmentDeleteResult,
   AttachmentBatch,
@@ -1118,6 +1119,16 @@ export const candidateApi = {
     );
   },
 
+  replaceProfileSections(id: string, sections: CandidateProfileSectionDraft[]) {
+    return request<{ data: CandidateProfileSectionDraft[] }>(
+      `/api/candidates/${encodeURIComponent(id)}/profile-sections`,
+      {
+        method: "PUT",
+        body: JSON.stringify({ sections: Array.isArray(sections) ? sections : [] }),
+      },
+    );
+  },
+
   getImportConfig() {
     return request<CandidateImportConfig>("/api/candidates/import/config");
   },
@@ -1656,6 +1667,7 @@ export const attachmentApi = {
     previewToken: string,
     recordId: string,
     candidate: CandidateCreatePayload,
+    profileSections: CandidateProfileSectionDraft[] = [],
     includeAvatar = true,
   ) {
     return normalizeCandidate(await attachmentRequest<Candidate>(
@@ -1666,6 +1678,7 @@ export const attachmentApi = {
           preview_token: previewToken,
           record_id: recordId,
           candidate,
+          profile_sections: profileSections,
           include_avatar: includeAvatar,
         }),
       },
@@ -1756,6 +1769,7 @@ export const attachmentBatchApi = {
     batchToken: string,
     recordId: string,
     candidate: CandidateCreatePayload,
+    profileSections: CandidateProfileSectionDraft[] = [],
     includeAvatar = true,
   ) {
     return normalizeCandidate(await attachmentRequest<Candidate>(
@@ -1766,6 +1780,7 @@ export const attachmentBatchApi = {
         body: JSON.stringify({
           record_id: recordId,
           candidate,
+          profile_sections: profileSections,
           include_avatar: includeAvatar,
         }),
       },

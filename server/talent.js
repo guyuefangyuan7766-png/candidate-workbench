@@ -18,6 +18,28 @@ const PROFILE_SECTION_TYPES = new Set([
   'other'
 ])
 
+// Attachment parsers and older clients used descriptive aliases before the
+// profile-sections API settled on its canonical vocabulary. Accept those
+// inputs for compatibility, but persist one stable type so search, labels and
+// replacement-family logic agree across the stack.
+const PROFILE_SECTION_TYPE_ALIASES = Object.freeze({
+  work_experience: 'experience',
+  project_experience: 'project',
+  education_experience: 'education',
+  skills: 'skill',
+  self_summary: 'other',
+  resume_summary: 'other',
+  additional: 'other',
+  additional_information: 'other'
+})
+
+function canonicalProfileSectionType(value) {
+  const raw = String(value ?? '').trim()
+  if (!raw) return null
+  const canonical = PROFILE_SECTION_TYPE_ALIASES[raw] ?? raw
+  return PROFILE_SECTION_TYPES.has(canonical) ? canonical : null
+}
+
 function talentError(status, message, details, code = 'request_error') {
   const error = new Error(message)
   error.status = status
@@ -533,10 +555,11 @@ export function replaceCandidateProfileSections(db, candidateId, input) {
   if (sections.length > 100) throw talentError(413, '单次最多保存 100 个资料区块', undefined, 'limit_exceeded')
   const normalized = sections.map((section, index) => {
     if (!section || typeof section !== 'object' || Array.isArray(section)) throw talentError(422, `sections.${index} 无效`, undefined, 'validation_error')
-    const sectionType = cleanText(section.section_type, 80, { required: true })
-    if (!PROFILE_SECTION_TYPES.has(sectionType)) throw talentError(422, `sections.${index}.section_type 无效`, undefined, 'validation_error')
+    const rawSectionType = cleanText(section.section_type, 80, { required: true })
+    const sectionType = canonicalProfileSectionType(rawSectionType)
+    if (!sectionType) throw talentError(422, `sections.${index}.section_type 无效`, undefined, 'validation_error')
     const content = cleanText(section.content, 100_000, { multiline: true })
-    const title = cleanText(section.title, 300)
+    const title = cleanText(section.title, 300) ?? (rawSectionType === 'self_summary' ? '自我评价' : null)
     const sensitivity = section.sensitivity == null ? 'internal' : String(section.sensitivity).trim().toLowerCase()
     if (!['public', 'internal', 'high'].includes(sensitivity)) throw talentError(422, `sections.${index}.sensitivity 无效`, undefined, 'validation_error')
     if (content === undefined || title === undefined) throw talentError(422, `sections.${index} 文本超过限制`, undefined, 'validation_error')
@@ -546,7 +569,11 @@ export function replaceCandidateProfileSections(db, candidateId, input) {
       section_type: sectionType,
       title,
       content,
-      structured_data: checkedJson(section.structured_data, `sections.${index}.structured_data`),
+      structured_data: (() => {
+        const structured = checkedJson(section.structured_data, `sections.${index}.structured_data`)
+        if (rawSectionType !== 'self_summary' || Array.isArray(structured)) return structured
+        return { ...structured, semantic_type: 'self_summary' }
+      })(),
       sort_order: Number.isInteger(section.sort_order) && section.sort_order >= 0 && section.sort_order <= 10_000 ? section.sort_order : index,
       sensitivity,
       source_record_id: cleanText(section.source_record_id, 300)

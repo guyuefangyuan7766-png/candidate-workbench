@@ -28,9 +28,11 @@ test('candidate UI uses server-backed gender filtering and keeps major out of th
   assert.doesNotMatch(appSource, /candidateMajor|setCandidateMajor|availableMajors/)
 
   assert.match(drawerSource, /candidateDisplayAge\(candidate\)/)
-  assert.match(drawerSource, /candidate\.gender \|\| "-"/)
+  assert.match(drawerSource, /profileGender && <div><dt><UserRound size=\{15\} \/>性别<\/dt><dd>\{profileGender\}<\/dd><\/div>/)
   assert.match(drawerSource, /candidate\?\.source_system === "manual" \? "" : candidate\?\.source_record_id/)
-  assert.match(drawerSource, /applicantNumber &&[\s\S]*应聘者编号/)
+  assert.match(drawerSource, /applicantNumber && visibleApplicantNumber &&[\s\S]*应聘者编号/)
+  assert.match(drawerSource, /displayApplicantNumber\(candidate\?\.source_system, applicantNumber\)/)
+  assert.doesNotMatch(drawerSource, /candidate\.gender \|\| "-"/)
   assert.match(importSource, /当前仅展示前 \{preview\.rows\.length\} 条预览/)
   assert.match(importSource, /candidateApi\.getImportConfig\(\)/)
   assert.match(importSource, /nextFile\.size > maxFileSizeBytes/)

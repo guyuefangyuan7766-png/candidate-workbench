@@ -125,7 +125,7 @@ erDiagram
 
 ## 人才画像与求职偏好
 
-`candidate_profile_sections` 按 `section_type` 保存教育、工作、项目、实习、技能、校园、语言、证书、奖项、培训、论文、管理和其他资料。每条包含标题、原文、`structured_data` JSON、排序、来源记录 ID、敏感级别和软归档时间。整组替换时，旧的活跃区块被软归档，而不是物理删除。
+`candidate_profile_sections` 按 canonical `section_type` 保存教育、工作、项目、实习、技能、校园、语言、证书、奖项、培训、论文、管理和其他资料。允许值为 `education|experience|project|internship|skill|campus|language|certificate|award|training|publication|management|other`。解析器和旧客户端的别名只在写入边界转换；数据库不新增标量 `internship` 列，`self_summary` 保持为 `candidates.self_summary` 主字段。整组替换时旧区块软归档，而不是物理删除。
 
 `candidate_preferences` 每个候选人最多一条，保存：
 
@@ -135,6 +135,8 @@ erDiagram
 - 完整 `raw_payload` 和更新时间
 
 偏好更新会同步可用的 `employment_status` 到 `candidates.job_seeking_status`，同步期望薪资摘要到 `candidates.expected_salary`。
+
+附件解析分为两条写入路径：字段 suggestion 更新 `candidates` 或 `candidate_preferences`，区块 suggestion 更新 `candidate_profile_sections`。单文件/批量创建在候选人事务中一并插入履历区块；普通新建/编辑通过 profile-sections API 保存。附件 `source_record_id` 仅用于幂等和审计，不作为用户可见候选人编号。
 
 ## 来源、评估和授权记录
 

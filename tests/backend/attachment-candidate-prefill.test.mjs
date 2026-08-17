@@ -4,6 +4,7 @@ import {
   attachmentSuggestionChangesCandidate,
   attachmentSuggestionText,
   attachmentSuggestionValue,
+  attachmentProfileSectionDrafts,
   candidateDraftFromAttachmentRecord,
   candidateFieldValue,
   defaultAttachmentFieldsForCandidate,
@@ -23,7 +24,7 @@ function suggestion(field, value, confidence = 'high') {
   }
 }
 
-function previewRecord({ suggestions = [], identity = {}, matchedCandidate } = {}) {
+function previewRecord({ suggestions = [], sections = [], identity = {}, matchedCandidate } = {}) {
   return {
     record_id: 'record-1',
     row_number: 1,
@@ -34,7 +35,7 @@ function previewRecord({ suggestions = [], identity = {}, matchedCandidate } = {
       reason: ''
     },
     suggestions,
-    sections: []
+    sections
   }
 }
 
@@ -124,7 +125,10 @@ test('attachment candidate draft prefills identity, profile fields, and preferen
       suggestion('owner', '本人'),
       suggestion('tags', ['平台', 'TypeScript', 'Node.js']),
       suggestion('expected_salary', '35k-45k'),
-      suggestion('desired_titles', [' 技术负责人 ', '', '平台架构师'])
+      suggestion('desired_titles', [' 技术负责人 ', '', '平台架构师']),
+      suggestion('desired_locations', [' 深圳 ', '', '上海']),
+      suggestion('employment_type', '全职'),
+      suggestion('availability', '一个月内')
     ]
   })
 
@@ -155,12 +159,29 @@ test('attachment candidate draft prefills identity, profile fields, and preferen
     preferences: {
       employment_status: '在职看机会',
       desired_titles: ['技术负责人', '平台架构师'],
-      desired_locations: [],
-      employment_type: '',
+      desired_locations: ['深圳', '上海'],
+      employment_type: '全职',
       expected_salary: '35k-45k',
-      availability: ''
-    }
+      availability: '一个月内'
+    },
+    profile_sections: []
   })
+})
+
+test('attachment candidate draft prefills only selected canonical resume sections', () => {
+  const record = previewRecord({ sections: [
+    { section_id: 'education-1', section_type: 'education_experience', title: '教育经历', content: '示例大学 | 本科', structured_data: { school: '示例大学' }, confidence: 'high', evidence: '教育经历：示例大学', default_selected: true },
+    { section_id: 'summary-1', section_type: 'self_summary', title: '自我评价', content: '不应重复保存为履历区块', structured_data: null, confidence: 'high', evidence: '自我评价：不应重复保存为履历区块', default_selected: true },
+    { section_id: 'work-1', section_type: 'work_experience', title: '工作经历', content: '未勾选的工作经历', structured_data: null, confidence: 'medium', evidence: '工作经历：未勾选', default_selected: false },
+    { section_id: 'internship-1', section_type: 'internship', title: '实习经历', content: '示例公司 | 实习生', structured_data: { organization: '示例公司' }, confidence: 'high', evidence: '实习经历：示例公司', default_selected: true }
+  ] })
+  assert.deepEqual(attachmentProfileSectionDrafts(record), [
+    { section_type: 'education', title: '教育经历', content: '示例大学 | 本科', structured_data: { school: '示例大学' }, sort_order: 0, sensitivity: 'internal' },
+    { section_type: 'internship', title: '实习经历', content: '示例公司 | 实习生', structured_data: { organization: '示例公司' }, sort_order: 1, sensitivity: 'internal' }
+  ])
+  assert.deepEqual(candidateDraftFromAttachmentRecord(record).profile_sections, attachmentProfileSectionDrafts(record))
+  assert.equal('id' in attachmentProfileSectionDrafts(record)[0], false)
+  assert.equal('source_record_id' in attachmentProfileSectionDrafts(record)[0], false)
 })
 
 test('attachment candidate draft does not invent education when the resume has none', () => {
@@ -181,14 +202,17 @@ test('candidate field comparison understands preferences, empty values, and tag 
     preferences: {
       employment_status: '',
       desired_titles: ['前端工程师'],
-      desired_locations: [],
-      employment_type: '',
+      desired_locations: ['深圳'],
+      employment_type: '全职',
       expected_salary: '30k',
-      availability: ''
+      availability: '一个月内'
     }
   })
 
   assert.deepEqual(candidateFieldValue(existing, 'desired_titles'), ['前端工程师'])
+  assert.deepEqual(candidateFieldValue(existing, 'desired_locations'), ['深圳'])
+  assert.equal(candidateFieldValue(existing, 'employment_type'), '全职')
+  assert.equal(candidateFieldValue(existing, 'availability'), '一个月内')
   assert.equal(candidateFieldValue(existing, 'expected_salary'), '30k')
   assert.equal(candidateFieldValue(existing, 'unknown_field'), null)
   assert.equal(sameCandidateFieldValue('desired_titles', ['前端工程师'], ['前端工程师']), true)
@@ -196,6 +220,7 @@ test('candidate field comparison understands preferences, empty values, and tag 
   assert.equal(attachmentSuggestionChangesCandidate(existing, 'tags', ['React', 'TypeScript']), true)
   assert.equal(attachmentSuggestionChangesCandidate(existing, 'expected_salary', '30k'), false)
   assert.equal(hasCandidateValue('   '), false)
+  assert.equal(hasCandidateValue('-'), false)
   assert.equal(hasCandidateValue(Number.NaN), false)
   assert.equal(hasCandidateValue(0), true)
 })

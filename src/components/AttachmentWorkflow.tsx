@@ -151,7 +151,9 @@ function initialSelections(preview: AttachmentPreview, candidates: Candidate[], 
       fields: new Set(record.match.resolution === "created"
         ? []
         : record.suggestions.filter((item) => item.default_selected).map((item) => item.field)),
-      sections: new Set(record.sections.filter((item) => item.default_selected).map((item) => item.section_id)),
+      sections: new Set(record.match.resolution === "created"
+        ? []
+        : record.sections.filter((item) => item.default_selected).map((item) => item.section_id)),
     };
     const selectedCandidate = candidates.find((candidate) => candidate.id === next[record.record_id].candidateId);
     if (selectedCandidate?.archived_at) next[record.record_id].candidateId = "";
@@ -441,6 +443,7 @@ export function AttachmentWorkflow({
       ...current,
       candidateId: candidate.id,
       fields: !record ? current.fields : source === "existing" ? defaultFieldsForCandidate(record, candidate) : new Set(),
+      sections: source === "created" ? new Set() : current.sections,
     }));
   }
 
@@ -497,35 +500,51 @@ export function AttachmentWorkflow({
     setCreateBusy(true);
     setCreateError("");
     let createdId = pendingCreatedCandidateId;
+    const wasPending = Boolean(createdId);
+    const {
+      preferences,
+      profile_sections,
+      stage: _legacyStage,
+      expected_salary: _legacySalary,
+      ...candidateFields
+    } = draft;
+    const hasPreferences = Boolean(
+      preferences.employment_status
+      || preferences.desired_titles.length
+      || preferences.desired_locations.length
+      || preferences.employment_type
+      || preferences.expected_salary
+      || preferences.availability,
+    );
     try {
       let preferenceWarning = pendingCreateWarning;
       if (!createdId) {
-        const { preferences, stage: _legacyStage, expected_salary: _legacySalary, ...candidateFields } = draft;
         const created = await attachmentApi.createCandidate(
           preview.preview_id,
           preview.preview_token,
           recordId,
           candidateFields,
+          profile_sections ?? [],
           options.includeAttachmentAvatar,
         );
         createdId = created.id;
         setPendingCreatedCandidateId(created.id);
         onCandidateCreated?.(created.id);
-        const hasPreferences = Boolean(
-          preferences.employment_status
-          || preferences.desired_titles.length
-          || preferences.desired_locations.length
-          || preferences.employment_type
-          || preferences.expected_salary
-          || preferences.availability,
-        );
-        if (hasPreferences) {
-          try {
-            await candidateApi.updatePreferences(created.id, preferences);
-          } catch (preferenceError) {
-            preferenceWarning = safeErrorMessage(preferenceError, "请稍后在候选人档案中补充。");
-            setPendingCreateWarning(preferenceWarning);
-          }
+      }
+
+      // The attachment endpoint commits the candidate, avatar and profile
+      // sections atomically. Preferences are the only follow-up write; keep
+      // the modal open when that step fails so the same form can retry it.
+      if (hasPreferences && (!wasPending || pendingCreateWarning)) {
+        try {
+          await candidateApi.updatePreferences(createdId, preferences);
+          preferenceWarning = "";
+          setPendingCreateWarning("");
+        } catch (preferenceError) {
+          preferenceWarning = safeErrorMessage(preferenceError, "请稍后在候选人档案中补充。");
+          setPendingCreateWarning(preferenceWarning);
+          setCreateError(`候选人已创建，但求职偏好未完整保存：${preferenceWarning}`);
+          return;
         }
       }
       const selected = await getCandidateWithRetry(createdId);
@@ -862,6 +881,7 @@ export function AttachmentWorkflow({
           busy={createBusy}
           fieldsDisabled={Boolean(pendingCreatedCandidateId)}
           requireContact={false}
+          statusMessage={pendingCreateWarning || undefined}
           onCancel={closeCandidateCreate}
           onSubmit={(draft, options) => void createCandidate(draft, options)}
         />
