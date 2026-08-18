@@ -139,6 +139,27 @@ function internetResult() {
   }
 }
 
+test('conversation route answers greetings without retrieval evidence', async () => {
+  const requests = []
+  const fixture = await startFixture(async (request, response) => {
+    const payload = await readJsonBody(request)
+    requests.push(payload)
+    sendJson(response, modelResponse('你好，有什么可以帮你？'))
+  })
+
+  try {
+    const result = await submitAndWait(fixture, '你好', 'routing-conversation-1')
+    assert.equal(result.state, 'completed')
+    assert.equal(result.assistant_message.content, '你好，有什么可以帮你？')
+    assert.equal(requests.length, 1)
+    assert.deepEqual(requests[0].tools, [])
+    assert.equal(requests[0].tool_choice, 'none')
+    assert.deepEqual(result.task.tools_used, [])
+  } finally {
+    await fixture.close()
+  }
+})
+
 test('web route exposes only web tools, blocks a model-forced DB tool, and appends citations', async () => {
   const requests = []
   let searches = 0

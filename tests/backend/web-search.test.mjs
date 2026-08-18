@@ -58,6 +58,11 @@ test('deterministic Agent routing distinguishes database, web, mixed, and generi
   assert.equal(routeAgentQuestion('再具体一点', [{ role: 'user', content: '比较人才库与行业趋势' }]), 'mixed')
 })
 
+test('casual greetings use a no-evidence conversation route', () => {
+  assert.equal(routeAgentQuestion('你好'), 'conversation')
+  assert.equal(routeAgentQuestion('谢谢'), 'conversation')
+})
+
 test('DuckDuckGo HTML search returns bounded citation metadata with access time', async () => {
   let requestedUrl
   const service = createWebSearchService({
