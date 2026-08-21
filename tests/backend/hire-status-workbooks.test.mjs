@@ -217,6 +217,7 @@ async function runHardLinkAliasScenario(t, targetKind) {
     const targetPath = {
       output: expectedOutputPath,
       stage: join(fixtureWorkDir, 'exports', outputName(sourceName)),
+      stageInspect: join(fixtureWorkDir, 'exports', `${outputName(sourceName)}.inspect.ndjson`),
       render: join(fixtureWorkDir, 'renders', `${sourceName.slice(0, -'.xls'.length)}_已整理.png`),
       summary: join(fixtureOutputDir, 'cleanup-summary.json')
     }[targetKind]
@@ -267,6 +268,7 @@ async function runHardLinkAliasScenario(t, targetKind) {
 for (const [targetKind, targetLabel] of [
   ['output', 'an expected output'],
   ['stage', 'a staged export'],
+  ['stageInspect', 'a staged export inspect sidecar'],
   ['render', 'a render preview'],
   ['summary', 'a cleanup summary']
 ]) {

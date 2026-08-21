@@ -116,9 +116,11 @@ function expectedWritePaths() {
   const workbookPaths = SOURCE_FILES.flatMap((sourceFilename) => {
     const outputFile = outputFilename(sourceFilename)
     const previewFile = renderFilename(sourceFilename)
+    const stagedOutputPath = join(EXPORT_STAGE_DIR, outputFile)
     return [
       join(OUTPUT_DIR, outputFile),
-      join(EXPORT_STAGE_DIR, outputFile),
+      stagedOutputPath,
+      `${stagedOutputPath}.inspect.ndjson`,
       join(RENDER_DIR, previewFile)
     ]
   })
@@ -242,6 +244,7 @@ async function processWorkbook(artifact, sourceFilename) {
   const outputFile = outputFilename(sourceFilename)
   const outputPath = join(OUTPUT_DIR, outputFile)
   const stagedOutputPath = join(EXPORT_STAGE_DIR, outputFile)
+  const stagedInspectPath = `${stagedOutputPath}.inspect.ndjson`
   const previewFile = renderFilename(sourceFilename)
   const previewPath = join(RENDER_DIR, previewFile)
   const checkRange = `${SHEET_NAME}!A1:C${Math.min(matrix.length, 12)}`
@@ -275,7 +278,12 @@ async function processWorkbook(artifact, sourceFilename) {
     format: 'png'
   })
   const previewBytes = new Uint8Array(await preview.arrayBuffer())
-  await assertWritePathsDoNotAliasSources([outputPath, stagedOutputPath, previewPath])
+  await assertWritePathsDoNotAliasSources([
+    outputPath,
+    stagedOutputPath,
+    stagedInspectPath,
+    previewPath
+  ])
   await writeFile(previewPath, previewBytes)
   console.log(JSON.stringify({
     event: 'render',
@@ -286,14 +294,24 @@ async function processWorkbook(artifact, sourceFilename) {
     render_bytes: previewBytes.byteLength
   }))
 
-  await assertWritePathsDoNotAliasSources([outputPath, stagedOutputPath, previewPath])
+  await assertWritePathsDoNotAliasSources([
+    outputPath,
+    stagedOutputPath,
+    stagedInspectPath,
+    previewPath
+  ])
   const output = await artifact.SpreadsheetFile.exportXlsx(workbook)
   await output.save(stagedOutputPath)
-  await assertWritePathsDoNotAliasSources([outputPath, stagedOutputPath, previewPath])
+  await assertWritePathsDoNotAliasSources([
+    outputPath,
+    stagedOutputPath,
+    stagedInspectPath,
+    previewPath
+  ])
   await copyFile(stagedOutputPath, outputPath)
   await Promise.all([
     rm(stagedOutputPath, { force: true }),
-    rm(`${stagedOutputPath}.inspect.ndjson`, { force: true })
+    rm(stagedInspectPath, { force: true })
   ])
 
   const [sourceStatsAfter, sourceHashAfter, outputStats, outputHash] = await Promise.all([
