@@ -5,6 +5,7 @@ import http from 'node:http'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { afterEach, test } from 'node:test'
+import ExcelJS from 'exceljs'
 import { createApp } from '../../server/app.js'
 import { openDatabase } from '../../server/database.js'
 
@@ -124,4 +125,54 @@ test('hire fields accept future dates and reject impossible dates', async () => 
     body: { hire_date: '2026-02-30' }
   })
   assert.equal(invalidPatch.response.status, 422)
+})
+
+test('candidate CRUD and exports round-trip hire fields', async () => {
+  const app = createApp({ databasePath: ':memory:', synchronizeSearch: false })
+  cleanups.push(async () => app.closeDatabase())
+  const url = await listen(app)
+  const hireStatus = '待入职'
+  const hireDate = '2026-09-17'
+  const arbitraryStatus = '自定义状态-' + 'x'.repeat(24)
+
+  const created = await requestJson(`${url}/api/candidates`, {
+    method: 'POST',
+    body: { name: 'Hire Round Trip', hire_status: hireStatus, hire_date: hireDate }
+  })
+  assert.equal(created.response.status, 201)
+  assert.equal(created.body.hire_status, hireStatus)
+  assert.equal(created.body.hire_date, hireDate)
+
+  const patched = await requestJson(`${url}/api/candidates/${created.body.id}`, {
+    method: 'PATCH',
+    body: { hire_status: arbitraryStatus, hire_date: '2027-01-02' }
+  })
+  assert.equal(patched.response.status, 200)
+  assert.equal(patched.body.hire_status, arbitraryStatus)
+  assert.equal(patched.body.hire_date, '2027-01-02')
+
+  const fetched = await requestJson(`${url}/api/candidates/${created.body.id}`)
+  assert.equal(fetched.body.hire_status, arbitraryStatus)
+  assert.equal(fetched.body.hire_date, '2027-01-02')
+
+  const csv = await fetch(`${url}/api/candidates/export?format=csv`)
+  assert.equal(csv.status, 200)
+  const csvText = Buffer.from(await csv.arrayBuffer()).toString('utf8')
+  assert.match(csvText, /入职状态/)
+  assert.match(csvText, /入职日期/)
+  assert.match(csvText, new RegExp(arbitraryStatus))
+  assert.match(csvText, /2027-01-02/)
+
+  const xlsx = await fetch(`${url}/api/candidates/export?format=xlsx`)
+  assert.equal(xlsx.status, 200)
+  const workbook = new ExcelJS.Workbook()
+  await workbook.xlsx.load(Buffer.from(await xlsx.arrayBuffer()))
+  const row = workbook.worksheets[0].getRow(2).values
+  const headers = workbook.worksheets[0].getRow(1).values
+  const statusIndex = headers.indexOf('入职状态')
+  const dateIndex = headers.indexOf('入职日期')
+  assert.ok(statusIndex > 0)
+  assert.ok(dateIndex > 0)
+  assert.equal(row[statusIndex], arbitraryStatus)
+  assert.equal(row[dateIndex], '2027-01-02')
 })

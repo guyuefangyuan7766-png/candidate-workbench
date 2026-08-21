@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { gunzipSync } from 'node:zlib'
 import http from 'node:http'
 import { test } from 'node:test'
+import ExcelJS from 'exceljs'
 import { createApp } from '../../server/app.js'
 
 // Anonymous BIFF8 workbook from xls-reader's MIT-licensed sample corpus.
@@ -74,6 +75,82 @@ test('BIFF8 .xls with the exact candidate ID header uses the Beisen talent profi
     assert.deepEqual(body.headers.slice(0, 2), ['应聘者ID', '姓名'])
     assert.equal(body.summary.candidate_records, 3)
     assert.equal(body.summary.valid_rows, 3)
+  })
+})
+
+test('Beisen import maps 入职状态 and 入职日期 for an existing source ID', async () => {
+  await withApp(async (url) => {
+    const appWorkbook = new ExcelJS.Workbook()
+    const sheet = appWorkbook.addWorksheet('北森人才')
+    sheet.addRow(['应聘者ID', '申请ID', '姓名', '职位名称', '入职状态', '入职日期'])
+    sheet.addRow(['beisen-existing-1', 'application-1', '北森候选人', '工程师', '已入职', '2026-08-20'])
+    const bytes = Buffer.from(await appWorkbook.xlsx.writeBuffer())
+
+    const seed = new FormData()
+    seed.append('file', new Blob([bytes], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    }), 'beisen-existing.xlsx')
+    const preview = await responseJson(await fetch(`${url}/api/import/preview`, { method: 'POST', body: seed }))
+    assert.equal(preview.summary.valid_rows, 1)
+    const commit = await responseJson(await fetch(`${url}/api/import/commit`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ preview_token: preview.preview_token })
+    }))
+    assert.equal(commit.imported_rows, 1)
+
+    const candidateList = await responseJson(await fetch(`${url}/api/candidates`))
+    const candidate = candidateList.items.find((item) => item.name === '北森候选人')
+    assert.ok(candidate)
+    const detail = await responseJson(await fetch(`${url}/api/candidates/${candidate.id}?include_sensitive=true`))
+    assert.equal(detail.hire_status, '已入职')
+    assert.equal(detail.hire_date, '2026-08-20')
+
+    const updateWorkbook = new ExcelJS.Workbook()
+    const updateSheet = updateWorkbook.addWorksheet('北森人才')
+    updateSheet.addRow(['应聘者ID', '申请ID', '姓名', '职位名称', '入职状态', '入职日期'])
+    updateSheet.addRow(['beisen-existing-1', 'application-1', '北森候选人', '工程师', '待入职', ''])
+    const updateForm = new FormData()
+    updateForm.append('file', new Blob([Buffer.from(await updateWorkbook.xlsx.writeBuffer())], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    }), 'beisen-existing-update.xlsx')
+    const updatePreview = await responseJson(await fetch(`${url}/api/import/preview`, {
+      method: 'POST',
+      body: updateForm
+    }))
+    assert.equal(updatePreview.summary.valid_rows, 1)
+    const updateCommit = await responseJson(await fetch(`${url}/api/import/commit`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ preview_token: updatePreview.preview_token })
+    }))
+    assert.equal(updateCommit.updated_rows, 1)
+
+    const updatedDetail = await responseJson(await fetch(`${url}/api/candidates/${candidate.id}?include_sensitive=true`))
+    assert.equal(updatedDetail.hire_status, '待入职')
+    assert.equal(updatedDetail.hire_date, '2026-08-20', 'empty update date must not erase the existing date')
+  })
+})
+
+test('general import hire aliases preserve values through export', async () => {
+  await withApp(async (url) => {
+    const form = new FormData()
+    form.append('file', new Blob([
+      'name,hire status,hire date\nGeneral Alias,待入职,2026/08/21\n'
+    ], { type: 'text/csv' }), 'hire-aliases.csv')
+    const preview = await responseJson(await fetch(`${url}/api/import/preview`, { method: 'POST', body: form }))
+    assert.equal(preview.summary.valid_rows, 1)
+    assert.equal(preview.rows[0].candidate.hire_status, '待入职')
+    assert.equal(preview.rows[0].candidate.hire_date, '2026-08-21')
+    const commit = await responseJson(await fetch(`${url}/api/import/commit`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ preview_token: preview.preview_token })
+    }))
+    assert.equal(commit.imported_rows, 1)
+    const exported = await (await fetch(`${url}/api/candidates/export?format=csv`)).text()
+    assert.match(exported, /待入职/)
+    assert.match(exported, /2026-08-21/)
   })
 })
 
