@@ -112,7 +112,20 @@ function sameFileIdentity(leftStats, rightStats) {
     leftStats.dev === rightStats.dev && leftStats.ino === rightStats.ino
 }
 
-async function assertOutputSourceAliases(outputPaths = SOURCE_FILES.map((sourceFilename) => join(OUTPUT_DIR, outputFilename(sourceFilename)))) {
+function expectedWritePaths() {
+  const workbookPaths = SOURCE_FILES.flatMap((sourceFilename) => {
+    const outputFile = outputFilename(sourceFilename)
+    const previewFile = renderFilename(sourceFilename)
+    return [
+      join(OUTPUT_DIR, outputFile),
+      join(EXPORT_STAGE_DIR, outputFile),
+      join(RENDER_DIR, previewFile)
+    ]
+  })
+  return [...workbookPaths, join(OUTPUT_DIR, 'cleanup-summary.json')]
+}
+
+async function assertWritePathsDoNotAliasSources(outputPaths = expectedWritePaths()) {
   const sourceStats = await Promise.all(SOURCE_FILES.map(async (sourceFilename) => ({
     sourceFilename,
     sourcePath: join(SOURCE_DIR, sourceFilename),
@@ -262,6 +275,7 @@ async function processWorkbook(artifact, sourceFilename) {
     format: 'png'
   })
   const previewBytes = new Uint8Array(await preview.arrayBuffer())
+  await assertWritePathsDoNotAliasSources([outputPath, stagedOutputPath, previewPath])
   await writeFile(previewPath, previewBytes)
   console.log(JSON.stringify({
     event: 'render',
@@ -272,10 +286,10 @@ async function processWorkbook(artifact, sourceFilename) {
     render_bytes: previewBytes.byteLength
   }))
 
-  await assertOutputSourceAliases([outputPath])
+  await assertWritePathsDoNotAliasSources([outputPath, stagedOutputPath, previewPath])
   const output = await artifact.SpreadsheetFile.exportXlsx(workbook)
   await output.save(stagedOutputPath)
-  await assertOutputSourceAliases([outputPath])
+  await assertWritePathsDoNotAliasSources([outputPath, stagedOutputPath, previewPath])
   await copyFile(stagedOutputPath, outputPath)
   await Promise.all([
     rm(stagedOutputPath, { force: true }),
@@ -334,7 +348,7 @@ async function main() {
     mkdir(EXPORT_STAGE_DIR, { recursive: true })
   ])
   await assertOutputDirectoryContainsNoUnexpectedXlsx()
-  await assertOutputSourceAliases()
+  await assertWritePathsDoNotAliasSources()
   await Promise.all(SOURCE_FILES.map((sourceFilename) => (
     rm(join(OUTPUT_DIR, `${outputFilename(sourceFilename)}.inspect.ndjson`), { force: true })
   )))
@@ -383,6 +397,7 @@ async function main() {
     files
   }
   const summaryPath = join(OUTPUT_DIR, 'cleanup-summary.json')
+  await assertWritePathsDoNotAliasSources([summaryPath])
   await writeFile(summaryPath, `${JSON.stringify(summary, null, 2)}\n`, 'utf8')
   console.log(JSON.stringify({ event: 'summary', summary_path: summaryPath, ...summary.totals }))
 }

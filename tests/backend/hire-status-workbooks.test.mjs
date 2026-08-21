@@ -13,7 +13,7 @@ import {
   stat,
   writeFile
 } from 'node:fs/promises'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { test } from 'node:test'
 import { tmpdir } from 'node:os'
@@ -199,9 +199,7 @@ test('workbook prerequisites provide explicit skip and required-mode messages', 
   }
 })
 
-test('cleaner rejects an expected output hard link before writing any source file', {
-  skip: prerequisiteSkip
-}, async (t) => {
+async function runHardLinkAliasScenario(t, targetKind) {
   const fixtureRoot = await mkdtemp(join(tmpdir(), 'hire-status-workbook-hard-link-'))
   try {
     const fixtureSourceDir = join(fixtureRoot, 'source')
@@ -215,11 +213,19 @@ test('cleaner rejects an expected output hard link before writing any source fil
 
     const sourceName = WORKBOOKS[0].source
     const sourcePath = join(fixtureSourceDir, sourceName)
-    const outputPath = join(fixtureOutputDir, outputName(sourceName))
+    const expectedOutputPath = join(fixtureOutputDir, outputName(sourceName))
+    const targetPath = {
+      output: expectedOutputPath,
+      stage: join(fixtureWorkDir, 'exports', outputName(sourceName)),
+      render: join(fixtureWorkDir, 'renders', `${sourceName.slice(0, -'.xls'.length)}_已整理.png`),
+      summary: join(fixtureOutputDir, 'cleanup-summary.json')
+    }[targetKind]
+    assert.ok(targetPath, `unknown hard-link target kind: ${targetKind}`)
+    await mkdir(dirname(targetPath), { recursive: true })
     const beforeStats = await stat(sourcePath)
     const beforeHash = await sha256(sourcePath)
     try {
-      await createHardLink(sourcePath, outputPath)
+      await createHardLink(sourcePath, targetPath)
     } catch (error) {
       if (['EPERM', 'EOPNOTSUPP', 'ENOTSUP', 'EXDEV', 'EINVAL'].includes(error?.code)) {
         t.skip(`hard links are unavailable on this filesystem (${error.code})`)
@@ -242,6 +248,12 @@ test('cleaner rejects an expected output hard link before writing any source fil
     assert.notEqual(child.status, 0, childOutput)
     assert.match(childOutput, /alias|same file|same-file/i)
 
+    if (targetKind !== 'output') {
+      await assert.rejects(() => access(expectedOutputPath), /ENOENT/)
+    }
+    const targetStats = await stat(targetPath)
+    assert.equal(targetStats.dev, beforeStats.dev)
+    assert.equal(targetStats.ino, beforeStats.ino)
     const afterStats = await stat(sourcePath)
     assert.equal(afterStats.size, beforeStats.size)
     assert.equal(afterStats.dev, beforeStats.dev)
@@ -250,7 +262,20 @@ test('cleaner rejects an expected output hard link before writing any source fil
   } finally {
     await rm(fixtureRoot, { recursive: true, force: true })
   }
-})
+}
+
+for (const [targetKind, targetLabel] of [
+  ['output', 'an expected output'],
+  ['stage', 'a staged export'],
+  ['render', 'a render preview'],
+  ['summary', 'a cleanup summary']
+]) {
+  test(`cleaner rejects ${targetLabel} hard link before writing any source file`, {
+    skip: prerequisiteSkip
+  }, async (t) => {
+    await runHardLinkAliasScenario(t, targetKind)
+  })
+}
 
 test('cleaned workbooks contain only non-empty hire statuses and preserve row alignment', {
   skip: prerequisiteSkip
