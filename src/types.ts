@@ -172,6 +172,8 @@ export interface Candidate {
   highest_school: string;
   highest_major: string;
   job_seeking_status: string;
+  hire_status: string;
+  hire_date: string | null;
   resume_updated_at: string | null;
   self_summary: string;
   source: string;
@@ -677,6 +679,8 @@ export interface CandidateDraft extends Pick<
   | "highest_school"
   | "highest_major"
   | "job_seeking_status"
+  | "hire_status"
+  | "hire_date"
   | "resume_updated_at"
   | "self_summary"
   | "source"
@@ -824,6 +828,8 @@ export const emptyDraft: CandidateDraft = {
   highest_school: "",
   highest_major: "",
   job_seeking_status: "",
+  hire_status: "",
+  hire_date: null,
   resume_updated_at: null,
   self_summary: "",
   source: "手工录入",

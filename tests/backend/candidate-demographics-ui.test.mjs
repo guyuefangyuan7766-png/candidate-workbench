@@ -41,3 +41,29 @@ test('candidate UI uses server-backed gender filtering and keeps major out of th
   assert.match(apiSource, /\/api\/candidates\/import\/config/)
   assert.doesNotMatch(importSource, /15 \* 1024 \* 1024|最大 15 MB|最多导入|候选人数超限/)
 })
+
+test('candidate form and drawer expose hire fields and preserve legacy response defaults', () => {
+  const typesSource = readFileSync(new URL('../../src/types.ts', import.meta.url), 'utf8')
+  const apiSource = readFileSync(new URL('../../src/api.ts', import.meta.url), 'utf8')
+  const formSource = readFileSync(new URL('../../src/components/CandidateForm.tsx', import.meta.url), 'utf8')
+  const drawerSource = readFileSync(new URL('../../src/components/CandidateDrawer.tsx', import.meta.url), 'utf8')
+
+  assert.match(typesSource, /hire_status: string/)
+  assert.match(typesSource, /hire_date: string \| null/)
+  assert.match(typesSource, /export interface CandidateDraft[\s\S]*\| "hire_status"[\s\S]*\| "hire_date"/)
+  assert.match(typesSource, /export const emptyDraft[\s\S]*hire_status: ""[\s\S]*hire_date: null/)
+
+  assert.match(apiSource, /hire_status: candidate\.hire_status \?\? ""/)
+  assert.match(apiSource, /hire_date: candidate\.hire_date \?\? null/)
+
+  assert.match(formSource, /hire_status: candidate\.hire_status \?\? ""/)
+  assert.match(formSource, /hire_date: candidate\.hire_date \?\? null/)
+  assert.match(formSource, /<h3>入职信息<\/h3>/)
+  assert.match(formSource, /<span>入职状态<\/span>[\s\S]*draft\.hire_status/)
+  assert.match(formSource, /<span>入职日期<\/span>[\s\S]*draft\.hire_date[\s\S]*type="date"/)
+
+  assert.match(drawerSource, /const hireStatus = displayValue\(candidate\?\.hire_status\)/)
+  assert.match(drawerSource, /const hireDate = candidate\?\.hire_date \? formatDate\(candidate\.hire_date\) : ""/)
+  assert.match(drawerSource, /<h4>入职信息<\/h4>[\s\S]*入职状态[\s\S]*入职日期/)
+  assert.match(drawerSource, /hire_status: "入职状态", hire_date: "入职日期"/)
+})

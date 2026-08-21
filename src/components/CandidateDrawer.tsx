@@ -192,6 +192,7 @@ export function CandidateDrawer({
       current_title: "当前职位", location: "所在地", tags: "标签", source: "有效来源",
       gender: "性别", birth_date: "出生日期", age: "年龄",
       highest_school: "最高学历学校", highest_major: "最高学历专业", job_seeking_status: "求职状态",
+      hire_status: "入职状态", hire_date: "入职日期",
     };
     return activities.map((activity) => {
       const noteId = typeof activity.metadata.note_id === "string" ? activity.metadata.note_id : "";
@@ -239,6 +240,8 @@ export function CandidateDrawer({
   const major = displayValue(candidate?.highest_major);
   const selfSummary = displayValue(candidate?.self_summary);
   const jobStatus = displayValue(candidate?.job_seeking_status) || displayValue(preferences?.employment_status);
+  const hireStatus = displayValue(candidate?.hire_status);
+  const hireDate = candidate?.hire_date ? formatDate(candidate.hire_date) : "";
   const desiredTitles = displayValue(preferences?.desired_titles);
   const desiredLocations = displayValue(preferences?.desired_locations);
   const employmentType = displayValue(preferences?.employment_type);
@@ -314,6 +317,11 @@ export function CandidateDrawer({
                     {employmentType && <div><dt>工作性质</dt><dd>{employmentType}</dd></div>}
                     {expectedSalary && <div><dt>期望薪资</dt><dd>{expectedSalary}</dd></div>}
                     {availability && <div><dt>到岗时间</dt><dd>{availability}</dd></div>}
+                  </dl></section>}
+
+                  {(hireStatus || hireDate) && <section className="detail-section"><h4>入职信息</h4><dl className="detail-grid">
+                    {hireStatus && <div><dt>入职状态</dt><dd>{hireStatus}</dd></div>}
+                    {hireDate && <div><dt>入职日期</dt><dd>{hireDate}</dd></div>}
                   </dl></section>}
 
                   <section className="detail-section candidate-position-section">
