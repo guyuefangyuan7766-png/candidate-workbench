@@ -19,6 +19,8 @@ export const HEADER_ALIASES = Object.freeze({
   highest_school: ['highest school', 'highest_school', '最高学历学校', '最高学历院校', '学校'],
   highest_major: ['highest major', 'highest_major', '最高学历专业', '专业'],
   job_seeking_status: ['job seeking status', 'job_seeking_status', '求职状态'],
+  hire_status: ['hire status', 'hire_status', '入职状态', '入职情况'],
+  hire_date: ['hire date', 'hire_date', '入职日期', '入职时间'],
   resume_updated_at: ['resume updated at', 'resume_updated_at', '简历更新时间'],
   self_summary: [
     'self summary', 'self_summary', 'summary',
@@ -218,6 +220,22 @@ export function normalizeBirthDate(value) {
   return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 }
 
+export function normalizeHireDate(value) {
+  const input = cleanString(value, 80)
+  if (!input) return null
+  const match = input.match(/^(\d{4})[-/.年](\d{1,2})[-/.月](\d{1,2})(?:日)?(?:[T\s].*)?$/)
+  if (!match) return null
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const date = new Date(Date.UTC(year, month - 1, day))
+  if (
+    !Number.isFinite(date.getTime()) ||
+    date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day
+  ) return null
+  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
 export function normalizeAge(value) {
   if (value == null || value === '') return null
   const match = String(value).trim().match(/^(\d{1,3})(?:\s*岁)?$/)
@@ -267,6 +285,7 @@ export function sanitizeCandidateInput(input, { partial = false, validStages = [
     highest_school: 300,
     highest_major: 300,
     job_seeking_status: 200,
+    hire_status: 200,
     resume_updated_at: 80,
     self_summary: 20_000,
     source: 200,
@@ -298,6 +317,13 @@ export function sanitizeCandidateInput(input, { partial = false, validStages = [
     value.birth_date = normalizeBirthDate(input?.birth_date)
     if (cleanString(input?.birth_date) && !value.birth_date) {
       errors.push({ field: 'birth_date', message: '出生日期必须是有效且不晚于今天的日期' })
+    }
+  }
+
+  if (!partial || has('hire_date')) {
+    value.hire_date = normalizeHireDate(input?.hire_date)
+    if (cleanString(input?.hire_date) && !value.hire_date) {
+      errors.push({ field: 'hire_date', message: '入职日期必须是有效日期' })
     }
   }
 
