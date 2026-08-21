@@ -39,6 +39,8 @@ npm audit --audit-level=low
 
 # V11 字段、导入/导出与文档契约
 node --test tests/backend/hire-status-v11.test.mjs
+# 北森 BIFF8、入职字段映射与超长状态回归
+node --test tests/backend/xls-import.test.mjs
 # 清理后的七份工作簿（生成后运行）
 node --test tests/backend/hire-status-workbooks.test.mjs
 
@@ -61,6 +63,8 @@ node --check server/deletions.js
 node --check server/app.js
 node --check server/index.mjs
 ```
+
+2026-08-21 Task 4 focused fresh 结果：`node --test tests/backend/hire-status-v11.test.mjs` 为 5/5 通过，`node --test tests/backend/xls-import.test.mjs` 为 7/7 通过。后者覆盖匿名 BIFF8 识别、北森入职字段增量导入、201 字符状态拒绝、通用别名导出和损坏/伪 `.xls` 拒绝；它不代替七份用户工作簿的逐文件验收。`tests/backend/hire-status-workbooks.test.mjs`、artifact-tool 逐文件核对、完整 `npm test` 和生产构建仍由 Task 6 fresh 门禁记录最终结果。
 
 以下 42/42 是进入 V6 前的 V5 收尾基线，不能用来宣称 V6 已验收。V6 最终结果必须在全部代码收敛后重新执行并记录在后续章节：
 

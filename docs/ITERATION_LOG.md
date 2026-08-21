@@ -631,8 +631,9 @@
 
 ### 验证结果
 
-- 文档契约测试入口：`node --test tests/backend/hire-status-v11.test.mjs`；该命令同时覆盖 V11 迁移、日期校验、CRUD/导出和八份维护文档的关键字契约。
-- 工作簿生成入口 `scripts/clean-hire-status-workbooks.mjs` 和逐文件专项验证 `tests/backend/hire-status-workbooks.test.mjs` 已落地；最终 fresh 运行、artifact-tool 校验、完整 `npm test`、生产构建和 `git diff --check` 仍以本轮 Task 6 的实际结果为准，本节不预先宣称通过。
+- `node --test tests/backend/hire-status-v11.test.mjs` fresh 运行 5/5 通过，覆盖 V11 迁移、日期校验、CRUD/导出、状态原文/长度契约和八份维护文档关键字契约。
+- `node --test tests/backend/xls-import.test.mjs` fresh 运行 7/7 通过，覆盖匿名 BIFF8、北森入职字段增量导入、201 字符状态拒绝、通用别名导出及损坏/伪 `.xls` 拒绝。
+- 工作簿生成入口 `scripts/clean-hire-status-workbooks.mjs` 和逐文件专项验证 `tests/backend/hire-status-workbooks.test.mjs` 已落地；上述 5/5、7/7 不代替七份用户工作簿的真实文件验收。工作簿专项 fresh 运行、artifact-tool 逐文件核对、完整 `npm test`、生产构建和最终 `git diff --check` 仍以本轮 Task 6 的实际结果为准。
 
 ### 关键决策
 
@@ -641,12 +642,12 @@
 
 ### 遗留问题与下一步
 
-- 运行清理脚本生成 7 个 `.xlsx`，逐个检查表头、行数、日期/ID 对齐、公式错误和渲染结果。
-- 在隔离数据库完成最终 focused/full tests 与 build 后，再将本记录的验证状态更新为实际结果。
+- Task 6 对 7 个已生成 `.xlsx` fresh 运行工作簿专项并逐个检查表头、行数、日期/ID 对齐、公式错误和渲染结果。
+- 在隔离数据库完成完整测试与生产构建后，将 Task 6 门禁结果追加为实际数字；Task 4 的两条 focused 测试已完成，不再列为待办。
 
 ### Review fix round 1
 
 - 统一 `hire_status` 校验契约：只去首尾空白并保留内部空白，超过 200 个字符返回校验错误；北森预览入口保留超限哨兵，避免在统一校验前静默截断。
 - 字段映射文档明确 `HIRE` 优先于历史 `PROCESS`，仅 `入职状态`/`入职日期` 投影到候选人主档，其他入职流程列继续原始留档。
 - 数据模型和测试文档补齐 V8 搜索回填/dirty queue/checkpoint/coverage、V9 `agent_tasks`、V10 durable 附件批次和 V11 入职字段边界。
-- 本轮新增的 focused 入口为 `node --test tests/backend/hire-status-v11.test.mjs` 与 `node --test tests/backend/xls-import.test.mjs`；最终通过状态以实际 fresh 命令输出为准。
+- 本轮 focused 入口 `node --test tests/backend/hire-status-v11.test.mjs` 与 `node --test tests/backend/xls-import.test.mjs` 已分别 fresh 通过 5/5、7/7；七份工作簿专项和完整门禁仍由 Task 6 单独记录。
