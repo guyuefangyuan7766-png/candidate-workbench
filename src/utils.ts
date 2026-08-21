@@ -20,6 +20,10 @@ export function formatDate(value: string | null): string {
   }).format(new Date(value));
 }
 
+export function candidateHireStatusText(value: unknown): string {
+  return String(value ?? "").trim();
+}
+
 export function candidateDisplayAge(
   candidate: Pick<Candidate, "birth_date" | "age">,
   today = new Date(),

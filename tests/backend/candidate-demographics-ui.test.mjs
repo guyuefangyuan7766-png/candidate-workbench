@@ -42,11 +42,12 @@ test('candidate UI uses server-backed gender filtering and keeps major out of th
   assert.doesNotMatch(importSource, /15 \* 1024 \* 1024|最大 15 MB|最多导入|候选人数超限/)
 })
 
-test('candidate form and drawer expose hire fields and preserve legacy response defaults', () => {
+test('candidate form and drawer expose hire fields and preserve legacy response defaults', async () => {
   const typesSource = readFileSync(new URL('../../src/types.ts', import.meta.url), 'utf8')
   const apiSource = readFileSync(new URL('../../src/api.ts', import.meta.url), 'utf8')
   const formSource = readFileSync(new URL('../../src/components/CandidateForm.tsx', import.meta.url), 'utf8')
   const drawerSource = readFileSync(new URL('../../src/components/CandidateDrawer.tsx', import.meta.url), 'utf8')
+  const candidateUtils = await import('../../src/utils.ts')
 
   assert.match(typesSource, /hire_status: string/)
   assert.match(typesSource, /hire_date: string \| null/)
@@ -59,10 +60,19 @@ test('candidate form and drawer expose hire fields and preserve legacy response 
   assert.match(formSource, /hire_status: candidate\.hire_status \?\? ""/)
   assert.match(formSource, /hire_date: candidate\.hire_date \?\? null/)
   assert.match(formSource, /<h3>入职信息<\/h3>/)
-  assert.match(formSource, /<span>入职状态<\/span>[\s\S]*draft\.hire_status/)
-  assert.match(formSource, /<span>入职日期<\/span>[\s\S]*draft\.hire_date[\s\S]*type="date"/)
+  assert.match(formSource, /<span>入职状态<\/span><input value=\{draft\.hire_status\} onChange=\{\(event\) => update\("hire_status", event\.target\.value\)\}/)
+  assert.match(formSource, /<span>入职日期<\/span><input value=\{draft\.hire_date\?\.slice\(0, 10\) \?\? ""\} onChange=\{\(event\) => update\("hire_date", event\.target\.value \|\| null\)\} type="date"/)
+  assert.ok(formSource.indexOf('<h3>入职信息</h3>') > formSource.indexOf('<h3>求职偏好</h3>'))
 
-  assert.match(drawerSource, /const hireStatus = displayValue\(candidate\?\.hire_status\)/)
+  assert.equal(typeof candidateUtils.candidateHireStatusText, 'function')
+  assert.equal(candidateUtils.candidateHireStatusText?.('  无  '), '无')
+  assert.equal(candidateUtils.candidateHireStatusText?.('未知'), '未知')
+  assert.equal(candidateUtils.candidateHireStatusText?.('暂无'), '暂无')
+  assert.equal(candidateUtils.candidateHireStatusText?.('N/A'), 'N/A')
+  assert.equal(candidateUtils.candidateHireStatusText?.('   '), '')
+  assert.equal(candidateUtils.candidateHireStatusText?.(null), '')
+  assert.match(drawerSource, /const hireStatus = candidateHireStatusText\(candidate\?\.hire_status\)/)
+  assert.doesNotMatch(drawerSource, /const hireStatus = displayValue\(candidate\?\.hire_status\)/)
   assert.match(drawerSource, /const hireDate = candidate\?\.hire_date \? formatDate\(candidate\.hire_date\) : ""/)
   assert.match(drawerSource, /<h4>入职信息<\/h4>[\s\S]*入职状态[\s\S]*入职日期/)
   assert.match(drawerSource, /hire_status: "入职状态", hire_date: "入职日期"/)

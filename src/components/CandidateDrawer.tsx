@@ -37,7 +37,7 @@ import type {
   Position,
   TalentPool,
 } from "../types";
-import { candidateDisplayAge, formatDate, formatDateTime } from "../utils";
+import { candidateDisplayAge, candidateHireStatusText, formatDate, formatDateTime } from "../utils";
 import { displayApplicantNumber, displayScalarValue, filterPlaceholderData, filterPlaceholderLines, hasVisibleProfileSection, isDisplayableValue, isInternalMetadataKey, visibleProfileSection } from "../profile-section-display";
 import { CandidateAvatar } from "./CandidateAvatar";
 import { CandidateAttachmentsPanel } from "./AttachmentWorkflow";
@@ -240,7 +240,7 @@ export function CandidateDrawer({
   const major = displayValue(candidate?.highest_major);
   const selfSummary = displayValue(candidate?.self_summary);
   const jobStatus = displayValue(candidate?.job_seeking_status) || displayValue(preferences?.employment_status);
-  const hireStatus = displayValue(candidate?.hire_status);
+  const hireStatus = candidateHireStatusText(candidate?.hire_status);
   const hireDate = candidate?.hire_date ? formatDate(candidate.hire_date) : "";
   const desiredTitles = displayValue(preferences?.desired_titles);
   const desiredLocations = displayValue(preferences?.desired_locations);
