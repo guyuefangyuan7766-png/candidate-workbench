@@ -1,25 +1,35 @@
 import assert from 'node:assert/strict'
-import { createRequire } from 'node:module'
-import { access, readFile, readdir, stat } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { spawnSync } from 'node:child_process'
+import { access, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { test } from 'node:test'
+import { tmpdir } from 'node:os'
+import {
+  checkWorkbookPrerequisites,
+  resolveWorkbookConfig
+} from '../../scripts/hire-status-workbook-config.mjs'
 import { readCandidateImportFile } from '../../server/import-file.js'
 import { normalizeHireDate } from '../../server/validation.js'
 
 const ROOT = resolve(import.meta.dirname, '../..')
-const SOURCE_DIR = 'C:/Users/cboy/Desktop/应聘者数据-8b201f07-bb01-433b-a206-3244454ee67c'
-const OUTPUT_DIR = join(ROOT, 'outputs/2026-08-21-hire-status-cleaned')
-const RENDER_DIR = join(ROOT, '.tmp-hire-status-artifact/renders')
-const LOADER_NODE_ROOT = 'C:/Users/cboy/.cache/codex-runtimes/codex-primary-runtime/dependencies/node'
+const CONFIG = resolveWorkbookConfig({ argv: [], env: process.env })
+const SOURCE_DIR = CONFIG.sourceDir
+const OUTPUT_DIR = CONFIG.outputDir
+const WORK_DIR = CONFIG.workDir
+const RENDER_DIR = join(WORK_DIR, 'renders')
+const LOADER_NODE_ROOT = CONFIG.loaderNodeRoot
+const SCRIPT_PATH = join(ROOT, 'scripts/clean-hire-status-workbooks.mjs')
+const CONFIG_PATH = join(ROOT, 'scripts/hire-status-workbook-config.mjs')
+const REQUIRE_REAL_FIXTURES = /^(1|true|yes)$/i.test(process.env.HIRE_STATUS_WORKBOOKS_REQUIRED ?? '')
 let artifactEntry = null
 let prerequisiteSkip = false
-try {
-  await access(SOURCE_DIR)
-  await access(join(LOADER_NODE_ROOT, 'node_modules'))
-  artifactEntry = createRequire(join(LOADER_NODE_ROOT, 'artifact-test-loader.cjs')).resolve('@oai/artifact-tool')
-} catch {
-  prerequisiteSkip = 'real source workbooks or the loader-provided artifact runtime are unavailable'
+const prerequisites = await checkWorkbookPrerequisites(CONFIG, { required: REQUIRE_REAL_FIXTURES })
+if (prerequisites.available) artifactEntry = prerequisites.artifactEntry
+else {
+  prerequisiteSkip = prerequisites.skipReason
+  console.warn(`[hire-status-workbooks] SKIP: ${prerequisiteSkip}`)
 }
 
 const WORKBOOKS = [
@@ -69,6 +79,85 @@ async function sourceRows(spec) {
   }))
 }
 
+async function sha256(path) {
+  return createHash('sha256').update(await readFile(path)).digest('hex')
+}
+
+test('cleaner exposes overridable paths and rejects extra xlsx files', async () => {
+  const script = `${await readFile(CONFIG_PATH, 'utf8')}\n${await readFile(SCRIPT_PATH, 'utf8')}`
+  assert.match(script, /HIRE_STATUS_SOURCE_DIR/)
+  assert.match(script, /HIRE_STATUS_OUTPUT_DIR/)
+  assert.match(script, /HIRE_STATUS_WORK_DIR/)
+  assert.match(script, /HIRE_STATUS_LOADER_NODE_ROOT/)
+  assert.match(script, /--source-dir/)
+  assert.match(script, /--output-dir/)
+  assert.match(script, /--work-dir/)
+  assert.match(script, /unexpected.*xlsx|extra.*xlsx/i)
+
+  const fixtureRoot = await mkdtemp(join(tmpdir(), 'hire-status-workbook-boundary-'))
+  try {
+    const outputDir = join(fixtureRoot, 'outputs')
+    const workDir = join(fixtureRoot, 'work')
+    await mkdir(outputDir, { recursive: true })
+    await writeFile(join(outputDir, 'unexpected.xlsx'), 'sentinel')
+    const missingSource = join(fixtureRoot, 'missing-source')
+    const runCleaner = (args, env) => spawnSync(process.execPath, [SCRIPT_PATH, ...args], {
+      encoding: 'utf8',
+      env: { ...process.env, ...env }
+    })
+    const envChild = runCleaner([], {
+      HIRE_STATUS_SOURCE_DIR: missingSource,
+      HIRE_STATUS_OUTPUT_DIR: outputDir,
+      HIRE_STATUS_WORK_DIR: workDir,
+      HIRE_STATUS_LOADER_NODE_ROOT: LOADER_NODE_ROOT
+    })
+    assert.notEqual(envChild.status, 0, `${envChild.stdout}\n${envChild.stderr}`)
+    assert.match(`${envChild.stdout}\n${envChild.stderr}`, /unexpected.*xlsx|extra.*xlsx/i)
+
+    const cliOutputDir = join(fixtureRoot, 'cli-outputs')
+    const cliWorkDir = join(fixtureRoot, 'cli-work')
+    await mkdir(cliOutputDir, { recursive: true })
+    await writeFile(join(cliOutputDir, 'unexpected-cli.xlsx'), 'sentinel')
+    const cliChild = runCleaner([
+      '--source-dir', missingSource,
+      '--output-dir', cliOutputDir,
+      '--work-dir', cliWorkDir,
+      '--loader-node-root', LOADER_NODE_ROOT
+    ], {
+      HIRE_STATUS_SOURCE_DIR: '',
+      HIRE_STATUS_OUTPUT_DIR: '',
+      HIRE_STATUS_WORK_DIR: '',
+      HIRE_STATUS_LOADER_NODE_ROOT: ''
+    })
+    assert.notEqual(cliChild.status, 0, `${cliChild.stdout}\n${cliChild.stderr}`)
+    assert.match(`${cliChild.stdout}\n${cliChild.stderr}`, /unexpected.*xlsx|extra.*xlsx/i)
+  } finally {
+    await rm(fixtureRoot, { recursive: true, force: true })
+  }
+})
+
+test('workbook prerequisites provide explicit skip and required-mode messages', async () => {
+  const fixtureRoot = await mkdtemp(join(tmpdir(), 'hire-status-workbook-prerequisite-'))
+  try {
+    const missingConfig = resolveWorkbookConfig({
+      argv: [],
+      env: {
+        HIRE_STATUS_SOURCE_DIR: join(fixtureRoot, 'missing-source'),
+        HIRE_STATUS_LOADER_NODE_ROOT: join(fixtureRoot, 'missing-loader')
+      }
+    })
+    const optional = await checkWorkbookPrerequisites(missingConfig, { required: false })
+    assert.equal(optional.available, false)
+    assert.match(optional.skipReason, /HIRE_STATUS_WORKBOOKS_REQUIRED=1/)
+    await assert.rejects(
+      () => checkWorkbookPrerequisites(missingConfig, { required: true }),
+      /HIRE_STATUS_WORKBOOKS_REQUIRED=1/
+    )
+  } finally {
+    await rm(fixtureRoot, { recursive: true, force: true })
+  }
+})
+
 test('cleaned workbooks contain only non-empty hire statuses and preserve row alignment', {
   skip: prerequisiteSkip
 }, async () => {
@@ -78,6 +167,15 @@ test('cleaned workbooks contain only non-empty hire statuses and preserve row al
   const summary = JSON.parse(await readFile(join(OUTPUT_DIR, 'cleanup-summary.json'), 'utf8'))
   assert.equal(summary.filter_rule, "trim(status) !== '' && trim(status) !== '空'")
   assert.deepEqual(summary.headers, HEADERS)
+  assert.match(summary.reproduction.command, /clean-hire-status-workbooks\.mjs/)
+  assert.deepEqual(summary.reproduction.cli_options, [
+    '--source-dir',
+    '--output-dir',
+    '--work-dir',
+    '--loader-node-root',
+    '--loader-node-modules'
+  ])
+  assert.ok(summary.reproduction.environment_variables.includes('HIRE_STATUS_WORKBOOKS_REQUIRED'))
   assert.deepEqual(summary.totals, {
     source_rows: 62_861,
     retained_rows: 1_390,
@@ -91,22 +189,39 @@ test('cleaned workbooks contain only non-empty hire statuses and preserve row al
     await access(outputPath)
     const expectedRows = await sourceRows(spec)
     assert.equal(expectedRows.length, spec.retained)
+    const sourcePath = join(SOURCE_DIR, spec.source)
+    const sourceStats = await stat(sourcePath)
+    const sourceDigest = await sha256(sourcePath)
     const fileSummary = summary.files.find((item) => item.source_file === spec.source)
     assert.ok(fileSummary)
     assert.equal(fileSummary.retained_rows, spec.retained)
     assert.equal(fileSummary.missing_date_rows, spec.missingDate)
     assert.equal(fileSummary.source_unchanged, true)
+    assert.equal(fileSummary.source_bytes, sourceStats.size)
+    assert.equal(fileSummary.source_sha256_before, sourceDigest)
+    assert.equal(fileSummary.source_sha256_after, sourceDigest)
     assert.equal(fileSummary.source_sha256_before, fileSummary.source_sha256_after)
     assert.equal(fileSummary.formula_error_count, 0)
+    assert.ok(fileSummary.render_bytes > 0)
 
     const workbook = await SpreadsheetFile.importXlsx(await FileBlob.load(outputPath))
     assert.equal(workbook.worksheets.items.length, 1)
     const sheet = workbook.worksheets.getItemAt(0)
+    assert.equal(sheet.name, '应聘者申请数据')
     const used = sheet.getUsedRange()
     const values = used.values
     assert.deepEqual(values[0], HEADERS)
     assert.equal(values.length - 1, spec.retained)
     assert.equal(sheet.getRange(`B2:B${values.length}`).format.numberFormat, 'yyyy-mm-dd')
+    const inspected = await workbook.inspect({
+      kind: 'table',
+      range: `应聘者申请数据!A1:C${Math.min(values.length, 12)}`,
+      include: 'values,formulas',
+      tableMaxRows: 12,
+      tableMaxCols: 3
+    })
+    assert.match(inspected.ndjson, /"sheet":"应聘者申请数据"/)
+    assert.match(inspected.ndjson, /入职状态.*入职日期.*应聘者ID/)
 
     let missingDate = 0
     for (let index = 1; index < values.length; index += 1) {

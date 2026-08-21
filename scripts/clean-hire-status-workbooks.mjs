@@ -6,23 +6,28 @@ import {
   mkdir,
   readFile,
   realpath,
+  readdir,
   rm,
   stat,
   symlink,
   writeFile
 } from 'node:fs/promises'
-import { join, resolve } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { readCandidateImportFile } from '../server/import-file.js'
 import { normalizeHireDate } from '../server/validation.js'
+import {
+  WORKBOOK_CONFIG_HELP,
+  resolveWorkbookConfig
+} from './hire-status-workbook-config.mjs'
 
-const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)))
-const SOURCE_DIR = 'C:/Users/cboy/Desktop/应聘者数据-8b201f07-bb01-433b-a206-3244454ee67c'
-const OUTPUT_DIR = join(ROOT, 'outputs/2026-08-21-hire-status-cleaned')
-const WORK_DIR = join(ROOT, '.tmp-hire-status-artifact')
+const CONFIG = resolveWorkbookConfig()
+const SOURCE_DIR = CONFIG.sourceDir
+const OUTPUT_DIR = CONFIG.outputDir
+const WORK_DIR = CONFIG.workDir
 const RENDER_DIR = join(WORK_DIR, 'renders')
 const EXPORT_STAGE_DIR = join(WORK_DIR, 'exports')
-const LOADER_NODE_MODULES = 'C:/Users/cboy/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules'
+const LOADER_NODE_MODULES = CONFIG.loaderNodeModules
 const ARTIFACT_LINK = join(WORK_DIR, 'node_modules')
 const HEADERS = ['入职状态', '入职日期', '应聘者ID']
 const SHEET_NAME = '应聘者申请数据'
@@ -35,6 +40,8 @@ const SOURCE_FILES = [
   '自定义excel-2026-08-21 10_03_576.xls',
   '自定义excel-2026-08-21 10_04_067.xls'
 ]
+
+const EXPECTED_OUTPUT_FILES = new Set(SOURCE_FILES.map(outputFilename))
 
 async function ensureArtifactToolLink() {
   await mkdir(WORK_DIR, { recursive: true })
@@ -67,6 +74,27 @@ async function sha256(path) {
 
 function outputFilename(sourceFilename) {
   return `${sourceFilename.slice(0, -'.xls'.length)}_已整理.xlsx`
+}
+
+async function assertOutputDirectoryContainsNoUnexpectedXlsx({ requireComplete = false } = {}) {
+  const entries = await readdir(OUTPUT_DIR, { withFileTypes: true })
+  const xlsxFiles = entries
+    .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.xlsx'))
+    .map((entry) => entry.name)
+  const unexpected = xlsxFiles.filter((name) => !EXPECTED_OUTPUT_FILES.has(name))
+  if (unexpected.length > 0) {
+    throw new Error(
+      `Output directory contains unexpected .xlsx file(s): ${unexpected.join(', ')}. ` +
+      'Remove them or choose a dedicated output directory before rerunning.'
+    )
+  }
+  if (requireComplete) {
+    const present = new Set(xlsxFiles)
+    const missing = [...EXPECTED_OUTPUT_FILES].filter((name) => !present.has(name))
+    if (missing.length > 0 || xlsxFiles.length !== EXPECTED_OUTPUT_FILES.size) {
+      throw new Error(`Output directory must contain exactly seven cleaned .xlsx files; missing: ${missing.join(', ')}`)
+    }
+  }
 }
 
 function renderFilename(sourceFilename) {
@@ -255,11 +283,16 @@ async function processWorkbook(artifact, sourceFilename) {
 }
 
 async function main() {
+  if (CONFIG.help) {
+    console.log(WORKBOOK_CONFIG_HELP.trim())
+    return
+  }
   await Promise.all([
     mkdir(OUTPUT_DIR, { recursive: true }),
     mkdir(RENDER_DIR, { recursive: true }),
     mkdir(EXPORT_STAGE_DIR, { recursive: true })
   ])
+  await assertOutputDirectoryContainsNoUnexpectedXlsx()
   await Promise.all(SOURCE_FILES.map((sourceFilename) => (
     rm(join(OUTPUT_DIR, `${outputFilename(sourceFilename)}.inspect.ndjson`), { force: true })
   )))
@@ -270,6 +303,7 @@ async function main() {
     files.push(result)
     console.log(JSON.stringify({ event: 'export', ...result }))
   }
+  await assertOutputDirectoryContainsNoUnexpectedXlsx({ requireComplete: true })
 
   const summary = {
     generated_at: new Date().toISOString(),
@@ -278,6 +312,26 @@ async function main() {
     artifact_tool_entry: entry,
     filter_rule: "trim(status) !== '' && trim(status) !== '空'",
     headers: HEADERS,
+    reproduction: {
+      command: 'node scripts/clean-hire-status-workbooks.mjs',
+      required_test_command:
+        'HIRE_STATUS_WORKBOOKS_REQUIRED=1 node --test tests/backend/hire-status-workbooks.test.mjs',
+      cli_options: [
+        '--source-dir',
+        '--output-dir',
+        '--work-dir',
+        '--loader-node-root',
+        '--loader-node-modules'
+      ],
+      environment_variables: [
+        'HIRE_STATUS_SOURCE_DIR',
+        'HIRE_STATUS_OUTPUT_DIR',
+        'HIRE_STATUS_WORK_DIR',
+        'HIRE_STATUS_LOADER_NODE_ROOT',
+        'HIRE_STATUS_LOADER_NODE_MODULES',
+        'HIRE_STATUS_WORKBOOKS_REQUIRED'
+      ]
+    },
     totals: {
       source_rows: files.reduce((sum, file) => sum + file.source_rows, 0),
       retained_rows: files.reduce((sum, file) => sum + file.retained_rows, 0),
