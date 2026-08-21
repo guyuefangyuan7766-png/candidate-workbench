@@ -16,6 +16,8 @@
 - Agent 独立 SQLite 全字段只读连接、authorizer、防绕过、结构化查询/聚合/导出、审计和 Top-K 上下文控制。
 - Agent 回复的角色隔离 Markdown/GFM 渲染、raw HTML 禁用、危险 URL/远程图片阻断及安全外链属性。
 - PDF、DOCX、XLSX、XLSM、BIFF8 XLS、UTF-8 CSV/TXT 简历附件，身份匹配、字段选择、SHA-256 幂等、清理重试和 FTS5 证据检索。
+- V11 入职字段：旧库加法迁移与幂等性、`hire_status`/`hire_date` CRUD、非法/未来日期、通用别名、北森导入、CSV/XLSX 导出和文档契约。
+- 七份清理工作簿：只保留入职状态非空且不为精确文本“空”的行，检查表头顺序、行数守恒、日期/ID 对齐、日期格式和公式错误。
 
 测试使用内存 SQLite、临时 SQLite 文件和临时本地 HTTP 服务，不连接北森、真实模型服务或正式数据库。
 
@@ -34,6 +36,11 @@ npm test
 npx tsc --noEmit
 npm run build
 npm audit --audit-level=low
+
+# V11 字段、导入/导出与文档契约
+node --test tests/backend/hire-status-v11.test.mjs
+# 清理后的七份工作簿（生成后运行）
+node --test tests/backend/hire-status-workbooks.test.mjs
 
 node --check server/database.js
 node --check server/candidates.js

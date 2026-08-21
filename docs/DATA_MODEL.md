@@ -22,8 +22,11 @@
 | 6 | `readonly_agent_attachments_fts_deletion` | 创建附件、更新预览、字段来源、文件清理、职位删除审计、Agent 查询审计、履历文档/FTS5 和可选向量元数据 |
 | 7 | `candidate_demographics_and_large_import` | 给 `candidates` 加法增加 `gender`、`birth_date`、`age` 及性别索引，并从既有北森来源载荷只填空值回填人口字段；大文件导入配置本身不增加业务表 |
 | 8 | `agent_sessions_and_full_business_search` | 创建 Agent 会话/消息/摘要、全业务字段搜索文档/FTS5、dirty 队列、checkpoint、表级/字段级 coverage，并增加候选人、职位、人才库及关系查询辅助索引 |
+| 9 | `agent_async_tasks_and_phase_audits` | 创建持久 Agent 任务并扩展查询审计阶段字段和辅助索引 |
+| 10 | `durable_attachment_import_batches` | 创建持久附件导入批次并增加导入查询索引 |
+| 11 | `candidate_hire_status_and_date` | 给 `candidates` 加法增加入职状态/日期列及索引 |
 
-`openDatabase()` 在每次启动时幂等地核验表、列和索引，再记录迁移。v3 只增加可空 `photo_url`；v4 只在该列为空时回填合法来源照片；v5 只创建 `deletion_audits`；v6 只新增表、索引、FTS5 虚拟表、同步触发器和既有履历文档回填；v7 只增加三个人口字段和一个索引，并仅从已保存北森来源载荷补齐空值；v8 只新增会话/搜索对象、触发器、辅助索引和搜索文档回填，保留 V6 `candidate_resume_documents` / `candidate_resume_fts`。这些迁移都不重建或清空旧业务表。当前没有自动 down migration；升级前仍应停止服务并备份 `.db` 及可能存在的 `-wal`、`-shm` 文件集。
+`openDatabase()` 在每次启动时幂等地核验表、列和索引，再记录迁移。v3 只增加可空 `photo_url`；v4 只在该列为空时回填合法来源照片；v5 只创建 `deletion_audits`；v6 只新增表、索引、FTS5 虚拟表、同步触发器和既有履历文档回填；v7 只增加三个人口字段和一个索引，并仅从已保存北森来源载荷补齐空值；v8-v10 只新增各自 Agent/附件对象和辅助索引；V11 只增加两个可空入职字段和索引，保留所有既有值，不做历史 `stage` 回填。这些迁移都不重建或清空旧业务表。当前没有自动 down migration；升级前仍应停止服务并备份 `.db` 及可能存在的 `-wal`、`-shm` 文件集。
 
 自动化验证使用 `:memory:` 和系统临时目录内的隔离 `legacy.db`：先写入旧候选人和匿名来源照片/人口字段，再重复打开数据库，验证 v1-v8、旧行保留、合法照片及人口字段只回填空值、已有值不覆盖、领域表、V7 三列/性别索引、V8 会话/搜索对象和删除审计存在，且 `PRAGMA foreign_key_check` 为空。V8 全业务搜索另覆盖字段级 coverage、dirty 增量同步、长值分段和旧履历 FTS 保留。
 
@@ -79,6 +82,8 @@ erDiagram
 | `education` | TEXT | 最高学历摘要 |
 | `highest_school` / `highest_major` | TEXT | 最高学历学校和专业摘要 |
 | `job_seeking_status` | TEXT | 求职状态，可筛选 |
+| `hire_status` | TEXT | 入职状态来源文本；去首尾空白后保留非空原文，最多 200 个字符，不强制枚举；与求职偏好 `candidate_preferences.employment_status` 和旧 `stage` 不同 |
+| `hire_date` | TEXT | 可空的入职日期；有效值规范化为 `YYYY-MM-DD`，允许未来日期；状态有值但日期为空是合法状态 |
 | `resume_updated_at` | TEXT | 来源简历的更新时间文本 |
 | `self_summary` | TEXT | 自我评价或概述 |
 | `source` | TEXT | 当前展示来源；北森导入使用有效投递渠道 |
@@ -92,6 +97,8 @@ erDiagram
 | `archived_at` | TEXT | 非空表示软归档 |
 
 非空 `(source_system, source_record_id)` 有部分唯一索引。`phone` 和 `email` 只有普通索引，写入时由业务层识别身份冲突。
+
+V11 为 `hire_status` 和 `hire_date` 建立 `candidates_hire_status_idx` 与 `candidates_hire_date_idx`。索引只服务查询，不改变字段的可空性或写入语义。状态值不转换为枚举，便于保留北森新增状态；日期解析拒绝不存在的日历日期（例如 `2026-02-30`），但不以当前日期限制未来入职安排。
 
 ## positions 与职位关系
 

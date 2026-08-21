@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { DatabaseSync } from 'node:sqlite'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import http from 'node:http'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -175,4 +175,31 @@ test('candidate CRUD and exports round-trip hire fields', async () => {
   assert.ok(dateIndex > 0)
   assert.equal(row[statusIndex], arbitraryStatus)
   assert.equal(row[dateIndex], '2027-01-02')
+})
+
+test('public documentation describes the hire fields and migration', () => {
+  const documentPaths = [
+    'README.md',
+    'CHANGELOG.md',
+    'docs/ITERATION_LOG.md',
+    'docs/DATA_MODEL.md',
+    'docs/API.md',
+    'docs/FIELD_MAPPING.md',
+    'docs/IMPORT_GUIDE.md',
+    'docs/TESTING.md'
+  ]
+  const documents = Object.fromEntries(documentPaths.map((path) => [path, readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8')]))
+  for (const [path, contents] of Object.entries(documents)) {
+    for (const field of ['hire_status', 'hire_date']) {
+      assert.match(contents, new RegExp(`\\b${field}\\b`), `${path} is missing ${field}`)
+    }
+  }
+  assert.match(documents['CHANGELOG.md'], /schema V11|V11 .*hire_status/i)
+  assert.match(documents['docs/ITERATION_LOG.md'], /2026-08-21.*入职|入职.*2026-08-21/s)
+  assert.match(documents['docs/DATA_MODEL.md'], /V11/)
+  assert.match(documents['docs/API.md'], /hire_status[\s\S]*hire_date/)
+  assert.match(documents['docs/FIELD_MAPPING.md'], /hire_status[\s\S]*hire_date/)
+  assert.match(documents['docs/IMPORT_GUIDE.md'], /精确文本[“"']?空|空[”"']?视为空/)
+  assert.match(documents['docs/TESTING.md'], /node --test tests[\\/]backend[\\/]hire-status-v11\.test\.mjs/)
+  assert.match(Object.values(documents).join('\n'), /YYYY-MM-DD/)
 })

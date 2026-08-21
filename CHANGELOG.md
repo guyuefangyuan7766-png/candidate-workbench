@@ -6,6 +6,10 @@
 
 ### Added
 
+- schema V11 `candidate_hire_status_and_date`：为 `candidates` 加法增加可空 `hire_status` 与 `hire_date`，建立状态/日期索引；迁移幂等且不重建或覆盖既有候选人。
+- 候选人入职信息全链路：API CRUD、通用/北森导入、CSV/XLSX 导出和档案编辑/详情显示均支持 `hire_status` 与 `hire_date`；日期规范为 `YYYY-MM-DD`，允许未来日期。
+- 北森入职数据清理边界：对提供的 7 个 BIFF8 `.xls` 逐文件生成 `_已整理.xlsx`，仅保留状态非空且不为精确文本“空”的行；源文件不覆盖。
+
 - schema V9 `agent_async_tasks_and_phase_audits`：加法创建持久 `agent_tasks`，为查询审计增加 `trace_id`、`task_id`、`phase`，并增加阶段/导入批次候选人查询辅助索引；不重建业务表或 FTS
 - Agent 专用有界任务队列和恢复 API：`queued|planning|querying|retrieving|composing|completed|partial|failed|cancelled`、任务轮询、取消、刷新恢复及只重试回答
 - SQL、FTS、模型规划、模型回答和整体任务 deadline 的分阶段超时；查询/模型取消信号会终止独立只读子进程或模型请求
@@ -53,6 +57,8 @@
 - 职位架构、数据模型、API、界面规范和迁移运维文档
 
 ### Changed
+
+- 入职状态不强制固定枚举，保留最长 200 个字符的来源文本；入职日期为空时不删除已有值。新字段与求职偏好 `candidate_preferences.employment_status`、兼容阶段 `candidates.stage` 保持语义隔离。
 - Agent 会话发送从单个长 HTTP 生命周期改为短同步窗口 + SQLite 持久任务；`client_request_id` 重放返回原任务，不重复检索或模型调用，旧 `/agent/query` 也通过同一队列兼容
 - Agent 对话将“进入队列 → 分析问题 → 查询数据 → 整理证据 → 生成回答”展示在当前轮次下方；提交兼容等待窗口为 100 秒，任务状态读取保持单次 20 秒超时并自动重连，前端不设 30 秒总恢复上限，直到任务进入终态或用户取消/离开会话。重连复用相同 `client_request_id`，不重复执行任务；服务端 90 秒整体 deadline 与各阶段超时不变
 - 数据库结果在回答生成前受限持久化；模型失败后返回 `partial` 并保留 Top-K/evidence，用户可只重试回答而不重新扫描数据库，不再统一退化为“发送失败，请重新提问”

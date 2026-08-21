@@ -19,6 +19,15 @@
 - PDF、DOCX、XLSX、XLSM、BIFF8 XLS、UTF-8 CSV/TXT 简历附件解析、身份定位、差异预览和确认保存
 - 可选的 OpenAI-compatible 只读人才 Agent
 
+### 2026-08-21 入职信息字段
+
+- 候选人档案新增 `hire_status`（入职状态）和 `hire_date`（入职日期）；两字段可在档案编辑区维护，并在详情、CSV/XLSX 导出中显示。
+- 数据库通过幂等 schema V11 增加两列和查询索引；升级不会重建、清空或自动改写既有候选人。`hire_date` 统一保存为 `YYYY-MM-DD`，允许未来日期，也允许状态有值但日期为空。
+- `hire_status` 保留来源系统的非空文本（最多 200 个字符），不强制枚举。它不替代 `candidate_preferences.employment_status`（求职偏好），也不把旧 `candidates.stage` 自动转换为入职状态。
+- 北森和通用表格导入识别入职字段；同一候选人增量导入时空日期不会清除已有日期。批量清理脚本只保留入职状态非空且不等于精确文本“空”的源行，原始 `.xls` 文件保持不变。
+
+本轮开发线仍标记为 `Unreleased`；schema 版本为 `V11`。迁移、接口、字段映射、清理文件和验证命令见 [CHANGELOG.md](CHANGELOG.md)、[docs/DATA_MODEL.md](docs/DATA_MODEL.md)、[docs/API.md](docs/API.md)、[docs/FIELD_MAPPING.md](docs/FIELD_MAPPING.md)、[docs/IMPORT_GUIDE.md](docs/IMPORT_GUIDE.md) 和 [docs/TESTING.md](docs/TESTING.md)。
+
 去重只使用标准化后的邮箱、手机号或 `source_system + source_record_id`。系统不会仅凭姓名自动合并候选人，身份键指向不同记录时会拒绝自动更新。
 
 附件身份识别中，“未提取”只是页面根据空值显示的占位文案，不是手机号或邮箱。服务端会先过滤空值和精确的“未提取”，再分别验证、规范化并去重手机号和邮箱；一个真实身份值加占位值只计一个，两个不同的有效真实值仍会阻断自动定位。修复前已经生成的错误预览不会自动改写，升级后请重新上传原附件。

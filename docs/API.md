@@ -193,6 +193,29 @@ GET /api/candidates/:id?include_legacy_stage=true
 - `self_summary`
 - `photo_url`：高敏字段，只接受不超过 2048 字符、协议为 HTTP/HTTPS 且路径以 `.jpg`、`.jpeg`、`.png` 或 `.webp` 结尾的 URL；允许签名查询参数
 
+#### 入职信息字段（V11）
+
+`POST /api/candidates`、`PATCH /api/candidates/:id`、候选人详情和 CSV/XLSX 导出支持以下两个字段：
+
+| API 字段 | 中文标签 | 输入/响应约束 |
+| --- | --- | --- |
+| `hire_status` | 入职状态 | 可空文本；去首尾空白后保留非空原文，最长 200 个字符，不强制固定枚举 |
+| `hire_date` | 入职日期 | 可空；接受 ISO、斜线或中文年月日形式，校验真实日期后统一响应/落库为 `YYYY-MM-DD`；允许未来日期 |
+
+示例：
+
+```json
+{
+  "name": "候选人示例",
+  "hire_status": "待入职",
+  "hire_date": "2026-09-17"
+}
+```
+
+成功的详情响应包含 `hire_status` 和 `hire_date`；日期为空时返回 `null`。非法日期（例如 `2026-02-30`）或超过 200 个字符的状态返回统一 `422 validation_error`。状态有值但日期为空不会被拒绝。对已有候选人执行 PATCH 时，未提供字段保持原值；导入更新中的空日期也不会清除已有日期。
+
+这两个字段不读取或写入 `candidate_preferences.employment_status`，也不会把旧 `candidates.stage` 自动映射为入职状态。导出中文列名为 `入职状态`、`入职日期`，并与候选人其他导出字段保持同一行。
+
 `stage` 仍可写入以兼容历史客户端，但新人才库界面不应用它组织工作。去重使用标准化邮箱、电话或 `source_system + source_record_id`，绝不只按姓名。
 
 `source_record_id` 是外部来源候选人编号；北森轮廓把大小写准确的“应聘者ID”写入该字段。候选人详情可以把它显示为“应聘者编号”，不得用内部 `candidates.id` UUID 替代。详情同时返回 `gender`、`birth_date` 和数值型 `age`；界面有完整生日时按当前日期计算展示年龄，否则回退到保存的 `age`。
