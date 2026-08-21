@@ -78,17 +78,26 @@ function outputFilename(sourceFilename) {
 
 async function assertOutputDirectoryContainsNoUnexpectedXlsx({ requireComplete = false } = {}) {
   const entries = await readdir(OUTPUT_DIR, { withFileTypes: true })
-  const xlsxFiles = entries
-    .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.xlsx'))
+  const xlsxEntries = entries.filter((entry) => entry.name.toLowerCase().endsWith('.xlsx'))
+  const unexpected = xlsxEntries
     .map((entry) => entry.name)
-  const unexpected = xlsxFiles.filter((name) => !EXPECTED_OUTPUT_FILES.has(name))
+    .filter((name) => !EXPECTED_OUTPUT_FILES.has(name))
   if (unexpected.length > 0) {
     throw new Error(
       `Output directory contains unexpected .xlsx file(s): ${unexpected.join(', ')}. ` +
       'Remove them or choose a dedicated output directory before rerunning.'
     )
   }
+  const invalidExpected = xlsxEntries
+    .filter((entry) => EXPECTED_OUTPUT_FILES.has(entry.name) && !entry.isFile())
+    .map((entry) => entry.name)
+  if (invalidExpected.length > 0) {
+    throw new Error(
+      `Expected output .xlsx path(s) must be ordinary files, not links or directories: ${invalidExpected.join(', ')}`
+    )
+  }
   if (requireComplete) {
+    const xlsxFiles = xlsxEntries.map((entry) => entry.name)
     const present = new Set(xlsxFiles)
     const missing = [...EXPECTED_OUTPUT_FILES].filter((name) => !present.has(name))
     if (missing.length > 0 || xlsxFiles.length !== EXPECTED_OUTPUT_FILES.size) {

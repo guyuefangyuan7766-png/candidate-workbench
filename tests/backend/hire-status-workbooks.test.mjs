@@ -131,6 +131,36 @@ test('cleaner exposes overridable paths and rejects extra xlsx files', async () 
     })
     assert.notEqual(cliChild.status, 0, `${cliChild.stdout}\n${cliChild.stderr}`)
     assert.match(`${cliChild.stdout}\n${cliChild.stderr}`, /unexpected.*xlsx|extra.*xlsx/i)
+
+    const nonFileOutputDir = join(fixtureRoot, 'non-file-outputs')
+    const nonFileWorkDir = join(fixtureRoot, 'non-file-work')
+    await mkdir(join(nonFileOutputDir, 'unexpected-directory.xlsx'), { recursive: true })
+    const nonFileChild = runCleaner([], {
+      HIRE_STATUS_SOURCE_DIR: missingSource,
+      HIRE_STATUS_OUTPUT_DIR: nonFileOutputDir,
+      HIRE_STATUS_WORK_DIR: nonFileWorkDir,
+      HIRE_STATUS_LOADER_NODE_ROOT: LOADER_NODE_ROOT
+    })
+    assert.notEqual(nonFileChild.status, 0, `${nonFileChild.stdout}\n${nonFileChild.stderr}`)
+    assert.match(`${nonFileChild.stdout}\n${nonFileChild.stderr}`, /unexpected-directory\.xlsx/i)
+
+    const invalidExpectedOutputDir = join(fixtureRoot, 'invalid-expected-outputs')
+    const invalidExpectedWorkDir = join(fixtureRoot, 'invalid-expected-work')
+    const expectedOutputName = outputName(WORKBOOKS[0].source)
+    await mkdir(join(invalidExpectedOutputDir, expectedOutputName), { recursive: true })
+    const invalidExpectedChild = runCleaner([
+      '--source-dir', missingSource,
+      '--output-dir', invalidExpectedOutputDir,
+      '--work-dir', invalidExpectedWorkDir,
+      '--loader-node-root', LOADER_NODE_ROOT
+    ], {
+      HIRE_STATUS_SOURCE_DIR: '',
+      HIRE_STATUS_OUTPUT_DIR: '',
+      HIRE_STATUS_WORK_DIR: '',
+      HIRE_STATUS_LOADER_NODE_ROOT: ''
+    })
+    assert.notEqual(invalidExpectedChild.status, 0, `${invalidExpectedChild.stdout}\n${invalidExpectedChild.stderr}`)
+    assert.match(`${invalidExpectedChild.stdout}\n${invalidExpectedChild.stderr}`, /ordinary file|regular file/i)
   } finally {
     await rm(fixtureRoot, { recursive: true, force: true })
   }
