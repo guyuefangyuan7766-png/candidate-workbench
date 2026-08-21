@@ -226,7 +226,7 @@ Expected: seven outputs and zero blank/“空” status rows; visual previews ar
 
 Run: `Get-ChildItem outputs/2026-08-21-hire-status-cleaned -File | Select-Object Name,Length`; retain the script summary in the final report.
 
-Completion evidence: the forced real-fixture workbook suite passed 7/7 with no skips, including hard-link alias regressions for final output, staged export, render preview, and cleanup summary. The seven exports contain 1,390 retained rows from 62,861 source rows, remove 61,471 rows, preserve 4 rows whose hire date is empty, and leave every source `.xls` SHA-256 unchanged. The output directory contains exactly the seven expected `.xlsx` files plus `cleanup-summary.json`.
+Completion evidence: the forced real-fixture workbook suite passed 8/8 with no skips, including hard-link alias regressions for final output, staged export, artifact inspect sidecar, render preview, and cleanup summary. The seven exports contain 1,390 retained rows from 62,861 source rows, remove 61,471 rows, preserve 4 rows whose hire date is empty, and leave every source `.xls` SHA-256 unchanged. The output directory contains exactly the seven expected `.xlsx` files plus `cleanup-summary.json`.
 
 ### Task 6: Full verification and handoff
 
