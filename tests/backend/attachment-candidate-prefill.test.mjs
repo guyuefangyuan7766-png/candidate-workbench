@@ -149,6 +149,8 @@ test('attachment candidate draft prefills identity, profile fields, and preferen
     highest_school: '示例大学',
     highest_major: '计算机科学',
     job_seeking_status: '在职看机会',
+    hire_status: '',
+    hire_date: null,
     resume_updated_at: '2026-08-01',
     self_summary: '专注平台工程',
     source: '猎头推荐',
