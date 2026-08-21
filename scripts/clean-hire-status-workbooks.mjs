@@ -106,6 +106,36 @@ async function assertOutputDirectoryContainsNoUnexpectedXlsx({ requireComplete =
   }
 }
 
+function sameFileIdentity(leftStats, rightStats) {
+  return leftStats?.dev !== undefined && rightStats?.dev !== undefined &&
+    leftStats?.ino !== undefined && rightStats?.ino !== undefined &&
+    leftStats.dev === rightStats.dev && leftStats.ino === rightStats.ino
+}
+
+async function assertOutputSourceAliases(outputPaths = SOURCE_FILES.map((sourceFilename) => join(OUTPUT_DIR, outputFilename(sourceFilename)))) {
+  const sourceStats = await Promise.all(SOURCE_FILES.map(async (sourceFilename) => ({
+    sourceFilename,
+    sourcePath: join(SOURCE_DIR, sourceFilename),
+    stats: await stat(join(SOURCE_DIR, sourceFilename))
+  })))
+
+  for (const outputPath of outputPaths) {
+    let outputStats
+    try {
+      outputStats = await stat(outputPath)
+    } catch (error) {
+      if (error?.code === 'ENOENT') continue
+      throw error
+    }
+    const alias = sourceStats.find(({ stats }) => sameFileIdentity(outputStats, stats))
+    if (alias) {
+      throw new Error(
+        `Output path ${outputPath} aliases source workbook ${alias.sourcePath} by the same file identity; refusing to write.`
+      )
+    }
+  }
+}
+
 function renderFilename(sourceFilename) {
   return `${sourceFilename.slice(0, -'.xls'.length)}_已整理.png`
 }
@@ -242,8 +272,10 @@ async function processWorkbook(artifact, sourceFilename) {
     render_bytes: previewBytes.byteLength
   }))
 
+  await assertOutputSourceAliases([outputPath])
   const output = await artifact.SpreadsheetFile.exportXlsx(workbook)
   await output.save(stagedOutputPath)
+  await assertOutputSourceAliases([outputPath])
   await copyFile(stagedOutputPath, outputPath)
   await Promise.all([
     rm(stagedOutputPath, { force: true }),
@@ -302,6 +334,7 @@ async function main() {
     mkdir(EXPORT_STAGE_DIR, { recursive: true })
   ])
   await assertOutputDirectoryContainsNoUnexpectedXlsx()
+  await assertOutputSourceAliases()
   await Promise.all(SOURCE_FILES.map((sourceFilename) => (
     rm(join(OUTPUT_DIR, `${outputFilename(sourceFilename)}.inspect.ndjson`), { force: true })
   )))

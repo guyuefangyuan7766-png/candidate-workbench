@@ -1,7 +1,18 @@
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
-import { access, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
+import {
+  access,
+  copyFile,
+  link as createHardLink,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  stat,
+  writeFile
+} from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { test } from 'node:test'
@@ -183,6 +194,59 @@ test('workbook prerequisites provide explicit skip and required-mode messages', 
       () => checkWorkbookPrerequisites(missingConfig, { required: true }),
       /HIRE_STATUS_WORKBOOKS_REQUIRED=1/
     )
+  } finally {
+    await rm(fixtureRoot, { recursive: true, force: true })
+  }
+})
+
+test('cleaner rejects an expected output hard link before writing any source file', {
+  skip: prerequisiteSkip
+}, async (t) => {
+  const fixtureRoot = await mkdtemp(join(tmpdir(), 'hire-status-workbook-hard-link-'))
+  try {
+    const fixtureSourceDir = join(fixtureRoot, 'source')
+    const fixtureOutputDir = join(fixtureRoot, 'outputs')
+    const fixtureWorkDir = join(fixtureRoot, 'work')
+    await mkdir(fixtureSourceDir, { recursive: true })
+    await mkdir(fixtureOutputDir, { recursive: true })
+    for (const spec of WORKBOOKS) {
+      await copyFile(join(SOURCE_DIR, spec.source), join(fixtureSourceDir, spec.source))
+    }
+
+    const sourceName = WORKBOOKS[0].source
+    const sourcePath = join(fixtureSourceDir, sourceName)
+    const outputPath = join(fixtureOutputDir, outputName(sourceName))
+    const beforeStats = await stat(sourcePath)
+    const beforeHash = await sha256(sourcePath)
+    try {
+      await createHardLink(sourcePath, outputPath)
+    } catch (error) {
+      if (['EPERM', 'EOPNOTSUPP', 'ENOTSUP', 'EXDEV', 'EINVAL'].includes(error?.code)) {
+        t.skip(`hard links are unavailable on this filesystem (${error.code})`)
+        return
+      }
+      throw error
+    }
+
+    const child = spawnSync(process.execPath, [
+      SCRIPT_PATH,
+      '--source-dir', fixtureSourceDir,
+      '--output-dir', fixtureOutputDir,
+      '--work-dir', fixtureWorkDir,
+      '--loader-node-root', LOADER_NODE_ROOT
+    ], {
+      encoding: 'utf8',
+      env: { ...process.env, HIRE_STATUS_WORKBOOKS_REQUIRED: '1' }
+    })
+    const childOutput = `${child.stdout}\n${child.stderr}`
+    assert.notEqual(child.status, 0, childOutput)
+    assert.match(childOutput, /alias|same file|same-file/i)
+
+    const afterStats = await stat(sourcePath)
+    assert.equal(afterStats.size, beforeStats.size)
+    assert.equal(afterStats.dev, beforeStats.dev)
+    assert.equal(afterStats.ino, beforeStats.ino)
+    assert.equal(await sha256(sourcePath), beforeHash)
   } finally {
     await rm(fixtureRoot, { recursive: true, force: true })
   }
