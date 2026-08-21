@@ -553,7 +553,9 @@ function candidateFromValues(values, validStages) {
     highest_school: fieldValue(values, 'highest_school', 300),
     highest_major: fieldValue(values, 'highest_major', 300),
     job_seeking_status: fieldValue(values, 'job_seeking_status', 200),
-    hire_status: fieldValue(values, 'hire_status', 200),
+    // Keep one character beyond the API limit so sanitizeCandidateInput can reject,
+    // rather than silently normalize, an overlong source status.
+    hire_status: fieldValue(values, 'hire_status', 201),
     hire_date: fieldValue(values, 'hire_date', 80),
     resume_updated_at: fieldValue(values, 'resume_updated_at', 80),
     self_summary: fieldValue(values, 'self_summary', 20_000),

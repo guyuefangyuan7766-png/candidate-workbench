@@ -139,6 +139,12 @@ function cleanString(value, maxLength = 1000) {
   return string.slice(0, maxLength)
 }
 
+export function normalizeHireStatus(value) {
+  if (value == null) return null
+  const status = String(value).trim()
+  return status || null
+}
+
 export function normalizePhotoUrl(value) {
   if (value == null) return null
   const photoUrl = String(value).trim()
@@ -285,7 +291,6 @@ export function sanitizeCandidateInput(input, { partial = false, validStages = [
     highest_school: 300,
     highest_major: 300,
     job_seeking_status: 200,
-    hire_status: 200,
     resume_updated_at: 80,
     self_summary: 20_000,
     source: 200,
@@ -297,6 +302,13 @@ export function sanitizeCandidateInput(input, { partial = false, validStages = [
   }
   for (const [field, limit] of Object.entries(stringLimits)) {
     if (!partial || has(field)) value[field] = cleanString(input?.[field], limit)
+  }
+
+  if (!partial || has('hire_status')) {
+    value.hire_status = normalizeHireStatus(input?.hire_status)
+    if (value.hire_status && value.hire_status.length > 200) {
+      errors.push({ field: 'hire_status', message: '入职状态不能超过 200 个字符' })
+    }
   }
 
   if (!partial || has('years_experience')) {

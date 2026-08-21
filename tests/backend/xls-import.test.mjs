@@ -132,6 +132,28 @@ test('Beisen import maps 入职状态 and 入职日期 for an existing source ID
   })
 })
 
+test('Beisen import rejects an overlong hire status instead of truncating it', async () => {
+  await withApp(async (url) => {
+    const workbook = new ExcelJS.Workbook()
+    const sheet = workbook.addWorksheet('北森人才')
+    sheet.addRow(['应聘者ID', '姓名', '入职状态'])
+    sheet.addRow(['beisen-overlong-hire-1', '超长状态候选人', 'x'.repeat(201)])
+    const form = new FormData()
+    form.append('file', new Blob([Buffer.from(await workbook.xlsx.writeBuffer())], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    }), 'beisen-overlong-hire.xlsx')
+
+    const response = await fetch(`${url}/api/import/preview`, { method: 'POST', body: form })
+    const body = await responseJson(response)
+
+    assert.equal(response.status, 200)
+    assert.equal(body.summary.valid_rows, 0)
+    assert.equal(body.summary.invalid_rows, 1)
+    assert.match(JSON.stringify(body.rows[0].errors), /hire_status/)
+    assert.match(JSON.stringify(body.rows[0].errors), /200/)
+  })
+})
+
 test('general import hire aliases preserve values through export', async () => {
   await withApp(async (url) => {
     const form = new FormData()

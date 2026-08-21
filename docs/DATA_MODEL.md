@@ -26,9 +26,9 @@
 | 10 | `durable_attachment_import_batches` | 创建持久附件导入批次并增加导入查询索引 |
 | 11 | `candidate_hire_status_and_date` | 给 `candidates` 加法增加入职状态/日期列及索引 |
 
-`openDatabase()` 在每次启动时幂等地核验表、列和索引，再记录迁移。v3 只增加可空 `photo_url`；v4 只在该列为空时回填合法来源照片；v5 只创建 `deletion_audits`；v6 只新增表、索引、FTS5 虚拟表、同步触发器和既有履历文档回填；v7 只增加三个人口字段和一个索引，并仅从已保存北森来源载荷补齐空值；v8-v10 只新增各自 Agent/附件对象和辅助索引；V11 只增加两个可空入职字段和索引，保留所有既有值，不做历史 `stage` 回填。这些迁移都不重建或清空旧业务表。当前没有自动 down migration；升级前仍应停止服务并备份 `.db` 及可能存在的 `-wal`、`-shm` 文件集。
+`openDatabase()` 在每次启动时幂等地核验表、列和索引，再记录迁移。v3 只增加可空 `photo_url`；v4 只在该列为空时回填合法来源照片；v5 只创建 `deletion_audits`；v6 只新增附件/审计/履历表、索引、FTS5 虚拟表和同步触发器，并将既有候选人、履历区块和已解析附件回填到 `candidate_resume_documents`/`candidate_resume_fts`；v7 只增加三个人口字段和一个索引，并仅从已保存北森来源载荷补齐空值。V8 创建 Agent 会话/消息/摘要、`search_documents_v2` 及其 FTS5 表、dirty queue、checkpoint、表级/字段级 coverage 和同步触发器；同步打开或维护任务会对既有业务搜索文档/FTS 执行可恢复回填，保留 V6 的 `candidate_resume_documents`/`candidate_resume_fts`。V9 单独创建持久 `agent_tasks`，记录 `trace_id` 和任务状态；同时给 `agent_query_audits` 增加 `trace_id`、`task_id`、`phase` 及相关索引。V10 的迁移名为 `durable_attachment_import_batches`，创建持久表 `attachment_import_batches`/`attachment_import_items`，并建立幂等、状态和批次查询索引；V11 只增加两个可空入职字段和索引，保留所有既有值，不做历史 `stage` 回填。这些迁移都不重建或清空旧业务表。V8 正式迁移的历史耗时 `746.419` 秒是维护窗口/验收边界，不是每次启动的固定耗时。当前没有自动 down migration；升级前仍应停止服务并备份 `.db` 及可能存在的 `-wal`、`-shm` 文件集。
 
-自动化验证使用 `:memory:` 和系统临时目录内的隔离 `legacy.db`：先写入旧候选人和匿名来源照片/人口字段，再重复打开数据库，验证 v1-v8、旧行保留、合法照片及人口字段只回填空值、已有值不覆盖、领域表、V7 三列/性别索引、V8 会话/搜索对象和删除审计存在，且 `PRAGMA foreign_key_check` 为空。V8 全业务搜索另覆盖字段级 coverage、dirty 增量同步、长值分段和旧履历 FTS 保留。
+自动化验证使用 `:memory:` 和系统临时目录内的隔离 `legacy.db`：先写入旧候选人和匿名来源照片/人口字段，再重复打开数据库，验证 V1-V11 的幂等加法迁移、旧行保留、合法照片及人口字段只回填空值、已有值不覆盖、领域表、V7 三列/性别索引、V8 会话/搜索对象和同步触发器、V9 `agent_tasks`/阶段审计字段、V10 `attachment_import_batches`/items、V11 入职列/索引，以及 `PRAGMA foreign_key_check` 为空。V8 全业务搜索另覆盖字段级 coverage、dirty 增量同步、checkpoint/队列恢复、长值分段、既有业务文档回填和 V6 旧履历 FTS 保留；V9/V10 的历史迁移耗时和正式库门禁仍须在各自专项记录中单独核对。
 
 正式库 V5 历史迁移结果为：候选人 57 位、归档 0 位、职位 0 个、人才库 14 个、照片 42 张，schema `[1,2,3,4,5]`，`PRAGMA foreign_key_check` 返回 0 条且 `integrity_check=ok`。V5 前当前时点完整文件集备份位于 `backups/pre-v5-formal-20260805-102510/`，`.db`、`-wal`、`-shm` 哈希逐项一致。
 

@@ -127,6 +127,34 @@ test('hire fields accept future dates and reject impossible dates', async () => 
   assert.equal(invalidPatch.response.status, 422)
 })
 
+test('hire_status preserves internal whitespace and rejects values over 200 characters', async () => {
+  const app = createApp({ databasePath: ':memory:', synchronizeSearch: false })
+  cleanups.push(async () => app.closeDatabase())
+  const url = await listen(app)
+  const literalStatus = '  待  入\t职\n  '
+
+  const created = await requestJson(`${url}/api/candidates`, {
+    method: 'POST',
+    body: { name: 'Literal Hire Status', hire_status: literalStatus }
+  })
+  assert.equal(created.response.status, 201)
+  assert.equal(created.body.hire_status, literalStatus.trim())
+
+  const exactLimit = await requestJson(`${url}/api/candidates`, {
+    method: 'POST',
+    body: { name: 'Exact Hire Status Limit', hire_status: 'x'.repeat(200) }
+  })
+  assert.equal(exactLimit.response.status, 201)
+  assert.equal(exactLimit.body.hire_status, 'x'.repeat(200))
+
+  const overLimit = await requestJson(`${url}/api/candidates`, {
+    method: 'POST',
+    body: { name: 'Overlong Hire Status', hire_status: 'x'.repeat(201) }
+  })
+  assert.equal(overLimit.response.status, 422)
+  assert.match(JSON.stringify(overLimit.body), /hire_status/)
+})
+
 test('candidate CRUD and exports round-trip hire fields', async () => {
   const app = createApp({ databasePath: ':memory:', synchronizeSearch: false })
   cleanups.push(async () => app.closeDatabase())
@@ -199,7 +227,15 @@ test('public documentation describes the hire fields and migration', () => {
   assert.match(documents['docs/DATA_MODEL.md'], /V11/)
   assert.match(documents['docs/API.md'], /hire_status[\s\S]*hire_date/)
   assert.match(documents['docs/FIELD_MAPPING.md'], /hire_status[\s\S]*hire_date/)
+  assert.match(documents['docs/FIELD_MAPPING.md'], /`HIRE`/)
+  assert.match(documents['docs/FIELD_MAPPING.md'], /F1#84[\s\S]*`HIRE`/)
+  assert.match(documents['docs/FIELD_MAPPING.md'], /F3#124[\s\S]*`HIRE`/)
   assert.match(documents['docs/IMPORT_GUIDE.md'], /精确文本[“"']?空|空[”"']?视为空/)
   assert.match(documents['docs/TESTING.md'], /node --test tests[\\/]backend[\\/]hire-status-v11\.test\.mjs/)
+  assert.match(documents['docs/TESTING.md'], /V1-V11/)
+  assert.match(documents['docs/TESTING.md'], /hire-status-workbooks\.test\.mjs/)
+  assert.match(documents['docs/DATA_MODEL.md'], /V8[\s\S]*(同步触发器|搜索文档回填)/)
+  assert.match(documents['docs/DATA_MODEL.md'], /V9[\s\S]*agent_tasks/)
+  assert.match(documents['docs/DATA_MODEL.md'], /V10[\s\S]*durable_attachment_import_batches/)
   assert.match(Object.values(documents).join('\n'), /YYYY-MM-DD/)
 })
