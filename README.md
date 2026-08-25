@@ -19,6 +19,13 @@
 - PDF、DOCX、XLSX、XLSM、BIFF8 XLS、UTF-8 CSV/TXT 简历附件解析、身份定位、差异预览和确认保存
 - 可选的 OpenAI-compatible 只读人才 Agent
 
+### 2026-08-25 V13 工作年限宽容处理
+
+- `years_experience` 现在是可空数值投影，新增 `years_experience_raw` 保存非空来源原文，响应用 `years_experience_display` 提供展示文本。明确的 `0` 保持为 `0`；`经验不详`、范围或带修饰的文本保留原文且数值为 `null`；没有来源值时原文为空、数值为 `null`、展示为空白，不显示字面量 `null`。
+- 通用/北森导入和附件预填充不再因工作年限格式单独拒绝行；新的非空来源值成对更新原文和数值投影，增量导入的空单元格不清除旧值。电话、邮箱及其他身份冲突仍按原有规则阻断。
+- 档案、列表和导入预览优先显示原文，CSV/XLSX 既有“工作年限”列优先导出原文；数值排序/筛选仅使用安全数值投影。`/resume-search` 的 `min_years`、`max_years` 仍保留 API 文档所述的兼容查询输入限制，这不是存储或导入上限。
+- schema V13 是加法且幂等的迁移 `(13, 'candidate_years_experience_raw')`。本开发线仍为 `Unreleased`：生产部署、正式库迁移和完成结论必须等待 Task 7 记录最多 100 条的只读样本预览验证。
+
 ### 2026-08-21 入职信息字段
 
 - 候选人档案新增 `hire_status`（入职状态）、`hire_date`（入职日期）和 `hire_position`（入职职位）；三字段可在档案编辑区维护，并在详情、CSV/XLSX 导出中显示。
@@ -28,7 +35,7 @@
 - 北森和通用表格导入识别入职字段；同一候选人增量导入时空值不会清除已有入职字段，且只传日期的 PATCH 不会覆盖已有明确状态。北森字段 `最后职位类投递的职位id` 用于招聘职位关系（必要时按候选人和投递时间匹配历史职位），不能用 `入职职位` 猜测关系；整份工作簿存在该专用表头时，单行空值不回退普通 `职位编号`，仅整表缺该表头才允许兼容回退。
 - 批量清理脚本只保留入职状态非空且不等于精确文本“空”的源行，原始 `.xls` 文件保持不变；若源文件只有入职日期，导入预览会显示 `不确定`，不会把 `入职雇佣关系` 静默转换为状态。
 
-本轮开发线仍标记为 `Unreleased`；schema 版本为 `V12`。V12 代码和 100 人 `:memory:` 隔离导入已验证（该证据仍为 `formal_database_commit=false`）。2026-08-24 已对正式 `data/recruitment.db` 绑定的维护服务完成同一 100 人文件的 HTTP 预览与提交：100/100/0 预览、100 条更新、0 新增/失败/跳过。用户明确豁免提交后的 22GB 全库摘要、100 行逐项查询、完整性/外键后检与恢复演练；不得将 HTTP 结果表述为这些后检已完成。迁移、接口、字段映射、清理文件和验证命令见 [CHANGELOG.md](CHANGELOG.md)、[docs/DATA_MODEL.md](docs/DATA_MODEL.md)、[docs/API.md](docs/API.md)、[docs/FIELD_MAPPING.md](docs/FIELD_MAPPING.md)、[docs/IMPORT_GUIDE.md](docs/IMPORT_GUIDE.md) 和 [docs/TESTING.md](docs/TESTING.md)。
+本轮开发线仍标记为 `Unreleased`；代码 schema 基线为 `V13`。V12 的历史正式 HTTP 导入记录保持不变；它不构成 V13 部署、迁移或样本验证。V13 生产完成必须等待 Task 7 记录最多 100 条的只读样本预览。迁移、接口、字段映射、清理文件和验证命令见 [CHANGELOG.md](CHANGELOG.md)、[docs/DATA_MODEL.md](docs/DATA_MODEL.md)、[docs/API.md](docs/API.md)、[docs/FIELD_MAPPING.md](docs/FIELD_MAPPING.md)、[docs/IMPORT_GUIDE.md](docs/IMPORT_GUIDE.md) 和 [docs/TESTING.md](docs/TESTING.md)。
 
 去重只使用标准化后的邮箱、手机号或 `source_system + source_record_id`。系统不会仅凭姓名自动合并候选人，身份键指向不同记录时会拒绝自动更新。
 

@@ -26,10 +26,11 @@
 | 10 | `durable_attachment_import_batches` | 创建持久附件导入批次并增加导入查询索引 |
 | 11 | `candidate_hire_status_and_date` | 给 `candidates` 加法增加入职状态/日期列及索引 |
 | 12 | `candidate_hire_information` | 给 `candidates` 加法增加 `hire_position` 及职位文本索引 |
+| 13 | `candidate_years_experience_raw` | 给 `candidates` 加法增加工作年限来源原文列，并为仅有数值的旧行回填规范数字文本 |
 
-`openDatabase()` 在每次启动时幂等地核验表、列和索引，再记录迁移。v3 只增加可空 `photo_url`；v4 只在该列为空时回填合法来源照片；v5 只创建 `deletion_audits`；v6 只新增附件/审计/履历表、索引、FTS5 虚拟表和同步触发器，并将既有候选人、履历区块和已解析附件回填到 `candidate_resume_documents`/`candidate_resume_fts`；v7 只增加三个人口字段和一个索引，并仅从已保存北森来源载荷补齐空值。V8 创建 Agent 会话/消息/摘要、`search_documents_v2` 及其 FTS5 表、dirty queue、checkpoint、表级/字段级 coverage 和同步触发器；同步打开或维护任务会对既有业务搜索文档/FTS 执行可恢复回填，保留 V6 的 `candidate_resume_documents`/`candidate_resume_fts`。V9 单独创建持久 `agent_tasks`，记录 `trace_id` 和任务状态；同时给 `agent_query_audits` 增加 `trace_id`、`task_id`、`phase` 及相关索引。V10 的迁移名为 `durable_attachment_import_batches`，创建持久表 `attachment_import_batches`/`attachment_import_items`，并建立幂等、状态和批次查询索引；V11 增加 `hire_status`/`hire_date`，V12 增加 `hire_position`，均保留所有既有值，不做历史 `stage` 回填。这些迁移都不重建或清空旧业务表。本文 V12 是代码/模型基线；2026-08-24 已有正式 HTTP 预览/提交事实，但用户豁免全库摘要、逐行字段、完整性/外键后检和恢复演练，故不由该 HTTP 提交推断正式库 schema 或后检完成。V8 正式迁移的历史耗时 `746.419` 秒是维护窗口/验收边界，不是每次启动的固定耗时。当前没有自动 down migration；升级前仍应停止服务并备份 `.db` 及可能存在的 `-wal`、`-shm` 文件集。
+`openDatabase()` 在每次启动时幂等地核验表、列和索引，再记录迁移。v3 只增加可空 `photo_url`；v4 只在该列为空时回填合法来源照片；v5 只创建 `deletion_audits`；v6 只新增附件/审计/履历表、索引、FTS5 虚拟表和同步触发器，并将既有候选人、履历区块和已解析附件回填到 `candidate_resume_documents`/`candidate_resume_fts`；v7 只增加三个人口字段和一个索引，并仅从已保存北森来源载荷补齐空值。V8 创建 Agent 会话/消息/摘要、`search_documents_v2` 及其 FTS5 表、dirty queue、checkpoint、表级/字段级 coverage 和同步触发器；同步打开或维护任务会对既有业务搜索文档/FTS 执行可恢复回填，保留 V6 的 `candidate_resume_documents`/`candidate_resume_fts`。V9 单独创建持久 `agent_tasks`，记录 `trace_id` 和任务状态；同时给 `agent_query_audits` 增加 `trace_id`、`task_id`、`phase` 及相关索引。V10 的迁移名为 `durable_attachment_import_batches`，创建持久表 `attachment_import_batches`/`attachment_import_items`，并建立幂等、状态和批次查询索引；V11 增加 `hire_status`/`hire_date`，V12 增加 `hire_position`。V13 使用 `ensureColumn` 加法增加 `years_experience_raw TEXT NOT NULL DEFAULT ''`，登记 `(13, 'candidate_years_experience_raw')`；只在原文为空且数值非空时回填规范数字文本，不覆盖非空原文，也不把 `NULL` 变成 `0`。这些迁移都不重建或清空旧业务表。本文 V13 是代码/模型基线；V13 尚未完成正式部署或最多 100 条只读样本验证。V8 正式迁移的历史耗时 `746.419` 秒是维护窗口/验收边界，不是每次启动的固定耗时。当前没有自动 down migration；V13 回滚为回滚应用代码并保留新增列，删除该列只能在另行备份并经批准的离线维护中执行。
 
-自动化验证使用 `:memory:` 和系统临时目录内的隔离 `legacy.db`：先写入旧候选人和匿名来源照片/人口字段，再重复打开数据库，验证 V1-V12 的幂等加法迁移、旧行保留、合法照片及人口字段只回填空值、已有值不覆盖、领域表、V7 三列/性别索引、V8 会话/搜索对象和同步触发器、V9 `agent_tasks`/阶段审计字段、V10 `attachment_import_batches`/items、V11 入职状态/日期列、V12 `hire_position` 列/索引，以及 `PRAGMA foreign_key_check` 为空。V8 全业务搜索另覆盖字段级 coverage、dirty 增量同步、checkpoint/队列恢复、长值分段、既有业务文档回填和 V6 旧履历 FTS 保留；V9/V10 的历史迁移耗时和正式库门禁仍须在各自专项记录中单独核对。
+自动化验证使用 `:memory:` 和系统临时目录内的隔离 `legacy.db`：先写入旧候选人和匿名来源照片/人口字段，再重复打开数据库，验证 V1-V13 的幂等加法迁移、旧行保留、合法照片及人口字段只回填空值、已有值不覆盖、领域表、V7 三列/性别索引、V8 会话/搜索对象和同步触发器、V9 `agent_tasks`/阶段审计字段、V10 `attachment_import_batches`/items、V11 入职状态/日期列、V12 `hire_position` 列/索引，以及 V13 工作年限原文列、仅数值旧行回填和重复启动仅一条迁移记录。V8 全业务搜索另覆盖字段级 coverage、dirty 增量同步、checkpoint/队列恢复、长值分段、既有业务文档回填和 V6 旧履历 FTS 保留；V13 的正式库门禁仍须等待专项只读样本记录。
 
 正式库 V5 历史迁移结果为：候选人 57 位、归档 0 位、职位 0 个、人才库 14 个、照片 42 张，schema `[1,2,3,4,5]`，`PRAGMA foreign_key_check` 返回 0 条且 `integrity_check=ok`。V5 前当前时点完整文件集备份位于 `backups/pre-v5-formal-20260805-102510/`，`.db`、`-wal`、`-shm` 哈希逐项一致。
 
@@ -94,7 +95,8 @@ erDiagram
 | `gender` | TEXT | 规范化为 `男`、`女`、`其他` 或 `未说明`；可空并有普通索引 |
 | `birth_date` | TEXT | 可空的完整出生日期，规范化为 `YYYY-MM-DD`，不晚于当前日期 |
 | `age` | INTEGER | 可空的来源年龄，范围 0 至 120；有完整生日时界面优先实时计算年龄 |
-| `years_experience` | REAL | 0 至 80 年工作经验 |
+| `years_experience` | REAL | 可空的安全数值投影；只在来源表达式无歧义时写有限非负数，用于数值排序和筛选 |
+| `years_experience_raw` | TEXT NOT NULL DEFAULT `''` | 工作年限来源文本；非空原文优先保留，空字符串表示没有来源值 |
 | `education` | TEXT | 最高学历摘要 |
 | `highest_school` / `highest_major` | TEXT | 最高学历学校和专业摘要 |
 | `job_seeking_status` | TEXT | 求职状态，可筛选 |
@@ -115,7 +117,7 @@ erDiagram
 
 非空 `(source_system, source_record_id)` 有部分唯一索引。`phone` 和 `email` 只有普通索引，写入时由业务层识别身份冲突。
 
-V11 为 `hire_status` 和 `hire_date` 建立 `candidates_hire_status_idx` 与 `candidates_hire_date_idx`；V12 增加 `candidates_hire_position_idx`。索引只服务查询，不改变字段的可空性或写入语义。状态值不转换为枚举，便于保留北森新增状态；日期解析拒绝不存在的日历日期（例如 `2026-02-30`），但不以当前日期限制未来入职安排。有效日期非空且状态为空时，写入精确值 `不确定`；增量 PATCH 会结合已有状态决定是否触发兜底。
+`years_experience_display` 不落库：`years_experience_raw` 非空时返回原文，否则格式化有限数值，两者均无时返回空字符串。明确 `0` 的原文/数值/展示均为 `0`；`经验不详` 等未知文本保留原文、数值为 `NULL`；真实空值保存原文 `''`、数值 `NULL`、展示空白。用户可见路径不显示字面量 `null`，也不把未知或空值按 `0` 处理。V11 为 `hire_status` 和 `hire_date` 建立 `candidates_hire_status_idx` 与 `candidates_hire_date_idx`；V12 增加 `candidates_hire_position_idx`。索引只服务查询，不改变字段的可空性或写入语义。
 
 ## positions 与职位关系
 

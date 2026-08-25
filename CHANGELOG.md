@@ -6,6 +6,9 @@
 
 ### Added
 
+- schema V13 `candidate_years_experience_raw`：为 `candidates` 加法增加 `years_experience_raw TEXT NOT NULL DEFAULT ''`；`years_experience` 保留为可空数值投影，候选人响应新增计算字段 `years_experience_display`。迁移只为原文为空且数值非空的旧行回填规范数字文本，不把缺失值写成 `0`，重复启动只登记一次。
+- 工作年限宽容链路：通用/北森导入、附件预填充、API 和界面保留工作年限原文；格式不明确的非空文本不单独使行失败，明确 `0`、未知文本和空值分别保留为 `0`、原文和空白。CSV/XLSX 的既有“工作年限”列优先导出原文，手机/邮箱身份冲突仍独立阻断。
+
 - schema V12 `candidate_hire_information`：为 `candidates` 加法增加可空 `hire_position`，建立职位文本索引，并保留 V11 的 `hire_status`/`hire_date` 迁移；重复启动不重复登记或重建候选人。
 - 入职信息 V12：档案、详情、通用/北森导入和 CSV/XLSX 导出贯通 `hire_position`、`hire_status`、`hire_date`；日期非空且有效状态为空时补精确值 `不确定`，三项全空时详情不渲染入职信息区块。
 - 北森职位语义：`入职职位` 只记录入职事实，`入职雇佣关系` 保留在来源快照；`最后职位类投递的职位id` 才用于招聘职位关系，必要时按候选人和最后投递时间匹配既有职位，未命中时使用稳定来源键创建草稿职位。专用表头存在时单行空值不回退普通 `职位编号`；只有整份工作簿没有该表头时才兼容回退。

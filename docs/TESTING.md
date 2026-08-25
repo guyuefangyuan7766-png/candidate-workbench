@@ -9,7 +9,7 @@
 - 候选人与职位多对多关联、事务式批量关联/解除和幂等重放。
 - 人才库分组 CRUD、单条/批量归档与恢复、已归档分组单条/批量永久删除、候选人多对多关联和人才属性筛选。
 - 人才档案分区、求职偏好及敏感/非敏感详情投影。
-- `schema_migrations` V1-V12 幂等加法迁移、旧候选人兼容、证件照/人口字段回填、双实体最小删除审计、附件/清理/查询审计、持久会话/任务、全业务字段 FTS5 同步和入职字段索引。
+- `schema_migrations` V1-V13 幂等加法迁移、旧候选人兼容、证件照/人口字段回填、双实体最小删除审计、附件/清理/查询审计、持久会话/任务、全业务字段 FTS5 同步、入职字段索引和 V13 工作年限原文/数值投影。
 - 按职位与未分配候选人筛选、仪表盘和候选人导出。
 - 通用候选人表格导入导出、北森 `应聘者ID` 增量导入、招聘职位匹配/自动创建/歧义阻断、BIFF8 `.xls` 解析，以及可配置的大文件字节边界和解析资源限制。
 - 候选人/职位一次性 token 单条与批量永久删除、事务回滚、附件物理清理入队和最小审计。
@@ -67,6 +67,18 @@ node --check server/deletions.js
 node --check server/app.js
 node --check server/index.mjs
 ```
+
+### V13 工作年限专项门禁（待 Task 7 执行）
+
+```powershell
+node --test tests/backend/years-experience-import.test.mjs tests/backend/xls-import.test.mjs tests/backend/attachment-semantic-parsing.test.mjs tests/backend/attachment-candidate-prefill.test.mjs tests/backend/candidate-demographics-ui.test.mjs
+npm test
+npx tsc --noEmit
+npm run build
+git diff --check
+```
+
+专项测试覆盖原文保留、可空数值投影、明确 `0`、未知文本、空值、V12→V13 加法迁移与幂等、通用/北森导入、附件确认、API/UI 展示和 CSV/XLSX 导出。工作年限格式不能单独产生行错误；电话/邮箱错误或身份冲突仍须可见。生产完成不以这些自动化命令断言，必须由 Task 7 对指定工作簿完成最多 100 条只读预览，并保存不含个人信息的聚合证据后才可记录。
 
 2026-08-21 Task 4/5 focused fresh 结果：`node --test tests/backend/hire-status-v11.test.mjs` 为 5/5 通过，`node --test tests/backend/candidate-demographics-ui.test.mjs` 为 3/3 通过，`node --test tests/backend/xls-import.test.mjs` 为 7/7 通过；在 PowerShell 中设置 `$env:HIRE_STATUS_WORKBOOKS_REQUIRED = '1'` 后运行 `node --test tests/backend/hire-status-workbooks.test.mjs` 为 8/8 通过、0 跳过。后者覆盖七份工作簿逐文件表头、行数、日期/ID 对齐、公式错误、渲染结果和五类硬链接 alias 回归。本轮 focused 门禁合计 23/23。
 

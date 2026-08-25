@@ -83,6 +83,8 @@
 - `sort=name|created_at|updated_at|stage|current_company|years_experience|education|highest_school|highest_major|job_seeking_status|resume_updated_at`。
 - `order=asc|desc`。
 
+`years_experience` 排序只使用可安全解释的数值投影；未知文本和空值的投影为 `null`，不会被转换成 `0`。
+
 `search` 只检索非敏感人才字段：姓名、公司、当前任职、地点、负责人、来源、学历、学校、专业、求职状态、标签和关联职位名称。它不检索电话、邮箱、期望薪资、原始行、历史评估或授权内容。LIKE 通配符按普通字符处理，标签筛选按 JSON 数组元素精确匹配。
 
 V7 候选人页面从筛选区移除“专业”并增加“性别”，性别选择会调用上述服务端参数化查询；分页总数和导出使用同一条件。`major` 查询参数仍保留给旧客户端，专业字段、导入、详情和导出没有删除。
@@ -192,6 +194,18 @@ GET /api/candidates/:id?include_legacy_stage=true
 - `resume_updated_at`
 - `self_summary`
 - `photo_url`：高敏字段，只接受不超过 2048 字符、协议为 HTTP/HTTPS 且路径以 `.jpg`、`.jpeg`、`.png` 或 `.webp` 结尾的 URL；允许签名查询参数
+
+#### 工作年限字段（V13）
+
+`POST /api/candidates`、`PATCH /api/candidates/:id`、候选人详情、导入预览和 CSV/XLSX 导出使用以下契约：
+
+| 字段 | 方向 | 约束 |
+| --- | --- | --- |
+| `years_experience` | 请求/响应 | 请求兼容数字或文本；响应为 `number \| null` 的数值投影。仅无歧义且有限非负的值产生数值，不能用 `Number(value ?? 0)` 把未知或缺失改为 `0`。 |
+| `years_experience_raw` | 响应 | `string`；保存非空来源文本，没有来源值时为 `''`。它不是普通客户端可独立伪造的写入字段，导入、附件和 API 输入都经统一校验生成数值/原文对。 |
+| `years_experience_display` | 响应 | 计算字符串：原文非空时为原文，否则为格式化数值；两者没有时为 `''`。用户界面不得显示字面量 `null`。 |
+
+明确 `0` 的响应保持数值 `0`、原文 `0`、展示 `0`；未知文本如 `经验不详` 保留原文、数值为 `null`；显式空字符串 PATCH 清空为原文 `''` 和数值 `null`。未提供字段的增量更新不改动已有工作年限。工作年限格式本身不产生行错误，电话/邮箱格式或身份冲突仍按各自规则返回错误/冲突。
 
 #### 入职信息字段（V12）
 
@@ -483,7 +497,7 @@ PDF 预览在视觉能力显式声明为 `ATTACHMENT_VISUAL_CAPABILITY=image_inp
 
 PDF Worker 的页面视觉渲染最多 12 页、3,000,000 像素/页、18,000,000 总像素、64 MiB 累计 RGBA raster、4 MiB PNG/页和 24 MiB 总 PNG；raster 预算在原生 canvas 分配前按 `width * height * 4` 检查。每页渲染最多 8 秒，整份 PDF 的顺序页面渲染共用 30 秒预算，后续页面只能使用该文档渲染预算的剩余时间。视觉适配器的默认资源上限为最多 12 页、4,000,000 像素/页、3 MiB/页、12 MiB 总图像、8,000 字符/页、100 条记录、512 KiB 响应和 15 秒请求超时；附件服务另有 45 秒外层预算。环境变量或进程内 override 只能把这些预算下调，超过硬上限会被 clamp，不会扩大外发包络。页面 PNG、Base64、OCR 全文和模型原始响应只存在于 Worker/请求/合并期间，成功、失败、取消和过期路径都会清空。
 
-`GET /resume-search` 接受 `q|query`、`keywords`、`match_mode=all|any`、`archived=include|exclude|only`、`location`、`min_years`、`max_years`、`stage`、`position_id`、`talent_pool_id|pool_id`、`source_types`、`page`、`page_size` 和 `evidence_limit`。每页最多 100；Agent 工具进一步限制为最多 50、默认 20，每位候选人最多 1 至 5 条 evidence。V8 保留这个兼容路径和参数，但底层已从三类履历正文升级为政策业务表全字段 FTS5：候选人主档、关系、职位、人才库、阶段、导入批次、备注、活动、来源 JSON、履历区块和附件正文都可形成候选人证据。
+`GET /resume-search` 接受 `q|query`、`keywords`、`match_mode=all|any`、`archived=include|exclude|only`、`location`、`min_years`、`max_years`、`stage`、`position_id`、`talent_pool_id|pool_id`、`source_types`、`page`、`page_size` 和 `evidence_limit`。每页最多 100；Agent 工具进一步限制为最多 50、默认 20，每位候选人最多 1 至 5 条 evidence。`min_years` 与 `max_years` 是兼容查询输入，各自仅接受 0 至 80；该限制不限制 `candidates.years_experience` 的存储或导入值，且 `NULL` 投影不参与数值范围匹配。V8 保留这个兼容路径和参数，但底层已从三类履历正文升级为政策业务表全字段 FTS5：候选人主档、关系、职位、人才库、阶段、导入批次、备注、活动、来源 JSON、履历区块和附件正文都可形成候选人证据。
 
 响应仍按候选人去重并保留 `candidate_id`、`name`、`score`、`bm25_score`、`matched_fields`、`snippets`、`reasons`、分页和标准化条件，同时提供结构化 `evidence`。每条 evidence 包含 `document_id`、实体类型/ID、来源表/行、稳定 `field_path`、段坐标、`matched_terms`、实际命中词、同义词扩展标志和可合并重叠高亮的 `snippet`。职位、人才库、阶段或导入批次命中会映射到关联候选人，不因多条来源文档重复候选人。默认多概念查询先为召回 Top-20 建立候选人范围关系子集，并为每个概念优先返回真实命中 evidence；这不会提高 `page_size`、`evidence_limit` 或 Agent 上下文上限。FTS5 不可用或索引 checkpoint/coverage 未达到 ready 时返回 `503`，不会静默读取全库正文。
 

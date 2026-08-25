@@ -1,6 +1,6 @@
 # 项目文档索引
 
-本文档集对应招聘工作台 `0.1.x` 个人版及当前 `Unreleased` V11/V12 候选人入职信息迭代。当前代码基线为 schema V12，新增字段为 `hire_status`（入职状态）、`hire_date`（入职日期）和 `hire_position`（入职职位）；日期无状态时保存“不确定”，三项全空只隐藏详情区块。V12 100 人 `:memory:` 隔离证据仍为 `formal_database_commit=false`；2026-08-24 同一 100 人文件已完成正式 HTTP 预览与提交（100 条更新、无新增/失败/跳过），证据见下表。用户豁免提交后的 22GB 全库摘要、逐行字段查询、完整性/外键后检与恢复演练，不能将 HTTP 提交描述为这些后检完成。代码行为是事实来源，文档与实现不一致时，应先修正文档或通过技术决策记录明确变更。
+本文档集对应招聘工作台 `0.1.x` 个人版及当前 `Unreleased` V13 工作年限宽容迭代。当前代码基线为 schema V13：`years_experience` 是可空数值投影，`years_experience_raw` 是 `TEXT NOT NULL DEFAULT ''` 的来源原文，`years_experience_display` 为计算展示文本。明确 `0`、未知文本和真实空值必须分别显示为 `0`、原文和空白；导入格式本身不拒绝行，电话/邮箱冲突仍阻断。V13 尚未部署或完成正式样本验证，必须等待 Task 7 记录最多 100 条只读预览。V12 历史正式 HTTP 记录不构成 V13 完成证据。代码行为是事实来源，文档与实现不一致时，应先修正文档或通过技术决策记录明确变更。
 
 | 文档 | 主要用途 |
 | --- | --- |
@@ -25,6 +25,8 @@
 | [superpowers/plans/2026-08-21-hire-information-v12.md](superpowers/plans/2026-08-21-hire-information-v12.md) | V12 分任务实施计划、100 人验收口径和门禁 |
 | [evidence/v12-hire-information-import-20260821.json](evidence/v12-hire-information-import-20260821.json) | 隔离 100 人导入、字段/人才库/来源/职位关系的脱敏证据 |
 | [evidence/v12-hire-information-formal-import-20260824.json](evidence/v12-hire-information-formal-import-20260824.json) | 正式 HTTP 100 人预览/提交的脱敏聚合证据；不含全库后检或恢复结论 |
+| [superpowers/specs/2026-08-25-years-experience-tolerant-import-design.md](superpowers/specs/2026-08-25-years-experience-tolerant-import-design.md) | V13 工作年限原文保留、数值投影和兼容迁移设计 |
+| [superpowers/plans/2026-08-25-years-experience-tolerant-import.md](superpowers/plans/2026-08-25-years-experience-tolerant-import.md) | V13 实施、测试与最多 100 条只读验证计划 |
 | [../SECURITY.md](../SECURITY.md) | 安全假设、数据保护要求和漏洞处理 |
 | [../CHANGELOG.md](../CHANGELOG.md) | 面向版本的新增、变更、修复和限制 |
 | [../CONTRIBUTING.md](../CONTRIBUTING.md) | 开发、测试、数据安全和文档维护规范 |
@@ -34,7 +36,7 @@
 
 个人使用者：`README -> PRODUCT_SPEC -> OPERATIONS -> IMPORT_GUIDE`。
 
-开发维护者：`ARCHITECTURE -> DATA_MODEL -> API -> UI_DESIGN -> DECISIONS -> TESTING`；涉及 V11/V12 字段或北森工作簿时，再阅读对应的设计、实施计划和 evidence。
+开发维护者：`ARCHITECTURE -> DATA_MODEL -> API -> UI_DESIGN -> DECISIONS -> TESTING`；涉及 V13 工作年限或北森工作簿时，再阅读对应的设计、实施计划和后续 evidence。
 
 处理真实候选人数据前：必须先阅读 `FIELD_MAPPING`、`PRIVACY` 和根目录 `SECURITY`。
 
