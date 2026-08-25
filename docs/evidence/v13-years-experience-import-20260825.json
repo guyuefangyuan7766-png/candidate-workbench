@@ -1,0 +1,156 @@
+{
+  "evidence_type": "read_only_import_preview_verification",
+  "recorded_at": "2026-08-25T16:00:18.2086958+08:00",
+  "tested_commit": "10411e46c948982ca7d265b2543e344cb8c39ed9",
+  "scope": "V13 tolerant work-years import using a read-only Beisen workbook preview",
+  "source": {
+    "filename": "自定义excel7-20caac42-246c-402c-a583-45e991ec30b3.xls",
+    "size_bytes": 38428160,
+    "sha256_before": "AF4DDA9E74AB08F43F1D73A67FC132147419986601C0357CEEEB5D838EA2113C",
+    "sha256_after": "AF4DDA9E74AB08F43F1D73A67FC132147419986601C0357CEEEB5D838EA2113C",
+    "unchanged": true
+  },
+  "verification": {
+    "focused_five_file_suite": {
+      "command": "node --test tests/backend/years-experience-import.test.mjs tests/backend/xls-import.test.mjs tests/backend/attachment-semantic-parsing.test.mjs tests/backend/attachment-candidate-prefill.test.mjs tests/backend/candidate-demographics-ui.test.mjs",
+      "exit_code": 0,
+      "tests": 57,
+      "passed": 57,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0
+    },
+    "full_suite": {
+      "command": "npm test",
+      "exit_code": 1,
+      "tests": 588,
+      "passed": 583,
+      "failed": 4,
+      "cancelled": 0,
+      "skipped": 1,
+      "todo": 0,
+      "classification": "unrelated_existing_v11_v12_expectation_failures",
+      "failures": [
+        {
+          "test": "public documentation describes the hire fields and migration",
+          "reason": "docs/README.md is missing the V11 hire_status expectation"
+        },
+        {
+          "test": "cleaned workbooks contain only non-empty hire statuses and preserve row alignment",
+          "reason": "the expected V11 workbook render PNG artifact is absent"
+        },
+        {
+          "test": "V12 maintenance launcher and verifier require the v2 paused-writer contract",
+          "reason": "the expected V12 paused-server helper file is absent"
+        },
+        {
+          "test": "a failed V12 runtime sentinel acquisition leaves no maintenance attachment directory or removes a concurrent one",
+          "reason": "the absent V12 paused-server helper causes the expected maintenance error assertion to fail"
+        }
+      ],
+      "new_focused_assertions_passed": true,
+      "assertions_modified_or_weakened": false
+    },
+    "typescript": {
+      "command": "npx tsc --noEmit",
+      "exit_code": 0
+    },
+    "build": {
+      "command": "npm run build",
+      "exit_code": 0,
+      "modules_transformed": 1858,
+      "warning_category": "bundle_chunk_size"
+    },
+    "diff_check_before_preview": {
+      "command": "git diff --check",
+      "exit_code": 0
+    },
+    "read_only_preview": {
+      "command_category": "temporary_aggregate_only_preview",
+      "exit_code": 0,
+      "commit_import_called": false,
+      "formal_database_written": false,
+      "temporary_database_path_category": "repository_temporary_directory",
+      "temporary_directory_removed": true
+    }
+  },
+  "preview": {
+    "profile": "beisen_talent",
+    "full_prepared_rows": 10000,
+    "full_total_rows": 10000,
+    "full_valid_rows": 9423,
+    "full_invalid_rows": 577,
+    "public_preview_row_limit": 20,
+    "sample_count": 100,
+    "sample_valid_rows": 100,
+    "sample_work_years_only_error_rows": 0,
+    "sample_other_error_rows": 0,
+    "sample_non_empty_years_experience_raw_rows": 3,
+    "sample_finite_numeric_projection_rows": 2,
+    "sample_identity_conflict_rows": 0
+  },
+  "prepared_row_plans": {
+    "sample_unique_created_position_plans": 11,
+    "sample_unique_matched_position_plans": 0,
+    "sample_unique_position_relation_plans": 95,
+    "sample_unique_talent_pool_relation_plans": 103,
+    "sample_unique_candidate_snapshot_plans": 100,
+    "sample_unique_source_history_plans": 100,
+    "sample_source_history_plans_by_category": {
+      "effective": 0,
+      "first": 100,
+      "last": 0
+    },
+    "position_relation_path": "candidate_positions",
+    "talent_pool_relation_path": "candidate_talent_pools",
+    "source_history_path": "candidate_source_records"
+  },
+  "sample_observations": {
+    "scope": "first_100_prepared_rows_only",
+    "non_standard_raw": {
+      "observed": true,
+      "row_count": 3
+    },
+    "explicit_zero_preserved": {
+      "observed": false,
+      "category": "not_observed",
+      "row_count": 0
+    },
+    "unknown_text_preserved_non_empty": {
+      "observed": true,
+      "row_count": 1
+    },
+    "identity_conflict_visible": {
+      "observed": false,
+      "category": "not_observed",
+      "row_count": 0
+    },
+    "no_row_failed_only_for_work_years": true,
+    "dedicated_last_position_header_represented": true,
+    "dedicated_last_position_header_authoritative": true,
+    "talent_pool_relation_path_represented": true,
+    "source_history_path_represented": true
+  },
+  "automated_parser_contract": {
+    "scope": "focused_five_file_suite_not_workbook_sample",
+    "non_standard_raw_retained": true,
+    "work_year_format_alone_does_not_block": true,
+    "explicit_zero_remains_numeric_zero": true,
+    "unknown_text_remains_non_empty_raw_text": true,
+    "phone_and_email_conflicts_remain_blocking": true,
+    "finite_numeric_projection_remains_available": true,
+    "v13_migration_additive_and_idempotent": true,
+    "attachment_and_ui_raw_text_contracts_passed": true
+  },
+  "privacy": {
+    "candidate_level_rows_persisted": false,
+    "candidate_names_persisted": false,
+    "phones_persisted": false,
+    "emails_persisted": false,
+    "candidate_or_source_ids_persisted": false,
+    "raw_payloads_persisted": false,
+    "suggestion_values_persisted": false,
+    "preview_token_persisted": false
+  }
+}
