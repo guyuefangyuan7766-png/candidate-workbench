@@ -4,7 +4,7 @@
   "tested_commit": "10411e46c948982ca7d265b2543e344cb8c39ed9",
   "scope": "V13 tolerant work-years import using a read-only Beisen workbook preview",
   "source": {
-    "filename": "自定义excel7-20caac42-246c-402c-a583-45e991ec30b3.xls",
+    "label": "supplied_beisen_workbook",
     "size_bytes": 38428160,
     "sha256_before": "AF4DDA9E74AB08F43F1D73A67FC132147419986601C0357CEEEB5D838EA2113C",
     "sha256_after": "AF4DDA9E74AB08F43F1D73A67FC132147419986601C0357CEEEB5D838EA2113C",
@@ -95,7 +95,6 @@
     "sample_unique_matched_position_plans": 0,
     "sample_unique_position_relation_plans": 95,
     "sample_unique_talent_pool_relation_plans": 103,
-    "sample_unique_candidate_snapshot_plans": 100,
     "sample_unique_source_history_plans": 100,
     "sample_source_history_plans_by_category": {
       "effective": 0,
@@ -138,10 +137,15 @@
     "work_year_format_alone_does_not_block": true,
     "explicit_zero_remains_numeric_zero": true,
     "unknown_text_remains_non_empty_raw_text": true,
-    "phone_and_email_conflicts_remain_blocking": true,
+    "beisen_existing_candidate_identity_conflict_coverage": "not_covered",
     "finite_numeric_projection_remains_available": true,
     "v13_migration_additive_and_idempotent": true,
     "attachment_and_ui_raw_text_contracts_passed": true
+  },
+  "broader_regression_contract": {
+    "scope": "full_suite_passing_tests",
+    "beisen_existing_candidate_phone_and_email_conflicts_remain_blocking": true,
+    "sample_observation_claimed": false
   },
   "privacy": {
     "candidate_level_rows_persisted": false,
