@@ -126,7 +126,7 @@ export function candidateDraftFromAttachmentRecord(record: AttachmentPreviewReco
     .map((value) => String(value ?? "").trim())
     .filter(Boolean)
     .slice(0, 20);
-  const years = Number(attachmentSafeSuggestionValue(record, "years_experience"));
+  const yearsExperience = attachmentSafeSuggestionText(record, "years_experience");
   const expectedSalary = attachmentSafeSuggestionText(record, "expected_salary");
   const employmentType = attachmentSafeSuggestionText(record, "employment_type");
   const availability = attachmentSafeSuggestionText(record, "availability");
@@ -145,7 +145,7 @@ export function candidateDraftFromAttachmentRecord(record: AttachmentPreviewReco
     current_company: attachmentSafeSuggestionText(record, "current_company"),
     current_title: attachmentSafeSuggestionText(record, "current_title"),
     location: attachmentSafeSuggestionText(record, "location"),
-    years_experience: Number.isFinite(years) && years >= 0 ? years : 0,
+    years_experience: yearsExperience,
     education: attachmentSafeSuggestionText(record, "education"),
     highest_school: attachmentSafeSuggestionText(record, "highest_school"),
     highest_major: attachmentSafeSuggestionText(record, "highest_major"),

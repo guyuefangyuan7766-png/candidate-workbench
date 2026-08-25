@@ -44,8 +44,9 @@ export function PipelineBoard({ candidates, onOpen, onMove }: PipelineBoardProps
                 <span>{stageCandidates.length}</span>
               </header>
               <div className="kanban-items">
-                {stageCandidates.map((candidate) => (
-                  <article
+                {stageCandidates.map((candidate) => {
+                  const yearsExperience = candidate.years_experience_display || candidate.years_experience_raw || (candidate.years_experience !== null && candidate.years_experience !== undefined ? `${candidate.years_experience}年` : "");
+                  return <article
                     className={`candidate-card${draggingId === candidate.id ? " is-dragging" : ""}${candidate.archived_at ? " is-archived" : ""}`}
                     key={candidate.id}
                     draggable={!candidate.archived_at}
@@ -77,13 +78,13 @@ export function PipelineBoard({ candidates, onOpen, onMove }: PipelineBoardProps
                     </div>
                     <div className="candidate-card-meta">
                       <span><MapPin size={13} />{candidate.location || "-"}</span>
-                      <span>{candidate.years_experience ? `${candidate.years_experience}年` : "-"}</span>
+                      <span>{yearsExperience}</span>
                     </div>
                     <div className="candidate-card-tags">
                       {candidate.tags.slice(0, 2).map((tag) => <span className="tag" key={tag}>{tag}</span>)}
                     </div>
-                  </article>
-                ))}
+                  </article>;
+                })}
                 {!stageCandidates.length && <div className="kanban-empty">暂无候选人</div>}
               </div>
             </section>

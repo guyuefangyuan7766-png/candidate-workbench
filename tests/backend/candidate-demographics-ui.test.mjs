@@ -85,3 +85,30 @@ test('candidate form and drawer expose hire fields and preserve legacy response 
   assert.equal(hasHireInformation({ hire_status: '', hire_date: '2026-10-08', hire_position: '' }), true)
   assert.equal(hasHireInformation({ hire_status: '', hire_date: null, hire_position: '工程师' }), true)
 })
+
+test('candidate work years preserves raw text while keeping numeric projections nullable', () => {
+  const typesSource = readFileSync(new URL('../../src/types.ts', import.meta.url), 'utf8')
+  const apiSource = readFileSync(new URL('../../src/api.ts', import.meta.url), 'utf8')
+  const formSource = readFileSync(new URL('../../src/components/CandidateForm.tsx', import.meta.url), 'utf8')
+  const drawerSource = readFileSync(new URL('../../src/components/CandidateDrawer.tsx', import.meta.url), 'utf8')
+  const boardSource = readFileSync(new URL('../../src/components/PipelineBoard.tsx', import.meta.url), 'utf8')
+
+  assert.match(typesSource, /years_experience: number \| null/)
+  assert.match(typesSource, /years_experience_raw: string/)
+  assert.match(typesSource, /years_experience_display: string/)
+  assert.match(typesSource, /export interface CandidateDraft extends Omit<[\s\S]*years_experience: string/)
+
+  assert.match(apiSource, /const yearsExperience = candidate\.years_experience == null \|\| !Number\.isFinite\(Number\(candidate\.years_experience\)\) \? null : Number\(candidate\.years_experience\)/)
+  assert.match(apiSource, /years_experience: yearsExperience/)
+  assert.match(apiSource, /const yearsExperienceRaw = candidate\.years_experience_raw \?\? ""/)
+  assert.match(apiSource, /years_experience_raw: yearsExperienceRaw/)
+  assert.match(apiSource, /years_experience_display: candidate\.years_experience_display \|\| yearsExperienceRaw \|\| \(yearsExperience === null \? "" : String\(yearsExperience\)\)/)
+  assert.doesNotMatch(apiSource, /Number\(candidate\.years_experience \?\? 0\)/)
+
+  assert.match(formSource, /years_experience: candidate\.years_experience_raw \|\| candidate\.years_experience_display \|\| ""/)
+  assert.match(formSource, /<input value=\{draft\.years_experience\} onChange=\{\(event\) => update\("years_experience", event\.target\.value\)\} \/>/)
+
+  assert.match(drawerSource, /candidate\?\.years_experience_display \|\| candidate\?\.years_experience_raw \|\| \(candidate\?\.years_experience !== null && candidate\?\.years_experience !== undefined \? `\$\{candidate\.years_experience\} 年` : ""\)/)
+  assert.match(boardSource, /candidate\.years_experience_display \|\| candidate\.years_experience_raw \|\| \(candidate\.years_experience !== null && candidate\.years_experience !== undefined \? `\$\{candidate\.years_experience\}年` : ""\)/)
+  assert.match(boardSource, /<span>\{yearsExperience\}<\/span>/)
+})

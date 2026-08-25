@@ -148,7 +148,7 @@ test('attachment candidate draft prefills identity, profile fields, and preferen
     current_company: '示例科技',
     current_title: '高级工程师',
     location: '深圳',
-    years_experience: 7,
+    years_experience: '7',
     education: '硕士',
     highest_school: '示例大学',
     highest_major: '计算机科学',
@@ -246,6 +246,16 @@ test('attachment candidate draft does not invent education when the resume has n
   assert.equal(draft.phone, '')
   assert.equal(draft.email, '')
   assert.equal(draft.education, '')
+})
+
+test('attachment candidate draft preserves textual work years and leaves missing values empty', () => {
+  const textual = candidateDraftFromAttachmentRecord(previewRecord({
+    suggestions: [selectedSuggestion('years_experience', '3年6个月')]
+  }))
+  const absent = candidateDraftFromAttachmentRecord(previewRecord())
+
+  assert.equal(textual.years_experience, '3年6个月')
+  assert.equal(absent.years_experience, '')
 })
 
 test('candidate field comparison understands preferences, empty values, and tag merging', () => {

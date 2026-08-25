@@ -234,7 +234,7 @@ export function CandidateDrawer({
   const profileAge = displayAge === null ? "" : `${displayAge} 岁`;
   const currentCompany = displayValue(candidate?.current_company);
   const currentTitle = displayValue(candidate?.current_title);
-  const yearsExperience = candidate?.years_experience ? `${candidate.years_experience} 年` : "";
+  const yearsExperience = candidate?.years_experience_display || candidate?.years_experience_raw || (candidate?.years_experience !== null && candidate?.years_experience !== undefined ? `${candidate.years_experience} 年` : "");
   const education = displayValue(candidate?.education);
   const school = displayValue(candidate?.highest_school);
   const major = displayValue(candidate?.highest_major);

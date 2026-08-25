@@ -960,6 +960,8 @@ function normalizePosition(position: Position): Position {
 }
 
 function normalizeCandidate(candidate: Candidate): Candidate {
+  const yearsExperience = candidate.years_experience == null || !Number.isFinite(Number(candidate.years_experience)) ? null : Number(candidate.years_experience);
+  const yearsExperienceRaw = candidate.years_experience_raw ?? "";
   return {
     ...candidate,
     phone: candidate.phone ?? "",
@@ -972,7 +974,9 @@ function normalizeCandidate(candidate: Candidate): Candidate {
     current_company: candidate.current_company ?? "",
     current_title: candidate.current_title ?? "",
     location: candidate.location ?? "",
-    years_experience: Number(candidate.years_experience ?? 0),
+    years_experience: yearsExperience,
+    years_experience_raw: yearsExperienceRaw,
+    years_experience_display: candidate.years_experience_display || yearsExperienceRaw || (yearsExperience === null ? "" : String(yearsExperience)),
     education: candidate.education ?? "",
     highest_school: candidate.highest_school ?? "",
     highest_major: candidate.highest_major ?? "",
@@ -1029,9 +1033,16 @@ function normalizePositionList(payload: ListResponse<Position>): ListResponse<Po
   return { ...payload, items, data: items };
 }
 
-export type CandidateCreatePayload = Omit<CandidateDraft, "preferences" | "stage" | "expected_salary"> & {
+export type CandidateWorkYearsInput = string | number | null;
+
+export type CandidateCreatePayload = Omit<CandidateDraft, "preferences" | "stage" | "expected_salary" | "years_experience"> & {
+  years_experience: CandidateWorkYearsInput;
   source_system?: string;
   source_record_id?: string;
+};
+
+export type CandidateUpdatePayload = Partial<Omit<CandidateDraft, "preferences" | "years_experience">> & {
+  years_experience?: CandidateWorkYearsInput;
 };
 
 export const candidateApi = {
@@ -1065,7 +1076,7 @@ export const candidateApi = {
     }));
   },
 
-  async update(id: string, patch: Partial<Omit<CandidateDraft, "preferences">>) {
+  async update(id: string, patch: CandidateUpdatePayload) {
     return normalizeCandidate(await request<Candidate>(`/api/candidates/${encodeURIComponent(id)}`, {
       method: "PATCH",
       body: JSON.stringify(patch),

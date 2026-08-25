@@ -167,7 +167,9 @@ export interface Candidate {
   current_company: string;
   current_title: string;
   location: string;
-  years_experience: number;
+  years_experience: number | null;
+  years_experience_raw: string;
+  years_experience_display: string;
   education: string;
   highest_school: string;
   highest_major: string;
@@ -722,7 +724,7 @@ export interface CandidateActivity {
   created_at: string;
 }
 
-export interface CandidateDraft extends Pick<
+export interface CandidateDraft extends Omit<Pick<
   Candidate,
   | "name"
   | "phone"
@@ -748,7 +750,8 @@ export interface CandidateDraft extends Pick<
   | "owner"
   | "tags"
   | "expected_salary"
-> {
+>, "years_experience"> {
+  years_experience: string;
   preferences: CandidatePreferencesDraft;
   /** Optional when an edit payload did not load profile sections. */
   profile_sections?: CandidateProfileSectionDraft[];
@@ -883,7 +886,7 @@ export const emptyDraft: CandidateDraft = {
   current_company: "",
   current_title: "",
   location: "",
-  years_experience: 0,
+  years_experience: "",
   education: "本科",
   highest_school: "",
   highest_major: "",
