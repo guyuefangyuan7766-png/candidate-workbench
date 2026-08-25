@@ -143,7 +143,7 @@ const RETRYABLE_ATTACHMENT_VISUAL_ERRORS = new Set([
 const ALLOWED_UPDATE_FIELDS = new Set([
   'name', 'phone', 'email', 'gender', 'birth_date', 'age',
   'current_company', 'current_title', 'location',
-  'years_experience', 'education', 'highest_school', 'highest_major',
+  'years_experience', 'years_experience_raw', 'education', 'highest_school', 'highest_major',
   'job_seeking_status', 'resume_updated_at', 'self_summary', 'source', 'owner',
   'tags', 'expected_salary', 'desired_titles', 'desired_locations',
   'employment_type', 'availability'
@@ -1238,10 +1238,7 @@ function normalizeExtractedField(field, rawValue) {
   const multiline = cleanResumeSegment(rawValue, maximum)
   if (!multiline) return null
   if (field === 'phone' || field === 'email') return uniqueExtractedContact(field, multiline)
-  if (field === 'years_experience') {
-    const match = multiline.match(/^(\d+(?:\.\d+)?)\s*(?:年|years?)?(?:以上)?$/i)
-    return match ? Number(match[1]) : null
-  }
+  if (field === 'years_experience') return multiline
   if (field === 'tags' || field === 'desired_titles' || field === 'desired_locations') {
     const values = multiline
       .split(/[\n,，;；|｜/、·•]+/)
@@ -1390,9 +1387,9 @@ function textCandidateValues(text, identity, labeledData = extractLabeledCandida
     email: identity.email
   }
   if (!nonEmpty(values.years_experience)) {
-    const years = String(text).match(/(\d+(?:\.\d+)?)\s*(?:年|years?)\s*(?:以上)?(?:工作|从业|开发|经验|experience)/i)
+    const years = String(text).match(/((?:\d+(?:\.\d+)?)\s*(?:年|years?)\s*(?:以上)?)(?:工作经验|从业经验|开发经验|工作|从业|开发|经验|experience)/i)
     if (years) {
-      values.years_experience = Number(years[1])
+      values.years_experience = years[1]
       if (!labeledData.evidence.years_experience) labeledData.evidence.years_experience = years[0]
     }
   }
@@ -1748,8 +1745,14 @@ function buildSuggestions(sourceValues, candidate, sourceEvidence = {}, provenan
     Object.entries(sourceValues).filter(([field, value]) => ALLOWED_UPDATE_FIELDS.has(field) && nonEmpty(value))
   )
   const { value } = sanitizeAttachmentPatch(safeInput)
-  return Object.entries(value)
-    .filter(([field, suggested]) => ALLOWED_UPDATE_FIELDS.has(field) && nonEmpty(suggested))
+  const suggestionValues = {
+    ...value,
+    ...(Object.prototype.hasOwnProperty.call(value, 'years_experience_raw')
+      ? { years_experience: value.years_experience_raw }
+      : {})
+  }
+  return Object.entries(suggestionValues)
+    .filter(([field, suggested]) => field !== 'years_experience_raw' && ALLOWED_UPDATE_FIELDS.has(field) && nonEmpty(suggested))
     .flatMap(([field, suggested]) => {
       const current = candidateRawValue(candidate, field)
       const confidence = fieldConfidence(field, sourceValues)
@@ -1971,7 +1974,9 @@ function mergeModelSuggestions(baseRecord, modelRecord, options = {}) {
       if (!evidence) continue
       if ((visual || source === 'model_text') && !visualCurrentRoleIsExplicit(item.field, evidence, boundedValue)) continue
       const { value, errors } = sanitizeAttachmentPatch({ [item.field]: boundedValue })
-      const suggested = value[item.field]
+      const suggested = item.field === 'years_experience'
+        ? value.years_experience_raw
+        : value[item.field]
       if (errors.length || !nonEmpty(suggested)) continue
       const existing = suggestionsByField.get(item.field)
       if (existing) {

@@ -529,3 +529,66 @@ test('confirmation persists only canonical profile types and keeps self summary 
   assert.equal(storedTypes.includes('self_summary'), false)
   assert.equal(storedTypes.includes('work_experience'), false)
 })
+
+test('attachment work-year suggestions preserve raw text with their evidence and confidence', async () => {
+  for (const raw of ['3年6个月', '应届', '0']) {
+    const text = [
+      '姓名：工作年限候选人',
+      `工作年限：${raw}`
+    ].join('\n')
+    const preview = await readyPreview(fixture(textParser(text)).service)
+    const suggestion = preview.records[0].suggestions.find((item) => item.field === 'years_experience')
+
+    assert.ok(suggestion, raw)
+    assert.equal(suggestion.value, raw, raw)
+    assert.equal(suggestion.confidence, 'medium', raw)
+    assert.equal(suggestion.evidence, `工作年限：${raw}`, raw)
+  }
+
+  const missingPreview = await readyPreview(fixture(textParser('姓名：没有工作年限')).service)
+  assert.equal(
+    missingPreview.records[0].suggestions.some((item) => item.field === 'years_experience'),
+    false,
+    'missing extraction must not become a numeric zero suggestion'
+  )
+
+  const fallbackPreview = await readyPreview(fixture(textParser('候选人拥有3年工作经验')).service)
+  const fallback = fallbackPreview.records[0].suggestions.find((item) => item.field === 'years_experience')
+  assert.ok(fallback)
+  assert.equal(fallback.value, '3年')
+  assert.equal(fallback.evidence, '3年工作经验')
+})
+
+test('attachment confirmation persists the raw work-years text with its numeric projection', async () => {
+  const text = [
+    '邮箱：work-years-confirm@example.test',
+    '工作年限：3年6个月'
+  ].join('\n')
+  const { db, service } = fixture(textParser(text))
+  const candidate = insertCandidate(db, {
+    id: 'work-years-confirm',
+    name: 'Work Years Confirm',
+    email: 'work-years-confirm@example.test'
+  })
+  const preview = await readyPreview(service)
+  const record = preview.records[0]
+  const result = service.confirmPreview(preview.preview_id, {
+    preview_token: preview.preview_token,
+    records: [{
+      record_id: record.record_id,
+      candidate_id: candidate.id,
+      expected_updated_at: record.match.candidate.updated_at,
+      selected_fields: ['years_experience'],
+      selected_sections: [],
+      merge_mode: 'merge'
+    }]
+  })
+
+  assert.deepEqual(result.records[0].changed_fields, ['years_experience', 'years_experience_raw'])
+  assert.deepEqual({ ...db.prepare(`
+    SELECT years_experience, years_experience_raw FROM candidates WHERE id = ?
+  `).get(candidate.id) }, {
+    years_experience: 3.5,
+    years_experience_raw: '3年6个月'
+  })
+})
