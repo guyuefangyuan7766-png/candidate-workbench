@@ -9,19 +9,20 @@
 - 候选人与职位多对多关联、事务式批量关联/解除和幂等重放。
 - 人才库分组 CRUD、单条/批量归档与恢复、已归档分组单条/批量永久删除、候选人多对多关联和人才属性筛选。
 - 人才档案分区、求职偏好及敏感/非敏感详情投影。
-- `schema_migrations` V1-V11 幂等加法迁移、旧候选人兼容、证件照/人口字段回填、双实体最小删除审计、附件/清理/查询审计、持久会话/任务、全业务字段 FTS5 同步和入职字段索引。
+- `schema_migrations` V1-V12 幂等加法迁移、旧候选人兼容、证件照/人口字段回填、双实体最小删除审计、附件/清理/查询审计、持久会话/任务、全业务字段 FTS5 同步和入职字段索引。
 - 按职位与未分配候选人筛选、仪表盘和候选人导出。
 - 通用候选人表格导入导出、北森 `应聘者ID` 增量导入、招聘职位匹配/自动创建/歧义阻断、BIFF8 `.xls` 解析，以及可配置的大文件字节边界和解析资源限制。
 - 候选人/职位一次性 token 单条与批量永久删除、事务回滚、附件物理清理入队和最小审计。
 - Agent 独立 SQLite 全字段只读连接、authorizer、防绕过、结构化查询/聚合/导出、审计和 Top-K 上下文控制。
 - Agent 回复的角色隔离 Markdown/GFM 渲染、raw HTML 禁用、危险 URL/远程图片阻断及安全外链属性。
 - PDF、DOCX、XLSX、XLSM、BIFF8 XLS、UTF-8 CSV/TXT 简历附件，身份匹配、字段选择、SHA-256 幂等、清理重试和 FTS5 证据检索。
-- V11 入职字段：旧库加法迁移与幂等性、`hire_status`/`hire_date` CRUD、非法/未来日期、通用别名、北森导入、CSV/XLSX 导出和文档契约。
+- V11/V12 入职字段：旧库加法迁移与幂等性，`hire_position`/`hire_status`/`hire_date` CRUD，长度、非法/未来日期、日期非空但状态为空时回退为精确文本 `不确定`，通用别名、北森导入、CSV/XLSX 导出和文档契约。
+- V12 档案与北森关系语义：三项入职字段全空时只隐藏档案“入职信息”区块；`入职职位` 只写 `candidates.hire_position`，`最后职位类投递的职位id` 才建立 `candidate_positions`，`入职雇佣关系` 只保留在来源 `raw_payload`。
 - 七份清理工作簿：`scripts/clean-hire-status-workbooks.mjs` 提供逐文件清理入口，`tests/backend/hire-status-workbooks.test.mjs` 提供生成物专项验证入口；两者检查只保留入职状态非空且不为精确文本“空”的行、表头顺序、行数守恒、日期/ID 对齐、日期格式和公式错误。该条描述验证范围，不预先宣称 fresh 通过数字。
 
 测试使用内存 SQLite、临时 SQLite 文件和临时本地 HTTP 服务，不连接北森、真实模型服务或正式数据库。
 
-当前没有提交到仓库的完整浏览器自动化套件。职位管理迭代和人才库 V2 均使用隔离数据库完成了 Playwright CLI 验收；正式启动脚本双击体验和真实北森 `.xls` 增量预览仍需真实环境验收。
+当前没有提交到仓库的完整浏览器自动化套件。职位管理迭代和人才库 V2 均使用隔离数据库完成了 Playwright CLI 验收；V12 真实北森文件已完成服务端 100 人隔离预览与提交验证，但正式启动脚本双击体验、浏览器入口预览和正式数据库提交仍需真实环境验收。
 
 ## 环境要求
 
@@ -37,11 +38,14 @@ npx tsc --noEmit
 npm run build
 npm audit --audit-level=low
 
-# V11 字段、导入/导出与文档契约
+# V11/V12 字段、导入/导出与文档契约
 node --test tests/backend/hire-status-v11.test.mjs
+# 候选人档案 UI 契约（含入职字段）
+node --test tests/backend/candidate-demographics-ui.test.mjs
 # 北森 BIFF8、入职字段映射与超长状态回归
 node --test tests/backend/xls-import.test.mjs
 # 清理后的七份工作簿（生成后运行）
+$env:HIRE_STATUS_WORKBOOKS_REQUIRED = '1'
 node --test tests/backend/hire-status-workbooks.test.mjs
 
 node --check server/database.js
@@ -64,7 +68,47 @@ node --check server/app.js
 node --check server/index.mjs
 ```
 
-2026-08-21 Task 4 focused fresh 结果：`node --test tests/backend/hire-status-v11.test.mjs` 为 5/5 通过，`node --test tests/backend/xls-import.test.mjs` 为 7/7 通过。后者覆盖匿名 BIFF8 识别、北森入职字段增量导入、201 字符状态拒绝、通用别名导出和损坏/伪 `.xls` 拒绝；它不代替七份用户工作簿的逐文件验收。`tests/backend/hire-status-workbooks.test.mjs`、artifact-tool 逐文件核对、完整 `npm test` 和生产构建仍由 Task 6 fresh 门禁记录最终结果。
+2026-08-21 Task 4/5 focused fresh 结果：`node --test tests/backend/hire-status-v11.test.mjs` 为 5/5 通过，`node --test tests/backend/candidate-demographics-ui.test.mjs` 为 3/3 通过，`node --test tests/backend/xls-import.test.mjs` 为 7/7 通过；在 PowerShell 中设置 `$env:HIRE_STATUS_WORKBOOKS_REQUIRED = '1'` 后运行 `node --test tests/backend/hire-status-workbooks.test.mjs` 为 8/8 通过、0 跳过。后者覆盖七份工作簿逐文件表头、行数、日期/ID 对齐、公式错误、渲染结果和五类硬链接 alias 回归。本轮 focused 门禁合计 23/23。
+
+## 2026-08-21 V11 最终门禁记录
+
+已完成的专项结果：
+
+- `hire-status-v11`：5/5 通过。
+- `xls-import`：7/7 通过。
+- 强制真实工作簿专项：8/8 通过、0 跳过；七份输出共保留 1,390 行、移除 61,471 行，4 行保留记录的入职日期为空，原始 `.xls` SHA-256 未变化。
+
+- 完整门禁（在清除宿主预设的视觉/Agent 环境变量的清洁子进程中执行）：
+
+- `npm test`：532 项，531 通过、0 失败、1 跳过。
+- `npm run build`：退出码 0；TypeScript 与 Vite 通过，转换 1,858 个模块；仅有主 chunk 超过 500 kB 的常规提示。
+- `git diff --check`：退出码 0、无输出。最终工作树审计确认用户原有附件改动保留，未回滚或纳入 hire-status 功能结论。
+
+测试环境说明：视觉解析测试的“配置不完整”分支要求没有外部 `ATTACHMENT_VISUAL_*`/`AGENT_*` 变量；若宿主预设这些变量，必须在隔离子进程中清除变量后运行完整套件。变量名可记录，变量值（尤其 API key/endpoint）不得打印。
+
+### 正式数据库 V11 迁移与完整性收尾（2026-08-21）
+
+- 维护窗口先停止旧服务 PID `32716`，并将同一时点的 `recruitment.db`、`recruitment.db-wal`、`recruitment.db-shm` 备份到 `backups/pre-v11-hire-status-20260821-111600/data/`；正式库未用于自动化测试、工作簿生成、截图、删除或附件解析。
+- 以 `data/recruitment.db` 为显式目标执行幂等 V11 加法迁移，迁移连接关闭后完成 checkpoint；该时点主库文件为 `22,021,361,664` bytes，关闭时 WAL/SHM 已清理，服务重启后出现的运行时 WAL/SHM 属于 SQLite 正常运行状态。
+- 脱敏只读核对结果：`schema_migrations` 为 V1-V11；`candidates` 含 `hire_status TEXT`、`hire_date TEXT`；两个入职字段索引均存在；`PRAGMA integrity_check` 为 `ok`；`PRAGMA foreign_key_check` 为空（0 条异常）。
+- 该核对只验证 schema、对象存在性和完整性，不读取或输出候选人姓名、联系方式、原始载荷、附件正文、会话正文或搜索命中内容；结构化记录见 [v11-formal-deployment.json](evidence/v11-formal-deployment.json)。
+- 备份文件集 SHA-256 已在证据文件中逐项记录（`.db`、`-wal`、`-shm`），用于后续恢复核对；正式数据库只做加法迁移和健康检查。
+- 迁移后服务 PID `22096` 监听 `127.0.0.1:4173`；`GET /api/health` 返回 HTTP 200、`status=ok`，启动 stderr 为空。该健康检查未执行业务写入、删除、搜索或候选人明文抽查。
+- 工作簿专项完成后已删除 `.tmp-hire-status-artifact`（渲染 PNG、导出暂存和 inspect sidecar）；该目录不作为交付物或备份，复跑专项前由清理脚本按需重新生成。
+
+## 2026-08-21 V12 入职信息与 100 人隔离验收
+
+V12 `candidate_hire_information` 是在 V11 基础上的加法迁移：新增 `candidates.hire_position TEXT` 和 `candidates_hire_position_idx`，保留既有 `hire_status`、`hire_date`、旧候选人及其索引，不重建、不清空候选人表。专项测试覆盖迁移幂等、300 字符职位上限、200 字符状态上限、日期规范化、显式状态保护、空增量值不清除旧值，以及三项全空时档案区块不展示但候选人仍保留。
+
+脱敏真实文件验证使用 BIFF8 `.xls` 的首个工作表：191 列、10,000 行，其中 135 行有 `入职日期`；源文件没有精确 `入职状态` 表头，但有 `入职职位` 和 `入职雇佣关系`。从中选取 100 条有日期且通过现有校验的记录，在隔离流程完成预览和提交：
+
+- 预览为 `profile=beisen_talent`、100 行有效、0 行无效，36 行具有非空 `最后职位类投递的职位id`。
+- 提交目标仅为 `:memory:` SQLite：导入 100 位候选人，创建 31 个职位和 36 条 `candidate_positions` 关系。
+- 提交后 100 位候选人均具备完整入职字段、人才库关系和来源记录；36 条候选人职位关系与非空关系键逐行对应。
+- `入职职位` 只进入 `hire_position`；日期有值但源文件没有显式状态时写入精确状态 `不确定`；`入职雇佣关系` 仅保留在 `raw_payload`。
+- `PRAGMA integrity_check=ok`，外键异常 0 条；证据不含姓名、联系方式、候选人 ID、原始载荷或预览 token。
+
+脱敏结构化记录见 [v12-hire-information-import-20260821.json](evidence/v12-hire-information-import-20260821.json)。其中 `formal_database_commit=false`：上述结果证明当前代码和 100 人样本可在隔离库正确导入，不证明这些记录已写入 `data/recruitment.db`。2026-08-24 已由绑定正式 `data/recruitment.db`、后台写入暂停的维护服务完成正式 HTTP 预览/提交；文件 SHA-256 为 `7D92DB6C37B892F3237E490E5424CC367CE14C9CAAE3F3584FB3083AD0A6C741`，预览为 100/100/0、`existing_duplicates=100`、职位 create/match/link/conflict 为 0/32/36/0，提交为 0 导入/100 更新/0 失败/0 跳过/100 候选人、`positions_created/matched=0/32`、`links_created=0`、`pools_created=0`、`application_count=0`。前 20 条预览的入职职位/日期/`不确定` 状态及人才库、来源预览通过。脱敏证据见 [v12-hire-information-formal-import-20260824.json](evidence/v12-hire-information-formal-import-20260824.json)。用户明确豁免 22GB 全库摘要、100 行逐项字段查询、`integrity_check`/外键后检与恢复演练；这些不是已完成结论。
 
 以下 42/42 是进入 V6 前的 V5 收尾基线，不能用来宣称 V6 已验收。V6 最终结果必须在全部代码收敛后重新执行并记录在后续章节：
 
@@ -179,7 +223,7 @@ V6 测试集中在 `tests/backend/deletion-v6.test.mjs`、`position-deletion-api
 - 完整后端套件：`npm test` 78/78 通过；使用匿名内存/临时文件型数据库，没有连接正式数据库。
 - 附件聚焦套件：`node --test tests/backend/attachments-v6.test.mjs` 10/10。测试使用匿名临时目录中的实际格式文件，覆盖文本 PDF、DOCX、XLSX、XLSM、BIFF8 XLS、UTF-8 CSV 成功解析（DOCX/XLSM fixture 使用 deflate），以及伪扩展名、损坏文件、无文本 PDF、加密输入、非法 UTF-8 和 15 MB + 1 字节输入安全失败；未使用真实候选人简历。
 - 安全聚焦套件：`node --test tests/backend/security-v6.test.mjs` 2/2。第一项覆盖不允许的跨域 JSON/multipart 写请求在请求体解析前返回 `403 origin_not_allowed`、恶意预检返回 `403`、无 Origin 本机写入保持兼容，并断言正常响应的 `X-Content-Type-Options`、`X-Frame-Options`、CSP `frame-ancestors`、`Referrer-Policy` 和五项受限 `Permissions-Policy`；第二项伪造 Office ZIP 的声明大小，确认解析器按实际 inflate 结果返回 `422 zip_size_mismatch`。
-- 实现核对：Office worker 复核 central/local entry，使用 `maxOutputLength` 并按实际单条、累计 64 MB 和压缩比限制输出。附件 worker 的 15 秒超时、空 `execArgv` 和 V8 `resourceLimits`（old generation 256 MB、young generation 64 MB、code range 32 MB、stack 4 MB）同样已核对；这些限制不是整个 Node 进程的 RSS 硬上限。
+- 实现核对：Office worker 复核 central/local entry，使用 `maxOutputLength` 并按实际单条、累计 64 MB 和压缩比限制输出。附件解析 worker 的 60 秒解析超时、空 `execArgv` 和 V8 `resourceLimits`（old generation 256 MB、young generation 64 MB、code range 32 MB、stack 4 MB）同样已核对；视觉适配器另有默认 15 秒出站请求超时，附件服务外层视觉调用预算默认 45 秒。这些限制不是整个 Node 进程的 RSS 硬上限。
 - TypeScript：`npx tsc --noEmit` 通过。
 - 生产构建：`npm run build` 通过；Vite 7.3.6 转换 1598 个模块。
 - 供应链审计：`npm audit --audit-level=low` 返回 0 vulnerabilities。
@@ -448,13 +492,13 @@ node --expose-gc tests/performance/v8-anonymous-benchmark.mjs --candidates=12000
 ## 自动测试未覆盖
 
 - React 组件级测试和完整浏览器自动化。
-- 北森增量导入尚未形成仓库内可重复执行的 Playwright 测试规格；后端已有匿名工作簿自动化，浏览器仍需覆盖真实 `.xls` 上传、候选人增量摘要、可选关系提示和提交结果。
+- 北森增量导入尚未形成仓库内可重复执行的 Playwright 测试规格；后端已有匿名工作簿自动化和 V12 真实文件 100 人隔离验证，浏览器仍需覆盖真实 `.xls` 上传、候选人增量摘要、可选关系提示和正式提交结果。
 - `start.cmd` 双击启动体验和异常提示。
 - 正式文件集在提交后失败场景中的实际回退演练；V9 已在可丢弃恢复副本验证同一迁移和完整性，但没有破坏性替换正式文件集来演练恢复。
 - 远程明文 HTTP 证件照来源的长期可用性、签名过期和离线缓存；证件照仍不是本地简历附件。
 - “新建候选人并关联职位”两个请求之间的失败恢复。
-- 真实北森文件的表头、编码、枚举和数据分布；自动测试使用人工构造的匿名 XLSX 和 MIT 样本 BIFF8 工作簿。
-- ExcelJS 4.4 对少数使用 `<x:workbook>` / `<x:worksheet>` 核心元素前缀的 OOXML 生成器文件不兼容；此类匿名 50.93 MiB 样本会受控返回 `422 import_xlsx_invalid`。V7 大容量成功基准因此使用 UTF-8 CSV，不能据此宣称所有第三方 OOXML 变体兼容。
+- 除本轮已审计的 V12 BIFF8 文件及 100 人隔离样本外，其他真实北森导出版本的表头、编码、枚举和数据分布仍未覆盖；通用自动测试主要使用人工构造的匿名 XLSX 和 MIT 样本 BIFF8 工作簿。
+- 合法的 `<x:workbook>` / `<x:worksheet>` SpreadsheetML 前缀、跨 parser chunk 的长前缀及 OPC worksheet target 已有匿名自动化；错误命名空间、wrapper 走私和缺失/重复/近似 target 会受控返回 `422 import_xlsx_invalid`。其他第三方 OOXML 生成器和超大前缀文件的真实分布仍未覆盖，V7 大容量成功基准使用 UTF-8 CSV，不能据此宣称所有变体兼容。
 - 批量导入仍不支持多工作表选择、加密或非 BIFF8 `.xls` 和 GBK CSV；简历附件对这些输入也明确失败。
 - 批量导入在多种真实数据分布和长期连续运行下的压力、附件 1000 行及大量候选人/职位/履历性能。约 50 MiB 的匿名单次基准不能替代长时间稳定性测试；15 MiB + 1 byte 的附件拒绝边界仍由 V6 定向自动化覆盖。
 - 断电、WAL 恢复、长期备份和灾难恢复。
@@ -626,3 +670,58 @@ npm start
 - 移动端：390×844 下页面、`body` 和根节点宽度均为 390，截图人工检查无重叠；本地工作台页面 console 0 error/0 warning
 - 清理：浏览器会话和隔离服务均已停止，端口 `4491` 已释放。测试输出为本地忽略目录，不包含真实候选人资料
 - 正式运行：旧 PID `8024` 停止后，当前 `master` 工作区以显式 `data/recruitment.db` 启动为 PID `21232` 并监听 `127.0.0.1:4173`；仅只读核对 health=`ok`、Agent model=`kimi-k3`、`configured/full_readonly/async_tasks=true`
+
+## PDF 双通道附件解析本地验收矩阵
+
+本矩阵只允许匿名合成 PDF、临时目录、内存或临时文件型 SQLite，以及临时本地 HTTP 网关。不得使用真实简历、真实姓名、真实文件名、正式数据库、生产网关或实际凭据。下列命令是本地验收入口；本节不把命令列出解释为本次已经通过：
+
+```powershell
+node --test tests/backend/attachment-visual-parsing.test.mjs
+node --test tests/backend/attachment-visual-lifecycle.test.mjs
+node --test tests/backend/attachment-visual-hardening.test.mjs
+node --test tests/backend/attachment-avatar.test.mjs tests/backend/attachments-v6.test.mjs
+git diff --check
+```
+
+| 场景 | 必须断言的契约 |
+| --- | --- |
+| 文本、扫描、混合 PDF | `pdf_content_type` 分类正确；视觉页仅为瞬时 PNG；扫描件在视觉可用时可保留附件记录，确定性文本为空时不伪造文本。 |
+| 视觉资源降级 | 页数、像素、PNG 字节、渲染超时或缺失 canvas renderer 触发稳定 `pdf_visual_*` code（含 `pdf_visual_renderer_unavailable`），确定性文本仍完整，视觉页清空。 |
+| 能力与配置 | 仅在显式 `image_input` 声明和本地配置完整时进入实际视觉请求；没有标准化主动探测。`disabled`、配置不完整、网络/HTTP、超时、超大响应、无效 JSON 和无效 schema 均返回安全 fallback；禁用时不渲染页也不调用视觉提供者。 |
+| 分层时间与适配器边界 | 默认适配器请求 15 秒，附件服务外层视觉调用预算 45 秒；分别注入两层超时并断言 `visual_timeout`、中止信号和瞬时页字节清理。断言适配器的 4,000,000 像素、3 MiB/页、12 MiB 总图像、8,000 字符/页、单 span 1,000 字符、100 记录和 512 KiB 响应上限；高于硬上限的 override 必须 clamp。 |
+| 网关发送边界 | 只发送有界 PNG 页、最小元数据和不可信附件数据；strict JSON Schema、`stream:false`、禁止重定向，没有 tools/tool choice；endpoint 仅允许 `http/https`，生产拒绝明文 HTTP，非生产 loopback HTTP 仅限隔离测试；私网默认拒绝，只有精确列入 `ATTACHMENT_VISUAL_TRUSTED_PRIVATE_HOSTS` 的 DNS 主机名、HTTPS 端点且（若配置）通过普通主机 allowlist 时，才允许全量 DNS 结果为 RFC1918/IPv6 ULA；IP 字面量、通配符/后缀、`.localhost`/`.internal`/`.local`/metadata 保留主机名、混合公网/私网、metadata/loopback/link-local/multicast/IPv6 未指定或组播/DNS 危险结果、URL 用户信息、未许可主机、PNG magic/IHDR 不一致和超出 `maxRecords` 均拒绝；测试替身不记录真实凭据。 |
+| 溯源与冲突 | 视觉建议具有 `source: visual`、页码、最小证据、`evidence_status` 和置信度；`unverified` 默认不勾选且不能替换确定性区块；电话/邮箱仍由确定性通道决定；字段冲突与视觉替换区块都携带稳定冲突 code。 |
+| 结构化履历关系 | 视觉区块 `structured_data` 只允许 `organization`、`role`、`start_date`、`end_date`、`period`；只有同一条文本层已核对证据逐字包含值时才接受，否则保留人工候选且不写结构化关系。 |
+| bbox | 只有受 PDF 文本 span 校验的证据可附 bbox；模型返回 bbox 或未知字段必须以 `visual_invalid_schema` 降级。 |
+| 生命周期 | 成功、失败、取消与视觉超时都会清空瞬时页字节；预览完成、取消、过期的隔离文件和临时正文遵循既有清理契约；重复确认返回稳定 replay/幂等结果，不恢复已消费正文。 |
+| 格式回归 | 非 PDF 保持视觉 `not_applicable`；文本模型未 fallback 时 `review_required=false`，文本模型 fallback 时仍必须为 `true`。文本型、双栏/三列表格/时间轴、扫描型和混合 PDF，以及 DOCX、XLSX、XLSM、BIFF8 XLS、UTF-8 CSV/TXT 的既有确定性解析、安全失败和确认流程不回归；扫描 PDF 的头像恢复路径也必须保留 `allowTextlessPdf`。三列密集行按标签、值、日期的行顺序保留，普通双栏仍按列顺序读取。 |
+| 独立通道状态 | `pipeline.text`、`pipeline.text_model`、`pipeline.visual` 分别保留成功、pending、fallback、错误码、schema mode 和 retryability；扫描/混合 PDF 或视觉 fallback 必须返回 `review_required=true`，不能只显示“解析完成”。 |
+| 网关兼容配置 | `ATTACHMENT_TEXT_SCHEMA_MODE`/`ATTACHMENT_VISUAL_SCHEMA_MODE` 默认 strict；compat 仅显式开启，仍本地严格校验且不标记 strict；文本端点 invalid/insecure 错误不可重试。 |
+
+若需要浏览器验收，使用独立回环端口和匿名 SQLite，检查 `202 -> parsing -> ready|failed` 轮询、`pipeline`/证据/冲突显示、视觉 fallback 后仍可人工确认确定性结果，以及取消/过期后无法恢复预览。浏览器控制台、服务日志、HAR、截图和失败工件不得包含正文、页图、token、文件路径、网关地址或凭据。
+
+### 历史验证记录（已被本轮 fresh 命令 supersede）
+
+本节的旧测试数字和旧构建模块数属于 2026-08-19 基线，不能作为本轮完成证据；本轮最终数字必须以当前工作区重新运行的专项测试、`npm test`、构建、静态检查输出为准。旧记录不再声称当前通过，也不应据此判断视觉请求已实际发送。依赖审计中的基线 advisory 同样需要在本轮重新执行后单独报告。
+
+### 历史真实样本记录（需本轮重新核对）
+
+此前记录的隔离上传、窄屏检查和视觉未发送结论仅是历史背景；本轮最终汇报必须重新说明是否运行真实样本、是否使用合规视觉端点，以及临时 SQLite/附件目录是否已清理。真实正文、页图、HAR、截图、个人信息或可恢复临时内容不得写入仓库。
+
+### 2026-08-20 本轮 fresh 附件验收
+
+- 附件专项清单（文本建议、候选人预填、语义区块、UI、生命周期、视觉解析、视觉生命周期、视觉 hardening、附件确认）共 `181` 项，`181` 通过、`0` 失败、`0` 跳过；pinned lookup 取消竞态与通用 PDF 页数/解析超时硬上限回归均先 RED 后 GREEN，确保 endpoint 错误不覆盖取消语义且 parser limits 不可扩张。
+- 完整 `npm test`：`487` 项，`486` 通过、`0` 失败、`1` 按设计跳过；`npm run build` 和 `npx tsc --noEmit` 退出码均为 `0`；Vite 转换 `1,858` 个模块，仅有主 chunk 大小提示；`node --check` 检查 `server/` 下 `35` 个 `.js/.mjs` 文件，`git diff --check` 通过。
+- 匿名合成 PDF parser 结果：单栏 `text/1 页/1 页图`；双栏 `text/1/1` 且几何阅读顺序断言通过；表格/时间轴 `text/1/1`；扫描 `scanned/1/1` 且确定性文本长度为 `0`；混合 `mixed/2/2`。表格、时间轴、OCR 空格/粘连归属的 OCR 断言为语义层测试，不等同于内嵌中文字体扫描 PDF 的端到端 OCR。
+- 隔离回环服务使用临时 SQLite、附件目录和匿名替身网关：替身实际收到普通文本、`strict:true`、显式 `strict:false` 及 `image_url` 请求；请求均为 `stream:false`、无 tools。匿名 API 上传覆盖 PDF/DOCX/XLSX/CSV/TXT，扫描/混合 PDF 返回 `review_required=true`，非 PDF 返回 `visual=not_applicable`；重复确认返回 `attachment_preview_replayed`，重复 SHA 确认返回 `duplicate_records=1`，取消和过期状态可观察且临时数据清空。
+- Playwright 隔离浏览器验收：桌面 `1440x900` 与窄屏 `390x844` 均检查附件来源、页码、证据、置信度、通道状态和失败提示；两种视口 `body`/根节点无横向溢出，详情抽屉在窄屏宽度与视口一致，控制台错误/警告为 `0/0`。关闭替身网关后上传扫描 PDF，UI 明确显示文本/视觉各自降级、错误码、可重试和人工核对，不显示“解析完成”假成功。
+- 本轮未上传或保存真实简历，未确认真实样本；当前环境的真实 Agent 配置为非回环明文 HTTP 且未声明 `ATTACHMENT_VISUAL_CAPABILITY=image_input`，因此真实文本/视觉出站请求均未运行。仅匿名 loopback 替身用于协议验证；合规 HTTPS/image-input 网关仍需部署方提供。
+- 验收结束后停止浏览器、应用和替身网关，回环端口均已释放；两个精确隔离根目录（含 SQLite、附件、PNG 和脚本）以及本轮测试日志/Playwright YAML 均已删除并验证不存在。正式 `data/recruitment.db`、`-shm`、`-wal` 的修改时间仍停留在本轮之前。
+
+### 2026-08-20 最终 fresh 安全验收（私网 HTTPS 例外）
+
+- 视觉专项最终结果：`attachment-visual-parsing` `29/29`、`attachment-visual-lifecycle` `18/18`、`attachment-visual-hardening` `50/50`，均为 `0` 失败、`0` 跳过；新增的公网 IPv4-mapped、NAT64 和 6to4 DNS 回归测试先按预期失败，再在局部地址分类保护加入后通过。
+- 完整 `npm test`：`515` 项，`514` 通过、`0` 失败、`1` 按设计跳过，耗时 `227228.6345 ms`。`npm run build` 退出码 `0`（Vite 转换 `1858` 个模块，仅有常规 chunk 大小提示）；`npx tsc --noEmit` 退出码 `0`；`node --check` 检查 `server/` 下 `35` 个 `.js/.mjs` 文件并全部通过；`git diff --check` 通过。
+- 真实匿名视觉探针只在内存生成带随机验证码的合成 PNG，并在子进程中临时批准当前端点的精确 hostname 以验证例外路径，未写回用户环境。请求实际发送，内部断言确认包含 PNG `image_url`、`stream:false`、无 `tools`/`tool_choice`；HTTP 未收到状态码，结果为 `status=fallback`、`schema_mode=strict`、`error_code=visual_unavailable`、`retryable=true`、结构化记录 `0`，分类为 `DNS/network`。未输出 URL、凭据、完整请求、PNG 或原始响应。
+- 由于真实探针未成功，按前置条件未运行真实视觉浏览器验收；匿名替身服务和隔离浏览器验收仍只能作为既有协议测试，不能替代合规 HTTPS/image-input 网关的真实可达性验收。
+- 收尾检查确认本轮 Node 服务已停止、今天生成的 Playwright 快照为 `0`、本轮匿名 SQLite/附件临时根目录已删除，正式 `data/recruitment.db`、`-shm`、`-wal` 的大小和修改时间未变化；用户级 `ATTACHMENT_VISUAL_TRUSTED_PRIVATE_HOSTS` 保持未配置。

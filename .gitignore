@@ -10,6 +10,8 @@ exports/
 *.sqlite3
 .env
 output/
+# User-deliverable workbooks may contain real candidate records.
+outputs/**/*.xlsx
 *.log
 .candidate-workbench-maintenance-*.lock
 .DS_Store

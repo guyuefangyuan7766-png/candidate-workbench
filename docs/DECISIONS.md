@@ -289,3 +289,21 @@
 - 决策：在完整 `.db` / `-wal` / `-shm` 备份与匿名门禁通过后，操作者显式绑定 `data\recruitment.db` 执行 V6 加法迁移。迁移后只核对 schema、预期对象、trigger 数量、履历/附件/向量聚合、SQLite 完整性和外键，不读取或输出候选人行、简历正文或 `raw_payload`。
 - 结果：schema `[1,2,3,4,5,6]`；9 个 V6 预期表/虚表无缺失；履历同步 trigger 11 个；`candidate_resume_documents` 112 条、覆盖 70 位候选人；`candidate_attachments=0`、`candidate_resume_vectors=0`；`integrity_check=ok`、`foreign_key_check=0`。V6 前备份仍为 `backups/pre-v6-agent-attachments-delete-20260805-120858/`，三件文件的源/备份 SHA-256 逐项一致。
 - 后果：正式库现在处于 V6 schema，不再描述为 V5 或待迁移；回退仍必须恢复旧代码和同一时点完整备份文件集。此次验收不包含正式附件上传或候选人/职位永久删除，也不改变个人回环、无认证/RBAC 的部署边界。
+
+## ADR-037：入职信息使用独立 V11 字段，清理工作簿按状态过滤
+
+- 日期：2026-08-21
+- 状态：已采纳
+- 决策：候选人主表新增可空 `hire_status` 与 `hire_date`，通过幂等 V11 加法迁移落地，并为两个字段建立查询索引。`hire_status` 是来源系统入职状态的非空原文（去首尾空白、最多 200 个字符、不固定枚举）；`hire_date` 是校验真实日期后统一为 `YYYY-MM-DD` 的日期文本，允许未来日期和状态有值但日期为空。两个字段贯通候选人 CRUD、档案编辑/详情、通用与北森导入以及 CSV/XLSX 导出。
+- 原因：实际入职记录与求职偏好 `candidate_preferences.employment_status`、兼容阶段 `candidates.stage` 的语义不同。复用旧字段会混淆查询、导入和历史兼容行为；独立可空字段可以在不改写旧数据的情况下逐步补充来源事实。
+- 数据准备边界：本轮提供的 7 个 BIFF8 `.xls` 逐文件生成同名 `_已整理.xlsx`，只保留 `trim(入职状态) !== '' && trim(入职状态) !== '空'` 的行；空日期不影响保留。原始文件只读、不覆盖、不按姓名/行号合并，也不把该过滤规则隐式施加到所有历史导入。
+- 后果：V11 不提供入职流程、审批、Offer 或按状态驱动的 ATS 状态机；正式数据库升级仍须停止服务、备份 `.db/-wal/-shm` 文件集并先在可丢弃副本验证。交付工作簿的行数、哈希、公式扫描和复现命令以 `docs/TESTING.md`、`docs/OPERATIONS.md` 及 `outputs/2026-08-21-hire-status-cleaned/cleanup-summary.json` 为准。
+
+## ADR-038：入职事实与招聘关联职位分离（V12）
+
+- 日期：2026-08-21
+- 状态：已采纳
+- 决策：在 V11 的 `hire_status`/`hire_date` 之上，以幂等 V12 加法迁移增加可空 `candidates.hire_position` 和 `candidates_hire_position_idx`。`hire_position` 只保存“入职职位”事实文本；有效 `hire_date` 没有明确状态时写入精确值 `不确定`。三项入职字段都为空时，详情只隐藏“入职信息”区块，不删除或归档候选人。
+- 关系规则：北森 `最后职位类投递的职位id` 才是 `candidate_positions` 的招聘关联键；`入职职位`、`入职雇佣关系` 不能代替它。工作簿存在该专用表头时，行空不创建关系且不得回退普通 `职位编号`；仅整表缺该表头时普通编号才可兼容回退。若专用值是职位名称，按 `应聘者ID + 最后职位类投递时间` 回查历史申请职位，唯一命中则复用正式职位，未命中才创建稳定来源键的草稿职位。人才库和来源历史分别写入 `candidate_talent_pools`、`candidate_source_records`，未建模字段保留在 `raw_payload` 用于追溯。
+- 验收边界：真实北森文件先从有入职日期且通过校验的记录中取 100 个唯一候选人；验收分别统计候选人字段、非空关联职位关系、人才库关系、来源历史和 SQLite 完整性，不能把 100 行误报为 100 条职位关系。隔离验收证据见 `docs/evidence/v12-hire-information-import-20260821.json` 且为 `formal_database_commit=false`。2026-08-24 已完成正式入口 HTTP 预览与用户确认提交：100/100/0，0 导入/100 更新/0 失败/跳过，职位 create/match/link/conflict 为 0/32/36/0；脱敏证据为 `docs/evidence/v12-hire-information-formal-import-20260824.json`。用户豁免 22GB 全库摘要、逐行字段、完整性/外键后检及恢复演练，因此未记录这些结论。
+- 后果：V12 仍不提供 Offer、审批或入职流程状态机；迁移只加列和索引，不重建或清空旧数据，也不从 `stage` 或求职偏好回填入职字段。

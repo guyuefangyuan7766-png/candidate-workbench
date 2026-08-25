@@ -1071,6 +1071,45 @@ test('local parser extracts anonymous PDF, DOCX, XLSM, BIFF8 XLS, UTF-8 CSV, and
   assert.match(txt.parsed.text, /anonymous\.txt@example\.test/)
 })
 
+test('DOCX, XLSX, CSV, and TXT previews keep deterministic pipeline routing', async () => {
+  const { service } = createAnonymousFixture({
+    suggestionProvider: null,
+    visualSuggestionProvider: null
+  })
+  const files = [
+    await docxFile('Name: Anonymous DOCX Pipeline\nEmail: docx.pipeline@example.test\nWork Experience: Example Studio'),
+    await xlsxFile([{
+      name: 'Anonymous XLSX Pipeline',
+      email: 'xlsx.pipeline@example.test',
+      current_company: 'Example Workbook Studio'
+    }], { filename: 'anonymous-pipeline.xlsx' }),
+    csvFile([{
+      name: 'Anonymous CSV Pipeline',
+      email: 'csv.pipeline@example.test',
+      current_company: 'Example CSV Studio'
+    }], { filename: 'anonymous-pipeline.csv' }),
+    {
+      originalname: 'anonymous-pipeline.txt',
+      mimetype: 'text/plain',
+      buffer: Buffer.from('Name: Anonymous TXT Pipeline\nEmail: txt.pipeline@example.test\nProject Experience: Example delivery', 'utf8')
+    }
+  ]
+
+  for (const file of files) {
+    const preview = await createReadyPreview(service, { file })
+    assert.equal(preview.pipeline.text.status, 'ready', file.originalname)
+    assert.equal(preview.pipeline.text.content_type, preview.file.format, file.originalname)
+    assert.deepEqual(preview.pipeline.text_model, { status: 'not_run' }, file.originalname)
+    assert.deepEqual(preview.pipeline.visual, {
+      status: 'not_applicable',
+      used_fallback: false
+    }, file.originalname)
+    assert.equal(preview.pipeline.review_required, false, file.originalname)
+    assert.equal(preview.review_required, false, file.originalname)
+    assert.equal(preview.records.length > 0, true, file.originalname)
+  }
+})
+
 test('attachment validation and workers safely reject spoofed, damaged, textless, encrypted, and oversized files', async () => {
   const workbook = await xlsxFile([{ name: 'Spoofed workbook' }])
   const spoofed = captureError(() => validateAttachmentFile({
@@ -1528,17 +1567,16 @@ test('text resume fields and sections use shared boundaries and preserve source 
   assert.equal(suggestions.name.evidence.includes('意向岗位'), false)
   assert.equal(suggestions.self_summary.evidence.includes('技能/荣誉'), false)
   assert.deepEqual(record.sections.map((section) => section.section_type), [
-    'self_summary',
     'skill',
     'experience',
     'project',
     'education'
   ])
-  assert.deepEqual(record.sections.map((section) => section.structured_data.source_order), [0, 1, 2, 3, 4])
-  assert.match(record.sections[1].content, /匿名数据竞赛一等奖/)
-  assert.equal(record.sections[1].content.includes('工作经历'), false)
-  assert.match(record.sections[2].content, /正文中的教育和技能只是普通词语/)
-  assert.equal(record.sections[2].content.includes('项目经历'), false)
+  assert.deepEqual(record.sections.map((section) => section.structured_data.source_order), [0, 1, 2, 3])
+  assert.match(record.sections[0].content, /匿名数据竞赛一等奖/)
+  assert.equal(record.sections[0].content.includes('工作经历'), false)
+  assert.match(record.sections[1].content, /正文中的教育和技能只是普通词语/)
+  assert.equal(record.sections[1].content.includes('项目经历'), false)
   assert.equal(record.sections[0].default_selected, true)
 })
 
@@ -1593,7 +1631,7 @@ test('confirmation replaces selected imported section families, preserves manual
     .filter((section) => section.section_type !== 'project')
     .map((section) => section.section_id)
   const result = service.confirmPreview(preview.preview_id, confirmationFor(preview, candidate.id, {
-    selected_fields: ['desired_titles'],
+    selected_fields: ['desired_titles', 'self_summary'],
     selected_sections: selectedSections,
     merge_mode: 'merge'
   }))
@@ -2456,6 +2494,81 @@ test('cancelled and expired previews erase staged resume text and structured rec
   assert.equal(existsSync(expiredBefore.quarantine_path), false)
 })
 
+test('confirming an expired preview reports expiry instead of replay after cleanup', async () => {
+  let currentTime = Date.parse('2026-08-05T00:00:00.000Z')
+  const { service } = createAnonymousFixture({
+    clock: () => currentTime,
+    previewTtlMs: 1_000
+  })
+  const preview = await createReadyPreview(service, {
+    file: csvFile([{
+      name: 'Anonymous Confirm Expired',
+      email: 'confirm.expired@example.test'
+    }], { filename: 'confirm-expired.csv' })
+  })
+  currentTime += 1_000
+
+  assert.throws(
+    () => service.confirmPreview(preview.preview_id, {
+      preview_token: preview.preview_token,
+      records: [{
+        record_id: preview.records[0].record_id,
+        candidate_id: 'missing-candidate',
+        expected_updated_at: '',
+        selected_fields: [],
+        selected_sections: [],
+        merge_mode: 'merge'
+      }]
+    }),
+    (error) => error?.code === 'attachment_preview_expired'
+  )
+})
+
+test('cancelling an expired preview reports expiry and leaves the expired terminal state', async () => {
+  let currentTime = Date.parse('2026-08-05T00:00:00.000Z')
+  const { db, service } = createAnonymousFixture({
+    clock: () => currentTime,
+    previewTtlMs: 1_000
+  })
+  const preview = await createReadyPreview(service, {
+    file: csvFile([{
+      name: 'Anonymous Cancel Expired',
+      email: 'cancel.expired@example.test'
+    }], { filename: 'cancel-expired.csv' })
+  })
+  currentTime += 1_000
+
+  assert.throws(
+    () => service.cancelPreview(preview.preview_id),
+    (error) => error?.code === 'attachment_preview_expired'
+  )
+  assert.equal(db.prepare('SELECT parse_status FROM attachment_update_previews WHERE id = ?').get(preview.preview_id).parse_status, 'expired')
+})
+
+test('creating a candidate from an expired preview reports expiry after cleanup', async () => {
+  let currentTime = Date.parse('2026-08-05T00:00:00.000Z')
+  const { service } = createAnonymousFixture({
+    clock: () => currentTime,
+    previewTtlMs: 1_000
+  })
+  const preview = await createReadyPreview(service, {
+    file: csvFile([{
+      name: 'Anonymous Create Expired',
+      email: 'create.expired@example.test'
+    }], { filename: 'create-expired.csv' })
+  })
+  currentTime += 1_000
+
+  await assert.rejects(
+    service.createCandidateFromPreview(preview.preview_id, {
+      preview_token: preview.preview_token,
+      record_id: preview.records[0].record_id,
+      candidate: { name: 'Anonymous Create Expired' }
+    }),
+    (error) => error?.code === 'attachment_preview_expired'
+  )
+})
+
 test('XLSX preview and confirmation use the real local parser and preserve sanitized filenames', async () => {
   const { db, service } = createAnonymousFixture()
   const candidate = addCandidate(db, 'xlsx-confirm', {
@@ -2567,6 +2680,53 @@ test('preview tokens reject replay and repeated SHA-256 submissions stay idempot
     SELECT COUNT(*) AS count FROM candidate_resume_documents
     WHERE candidate_id = ? AND source_type = 'attachment'
   `).get(candidate.id).count, 1)
+})
+
+test('visual fallback keeps confirmable text preview and clears transient page data', async () => {
+  const visualBytes = Buffer.from('synthetic visual page bytes', 'utf8')
+  const parser = async () => {
+    const text = 'Email: visual-fallback@example.test\nWork Experience:\nAnonymous Studio - Analyst - current'
+    const parsed = {
+      text,
+      records: [{ row_number: 1, values: { raw_text: text } }],
+      metadata: { page_count: 1, pdf_content_type: 'text' }
+    }
+    Object.defineProperty(parsed, 'visual_pages', {
+      value: [{
+        page_number: 1,
+        width: 1,
+        height: 1,
+        pixel_count: 1,
+        mime_type: 'image/png',
+        image: new Uint8Array(visualBytes),
+        text,
+        text_spans: []
+      }],
+      enumerable: false
+    })
+    return parsed
+  }
+  const { db, service } = createAnonymousFixture({
+    parser,
+    visualSuggestionProvider: {
+      status: () => ({ capability: 'image_input', status: 'enabled' }),
+      suggest: async () => ({
+        records: [],
+        status: 'fallback',
+        error_code: 'visual_timeout'
+      })
+    }
+  })
+  const preview = await createReadyPreview(service, {
+    file: pdfFile('Synthetic parser input', { filename: 'visual-fallback.pdf' })
+  })
+  assert.equal(preview.pipeline.visual.status, 'fallback')
+  assert.equal(preview.pipeline.visual.error_code, 'visual_timeout')
+  assert.equal(preview.records[0].identity.email, 'visual-fallback@example.test')
+  const stored = db.prepare('SELECT extracted_text, records_json FROM attachment_update_previews WHERE id = ?')
+    .get(preview.preview_id)
+  assert.match(stored.extracted_text, /visual-fallback@example\.test/)
+  assert.doesNotMatch(stored.records_json, /synthetic visual page bytes|image\/png|visual_pages/)
 })
 
 test('candidate deletion cascades attachment/FTS/vector rows and queued cleanup removes the physical file', async () => {

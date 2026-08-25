@@ -150,9 +150,9 @@ V8 把会话、消息和摘要保存在当前本机 SQLite，而不是 `localSto
 
 真正的强制边界位于服务端：工具白名单、JSON Schema、只读连接、SQLite authorizer、资源上限以及完全没有写工具。模型即使复述或遵循了数据中的恶意文字，也不能获得业务写连接、确认附件更新、删除文件或调用任意 HTTP。
 
-附件解析器同样不信任文件内容。PDF.js 关闭 scripting/eval、字体和 worker fetch；DOCX Mammoth 设置 `externalFileAccess:false`；Office 宏不执行，外部链接不访问。`pdfjs-dist@6.2.108` 是 GHSA-hq66-cqwq-w95j 的修复版本，但上述运行时限制仍保留，不能以升级依赖替代纵深防护。
+附件解析器同样不信任文件内容。PDF.js 关闭 scripting/eval、字体和 worker fetch；DOCX Mammoth 设置 `externalFileAccess:false`；Office 宏不执行，外部链接不访问。视觉 PDF renderer（`@napi-rs/canvas`）仅在视觉能力显式启用且实际需要渲染时懒加载；缺失或加载失败返回 `pdf_visual_renderer_unavailable`，保留确定性预览，不在禁用视觉时引入原生 canvas 依赖。`pdfjs-dist@6.2.108` 是 GHSA-hq66-cqwq-w95j 的修复版本，但上述运行时限制仍保留，不能以升级依赖替代纵深防护。
 
-Office 容器限制基于实际解压结果，而不是只检查 ZIP 目录元数据。worker 会交叉核对 central/local entry，只允许 stored 和 deflate；deflate entry 使用带 `maxOutputLength` 的 `inflateRawSync`，实际长度必须等于声明长度，否则返回 `zip_size_mismatch`。实际单条、累计 64 MB 和压缩比均受限，加密、ZIP64 和未知方法明确拒绝。附件 worker 还设置 15 秒解析超时、空 `execArgv`，以及 V8 old generation 256 MB、young generation 64 MB、code range 32 MB、stack 4 MB 的 `resourceLimits`；这些是 Worker V8 资源边界，不应解释为整个 Node 进程的 RSS 硬上限。
+Office 容器限制基于实际解压结果，而不是只检查 ZIP 目录元数据。worker 会交叉核对 central/local entry，只允许 stored 和 deflate；deflate entry 使用带 `maxOutputLength` 的 `inflateRawSync`，实际长度必须等于声明长度，否则返回 `zip_size_mismatch`。实际单条、累计 64 MB 和压缩比均受限，加密、ZIP64 和未知方法明确拒绝。附件解析 worker 还设置 60 秒解析超时、空 `execArgv`，以及 V8 old generation 256 MB、young generation 64 MB、code range 32 MB、stack 4 MB 的 `resourceLimits`；视觉适配器另有默认 15 秒出站请求超时。这些是 Worker V8 资源边界，不应解释为整个 Node 进程的 RSS 硬上限。
 
 ## 查询审计
 
@@ -171,11 +171,25 @@ Office 容器限制基于实际解压结果，而不是只检查 ZIP 目录元�
 
 Agent 可以读取附件文本并提出符合工具 schema 的建议，但不能调用 `/api/attachments/previews/:id/confirm`。只有前端用户明确选择字段/履历区块并点击确认后，普通业务 API 才会重新校验一次性 token、候选人版本、归档状态、身份冲突和字段格式，在事务中写入。
 
-生产 suggestion provider 只复用已经配置的 Agent Chat Completions 网关：单次最多发送提取文本前 120,000 字符和前 100 条预览记录，要求 `strict` JSON Schema 响应，并且请求不携带 `tools` 或 `tool_choice`。附件正文和记录 JSON 在系统提示中被明确标记为不可信数据。网关未配置、超时、报错或返回无效结构时，服务端保留本地规则建议继续展示预览；模型故障既不会触发写入，也不会阻断用户核对本地结果。
+生产 suggestion provider 只复用已经配置的 Agent Chat Completions 网关：单次最多发送提取文本前 120,000 字符和前 100 条预览记录，默认要求 `strict` JSON Schema 响应，并且请求不携带 `tools` 或 `tool_choice`。`ATTACHMENT_TEXT_SCHEMA_MODE=compat` 只能显式开启，仍执行本地严格 Schema/白名单/证据和值校验，且结果标记为 `compat` 而非 `strict`；端点策略错误 `attachment_suggestion_endpoint_invalid`/`attachment_suggestion_endpoint_insecure` 不可重试。独立视觉 provider 只接收受限 PDF PNG 页和每页最多 8,000 字符的页文本/最小元数据；视觉 schema mode 也只能由 `ATTACHMENT_VISUAL_SCHEMA_MODE=compat` 显式开启。单个 text span 在 Worker 内最多 1,000 字符，视觉响应最多 512 KiB。视觉请求明确 `redirect: "error"`，不跟随网关重定向。附件正文和记录 JSON 在系统提示中被明确标记为不可信数据。网关未配置、超时、报错或返回无效结构时，服务端保留本地规则建议继续展示预览；模型故障既不会触发写入，也不会阻断用户核对本地结果。
 
 空值不清除已有值，覆盖非空字段需用户显式选择，电话/邮箱更新再次全库查冲突，标签去重并集，履历默认去重合并，整体替换需额外确认。该业务边界不能因模型输出、附件内容或工具调用参数而跳过。
 
 预览进入 `confirmed`、`cancelled` 或 `expired` 后，服务端清空 `attachment_update_previews.extracted_text` 与 `records_json` 并移除隔离路径，只保留最小状态、错误码和时间。确认后的正文只存在于正式候选人附件记录，避免临时表继续保留一份可恢复简历副本。
+
+### PDF 视觉通道边界
+
+PDF 双通道不是第二条身份或写入路径。确定性解析器始终负责文本、手机号/邮箱标准化、精确身份匹配、基础建议和持久化前校验；视觉通道只对受限渲染页提出带页码/最小证据的候选字段和履历区块。姓名、公司、学校、职位和文件名都不能用于视觉通道的候选人匹配、合并或更新。视觉结果与确定性结果冲突时保留确定性结果、取消默认选择，并在预览中保留冲突元数据供人工核对。
+
+视觉通道仅适用于 PDF，且只有 `ATTACHMENT_VISUAL_CAPABILITY=image_input` 并且端点、模型和服务端凭据配置完整时才渲染页面和发起请求。端点必须是 `http`/`https`；生产环境拒绝明文 HTTP，非生产显式 loopback HTTP 仅保留给隔离测试，不能作为 trusted-private 例外。私网解析结果默认拒绝；只有 hostname 精确列入 `ATTACHMENT_VISUAL_TRUSTED_PRIVATE_HOSTS`、端点为 HTTPS、并且（若配置）同时通过 `ATTACHMENT_VISUAL_ALLOWED_HOSTS` 时，才允许 DNS 结果全部属于 RFC1918/IPv6 ULA 公司私网。该例外不接受 IP 字面量、通配符、后缀匹配、`.localhost`/`.internal`/`.local`/metadata 保留主机名或混合公网/私网答案；loopback、link-local、metadata、multicast、保留地址、IPv4-mapped、NAT64、6to4 等危险目标仍逐一拒绝。主机名在请求前解析，所有 DNS 返回地址逐一校验，并由底层请求的 pinned lookup 固定使用已校验地址。公网 HTTPS 可按部署需要由 `ATTACHMENT_VISUAL_ALLOWED_HOSTS` 进一步限制主机名。拒绝原因使用不含 URL 的稳定错误码 `visual_endpoint_invalid`、`visual_endpoint_insecure`、`visual_endpoint_blocked`、`visual_endpoint_unapproved`；DNS 不可用仍降级为 `visual_unavailable`。应用层已覆盖校验到连接之间的地址漂移；部署网络出口策略仍作为独立纵深控制，不能把应用层检查当作完整网络隔离。此声明及本地配置校验不是网关主动探测或健康检查；可达性和响应合规性只在实际请求/响应期间验证，失败即安全 fallback。显式视觉端点配置是原子配置；未显式提供时才可复用既有 Agent 网关配置。任何视觉配置值、网关地址和凭据都不得进入前端、API 响应、截图、文档示例或日志。视觉请求使用 `stream:false`、strict JSON Schema、无 `tools`/`tool_choice` 和禁止重定向；PDF 页图、文本层和附件 JSON 都是不可信数据，不能执行其中的指令。
+
+页面图像只在解析 Worker、视觉请求和合并校验期间驻留内存。渲染 PNG、data URL/base64 和视觉页数组在完成、超时、取消或错误后被清空；它们不写入预览记录、正式附件或普通 API 响应。视觉页的 `text_spans` 只由 PDF.js 文本层生成；模型输出中的 bbox 被 schema 拒绝，因而不存在模型坐标或 OCR 坐标回写。预览隔离文件仍遵循原有生命周期：确认、取消或过期时删除/入清理队列，临时正文和记录 JSON 擦除；正式附件正文只在用户确认后落入正式附件记录。
+
+视觉服务是可能的外发边界。启用远程网关前必须审查其日志、保留、地域、访问控制、训练使用和删除政策；请求只应发送受限 PDF 页面、必要的提取文本和最小预览记录，绝不把数据库路径、预览 token、内部存储路径或密钥发送出去。视觉不可用或验证失败时必须安全降级到确定性预览，不能改用不受控 OCR、在线转换或直接写库。
+
+视觉渲染受文件解析 Worker 的 60 秒墙钟和 V8 资源限制约束，并额外限制为最多 12 页、单页 2048 x 2048 / 3,000,000 像素、总计 18,000,000 像素、累计 RGBA raster 64 MiB、单页 PNG 4 MiB、总 PNG 24 MiB、每页最多 5,000 个 text span。raster 预算在创建下一页原生 canvas 前按 `width * height * 4` 累计检查，超限以 `pdf_visual_total_memory_limit` 降级并清空已渲染页；它独立于总像素和压缩 PNG 字节预算。每页渲染最多 8 秒；整份 PDF 的顺序页面渲染共用 30 秒总预算，每一页只能使用该总预算的剩余时间，而不是获得新的 30 秒。出站视觉适配器再施加独立限制：最多 12 页、每页 4,000,000 像素、单页图像 3 MiB、总图像 12 MiB、每页提取文本 8,000 字符、每个 Worker text span 1,000 字符、最多 100 条记录、响应 512 KiB，默认单次请求超时 15 秒。附件服务外层对整个视觉提供者调用的默认预算为 45 秒；两个时限并存，15 秒先到时适配器返回 `visual_timeout`，外层先到时服务也以该 code 降级。环境配置和 override 只能降低这些值；超过硬上限会被 clamp，不会扩大页面或外发请求包络。没有标准化主动探测。以上是当前防护边界，不是整个进程 RSS、远程网关留存或网络传输的保证。
+
+视觉候选字段和履历区块必须带页码、最小证据和置信度。`evidence_status=text_verified` 仅在同页文本层包含证据时成立；`unverified` 只能供人工查看，默认不勾选，不能替换确定性栏目或写入 `organization`/`role`/时间对应关系。视觉 `structured_data` 只允许 `organization`、`role`、`start_date`、`end_date`、`period`，且每个值必须是同一条已核对证据的字面子串；模型 bbox、未知字段和无证据输出均拒绝。
 
 候选人和职位永久删除也不是 Agent 工具。单条兼容提交路由除校验一次性 token 外，还要求 URL `:id` 与 token 快照中的唯一目标完全一致；批量 token、其他实体 token 或其他目标 token 均返回 `409`。这防止调用方把已确认的批量范围误用于看似单条的提交入口。
 

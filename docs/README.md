@@ -1,6 +1,6 @@
 # 项目文档索引
 
-本文档集对应招聘工作台 `0.1.x` 个人版及当前 `Unreleased` 职位管理迭代。代码行为是事实来源；文档与实现不一致时，应先修正文档或通过技术决策记录明确变更。
+本文档集对应招聘工作台 `0.1.x` 个人版及当前 `Unreleased` V11/V12 候选人入职信息迭代。当前代码基线为 schema V12，新增字段为 `hire_status`（入职状态）、`hire_date`（入职日期）和 `hire_position`（入职职位）；日期无状态时保存“不确定”，三项全空只隐藏详情区块。V12 100 人 `:memory:` 隔离证据仍为 `formal_database_commit=false`；2026-08-24 同一 100 人文件已完成正式 HTTP 预览与提交（100 条更新、无新增/失败/跳过），证据见下表。用户豁免提交后的 22GB 全库摘要、逐行字段查询、完整性/外键后检与恢复演练，不能将 HTTP 提交描述为这些后检完成。代码行为是事实来源，文档与实现不一致时，应先修正文档或通过技术决策记录明确变更。
 
 | 文档 | 主要用途 |
 | --- | --- |
@@ -18,6 +18,13 @@
 | [ROADMAP.md](ROADMAP.md) | 从个人 PoC 到可选部门版的阶段规划 |
 | [DECISIONS.md](DECISIONS.md) | 已采纳的关键技术和产品决策 |
 | [ITERATION_LOG.md](ITERATION_LOG.md) | 每轮目标、完成项、验证结果和遗留问题 |
+| [superpowers/specs/2026-08-21-hire-status-design.md](superpowers/specs/2026-08-21-hire-status-design.md) | V11 入职字段与工作簿清理设计 |
+| [superpowers/plans/2026-08-21-hire-status.md](superpowers/plans/2026-08-21-hire-status.md) | V11 分任务实施计划和完成证据 |
+| [evidence/v11-formal-deployment.json](evidence/v11-formal-deployment.json) | V11 正式迁移、完整性、健康检查和数据清理的脱敏证据 |
+| [superpowers/specs/2026-08-21-hire-information-v12-design.md](superpowers/specs/2026-08-21-hire-information-v12-design.md) | V12 入职职位、日期兜底和北森关联职位设计 |
+| [superpowers/plans/2026-08-21-hire-information-v12.md](superpowers/plans/2026-08-21-hire-information-v12.md) | V12 分任务实施计划、100 人验收口径和门禁 |
+| [evidence/v12-hire-information-import-20260821.json](evidence/v12-hire-information-import-20260821.json) | 隔离 100 人导入、字段/人才库/来源/职位关系的脱敏证据 |
+| [evidence/v12-hire-information-formal-import-20260824.json](evidence/v12-hire-information-formal-import-20260824.json) | 正式 HTTP 100 人预览/提交的脱敏聚合证据；不含全库后检或恢复结论 |
 | [../SECURITY.md](../SECURITY.md) | 安全假设、数据保护要求和漏洞处理 |
 | [../CHANGELOG.md](../CHANGELOG.md) | 面向版本的新增、变更、修复和限制 |
 | [../CONTRIBUTING.md](../CONTRIBUTING.md) | 开发、测试、数据安全和文档维护规范 |
@@ -27,7 +34,7 @@
 
 个人使用者：`README -> PRODUCT_SPEC -> OPERATIONS -> IMPORT_GUIDE`。
 
-开发维护者：`ARCHITECTURE -> DATA_MODEL -> API -> UI_DESIGN -> DECISIONS -> TESTING`。
+开发维护者：`ARCHITECTURE -> DATA_MODEL -> API -> UI_DESIGN -> DECISIONS -> TESTING`；涉及 V11/V12 字段或北森工作簿时，再阅读对应的设计、实施计划和 evidence。
 
 处理真实候选人数据前：必须先阅读 `FIELD_MAPPING`、`PRIVACY` 和根目录 `SECURITY`。
 

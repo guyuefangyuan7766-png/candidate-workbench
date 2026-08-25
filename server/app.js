@@ -31,6 +31,7 @@ import { BusinessSearchMaintenanceService } from './business-search-maintenance.
 import { configuredDatabasePath, listStages, openDatabase, withTransaction } from './database.js'
 import { createAttachmentService } from './attachments.js'
 import { recoverLegacyOriginalFilename } from './attachment-parser.js'
+import { createAttachmentVisualParser } from './attachment-visual-parser.js'
 import {
   ATTACHMENT_BATCH_LIMITS,
   attachmentBatchError,
@@ -431,30 +432,38 @@ export function createApp(options = {}) {
     validStages: () => stageValues(db),
     resourceLimits: importResourceLimits,
     maxConcurrent: options.importTaskConcurrency ?? 1,
+    recoverOnStartup: options.recoverImportTasksOnStartup,
+    enablePreviewCleanupTimer: options.enableImportTaskPreviewCleanupTimer,
     removeUpload: async (path) => removeImportTemporaryFile(path, {
       unlinkFile: options.importTempUnlink,
       attempts: options.importTempCleanupAttempts,
       retryDelayMs: options.importTempCleanupRetryDelayMs
     })
   })
-  const agent = createAgentService(db, {
+  const agent = options.agentService ?? createAgentService(db, {
     ...options.agentConfig,
     databasePath,
     exportRoot: options.agentExportRoot ?? resolve(process.cwd(), 'exports', 'agent')
   })
+  const attachmentVisualParser = options.attachmentVisualParser ?? createAttachmentVisualParser(
+    options.attachmentVisualConfig ?? {}
+  )
   const temporaryAttachmentRoot = !options.attachmentRoot && (!databasePath || databasePath === ':memory:')
     ? mkdtempSync(join(tmpdir(), 'candidate-workbench-attachments-'))
     : null
   const attachmentRoot = options.attachmentRoot
     ?? temporaryAttachmentRoot
     ?? resolve(dirname(databasePath ?? configuredDatabasePath()), 'private', 'attachments')
-  const attachments = createAttachmentService({
+  const attachments = options.attachmentService ?? createAttachmentService({
     db,
     rootDir: attachmentRoot,
     parser: options.attachmentParser,
     suggestionProvider: Object.prototype.hasOwnProperty.call(options, 'attachmentSuggestionProvider')
       ? options.attachmentSuggestionProvider
       : agent.suggestAttachment,
+    visualSuggestionProvider: Object.prototype.hasOwnProperty.call(options, 'attachmentVisualSuggestionProvider')
+      ? options.attachmentVisualSuggestionProvider
+      : attachmentVisualParser,
     previewTtlMs: options.attachmentPreviewTtlMs,
     parseConcurrency: options.attachmentParseConcurrency
   })
@@ -1020,8 +1029,16 @@ export function createApp(options = {}) {
     const requestedFields = CANDIDATE_FIELDS.filter((field) => Object.prototype.hasOwnProperty.call(req.body ?? {}, field))
     if (requestedFields.length === 0) throw httpError(400, '没有可更新的候选人字段')
 
-    const { value, errors } = sanitizeCandidateInput(req.body, { partial: true, validStages: stageValues(db) })
+    const { value, errors } = sanitizeCandidateInput(req.body, {
+      partial: true,
+      validStages: stageValues(db),
+      fallbackHireStatus: !current.hire_status
+    })
     if (errors.length) throw httpError(422, '候选人字段校验失败', errors)
+    const hasPatchedField = (field) => Object.prototype.hasOwnProperty.call(value, field)
+    const effectiveHireDate = hasPatchedField('hire_date') ? value.hire_date : current.hire_date
+    const effectiveHireStatus = hasPatchedField('hire_status') ? value.hire_status : current.hire_status
+    if (effectiveHireDate && !effectiveHireStatus) value.hire_status = '不确定'
     const changes = changedFields(current, value)
     if (changes.length === 0) return res.json(getCandidate(db, req.params.id))
 
@@ -1397,6 +1414,7 @@ export function createApp(options = {}) {
   app.locals.previewStore = previewStore
   app.locals.deletionPreviewStore = deletionPreviewStore
   app.locals.attachments = attachments
+  app.locals.attachmentVisualParser = attachmentVisualParser
   app.locals.attachmentBatches = attachmentBatches
   app.locals.importTasks = importTasks
   app.locals.searchMaintenance = searchMaintenance

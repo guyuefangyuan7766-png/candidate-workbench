@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   unlinkSync,
@@ -10,10 +12,11 @@ import {
 } from 'node:fs'
 import http from 'node:http'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { afterEach, test } from 'node:test'
 import { createApp } from '../../server/app.js'
+import { acquireRuntimeSentinel } from '../../server/maintenance.js'
 
 const TERMINAL_STATUSES = new Set(['preview_ready', 'completed', 'failed', 'cancelled', 'timed_out'])
 const cleanups = []
@@ -140,6 +143,176 @@ function businessCounts(db) {
     batches: Number(db.prepare('SELECT COUNT(*) AS count FROM import_batches').get().count)
   }
 }
+
+function maintenanceAttachmentRoots() {
+  return readdirSync(tmpdir())
+    .filter((name) => name.startsWith('candidate-workbench-v12-maintenance-attachments-'))
+    .sort()
+}
+
+function withTestOwnedMaintenanceAttachmentRoot(callback) {
+  const root = mkdtempSync(join(tmpdir(), 'candidate-workbench-v12-maintenance-attachments-'))
+  try {
+    return callback(root)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+}
+
+test('disabling startup import recovery preserves queued work while new previews still run', async () => {
+  const workspace = createWorkspace()
+  const initial = await startApp(workspace)
+  const createdAt = new Date().toISOString()
+  initial.app.locals.db.prepare(`
+    INSERT INTO candidate_import_tasks(
+      id, task_type, status, phase, progress, idempotency_key,
+      file_path, file_name, file_mime, file_size, request_json,
+      metrics_json, heartbeat_at, created_at, updated_at
+    ) VALUES (?, 'preview', 'queued', 'uploaded', 5, ?, ?, ?, ?, ?, '{}', '{}', ?, ?, ?)
+  `).run(
+    'maintenance-queued-preview',
+    'maintenance-queued-request',
+    join(workspace.uploadRoot, 'historical-upload.csv'),
+    'historical-upload.csv',
+    'text/csv',
+    12,
+    createdAt,
+    createdAt,
+    createdAt
+  )
+  await initial.close()
+
+  const maintenance = await startApp(workspace, { recoverImportTasksOnStartup: false })
+  const preserved = maintenance.app.locals.db.prepare(`
+    SELECT status, phase, progress FROM candidate_import_tasks WHERE id = ?
+  `).get('maintenance-queued-preview')
+  assert.equal(preserved.status, 'queued')
+  assert.equal(preserved.phase, 'uploaded')
+  assert.equal(preserved.progress, 5)
+
+  const preview = await createPreview(
+    maintenance.url,
+    candidateCsv(1),
+    'maintenance-new-preview'
+  )
+  assert.equal(preview.status, 'preview_ready')
+})
+
+test('maintenance startup disables automatic preview cleanup while preview work and explicit cleanup remain available', async () => {
+  const workspace = createWorkspace()
+  const maintenance = await startApp(workspace, { enableImportTaskPreviewCleanupTimer: false })
+  assert.equal(maintenance.app.locals.importTasks.cleanupTimer, null)
+
+  const preview = await createPreview(
+    maintenance.url,
+    candidateCsv(1),
+    'maintenance-cleanup-preview'
+  )
+  maintenance.app.locals.db.prepare(`
+    UPDATE candidate_import_tasks
+    SET result_json = ?
+    WHERE id = ?
+  `).run(JSON.stringify({ expires_at: new Date(0).toISOString() }), preview.task_id)
+
+  assert.equal(await maintenance.app.locals.importTasks.purgeExpiredPreviews(Date.now()), 1)
+  assert.equal((await getTask(maintenance.url, preview.task_id)).status, 'failed')
+})
+
+test('injected maintenance services are retained while health and new import previews remain available', async () => {
+  const workspace = createWorkspace()
+  const agentService = {
+    status: () => ({ paused: true }),
+    async close() {}
+  }
+  const attachmentService = {
+    async close() {}
+  }
+  const attachmentBatchService = {
+    limits: {},
+    async close() {}
+  }
+  const maintenance = await startApp(workspace, {
+    agentService,
+    attachmentService,
+    attachmentBatchService
+  })
+
+  assert.strictEqual(maintenance.app.locals.agent, agentService)
+  assert.strictEqual(maintenance.app.locals.attachments, attachmentService)
+  assert.strictEqual(maintenance.app.locals.attachmentBatches, attachmentBatchService)
+  const health = await fetch(`${maintenance.url}/api/health`)
+  assert.equal(health.status, 200)
+  assert.equal((await readJson(health)).status, 'ok')
+  assert.equal((await createPreview(
+    maintenance.url,
+    candidateCsv(1),
+    'maintenance-injected-service-preview'
+  )).status, 'preview_ready')
+})
+
+test('V12 maintenance launcher and verifier require the v2 paused-writer contract', () => {
+  const launcher = readFileSync(join(process.cwd(), '.tmp-v12-paused-server.mjs'), 'utf8')
+  const verifier = readFileSync(join(process.cwd(), '.tmp-v12-formal-http-import.mjs'), 'utf8')
+
+  assert.match(launcher, /candidate-workbench-formal-v12-maintenance-v2/)
+  assert.match(launcher, /background_writers_paused:\s*true/)
+  assert.match(launcher, /import_task_recovery_paused:\s*true/)
+  assert.match(launcher, /import_preview_cleanup_paused:\s*true/)
+  assert.match(launcher, /mkdtempSync/)
+  assert.match(launcher, /agentService:/)
+  assert.match(launcher, /attachmentService:/)
+  assert.match(launcher, /attachmentBatchService:/)
+
+  assert.match(verifier, /BUSINESS_TABLE_PREFIXES = Object\.freeze\(\['candidate_', 'attachment_', 'search_', 'agent_'\]\)/)
+  assert.match(verifier, /candidate-workbench-formal-v12-maintenance-v2/)
+  assert.match(verifier, /payload\?\.background_writers_paused === true/)
+})
+
+test('test-owned maintenance attachment roots are cleaned when sentinel acquisition fails', () => {
+  const workspace = createWorkspace()
+  const blocker = acquireRuntimeSentinel(workspace.databasePath)
+  let ownedRoot = null
+  try {
+    assert.throws(
+      () => withTestOwnedMaintenanceAttachmentRoot((root) => {
+        ownedRoot = root
+        acquireRuntimeSentinel(workspace.databasePath)
+      }),
+      (error) => error?.code === 'database_maintenance_active'
+    )
+    assert.equal(existsSync(ownedRoot), false)
+  } finally {
+    blocker.release()
+    if (ownedRoot) rmSync(ownedRoot, { recursive: true, force: true })
+  }
+})
+
+test('a failed V12 runtime sentinel acquisition leaves no maintenance attachment directory or removes a concurrent one', () => {
+  const workspace = createWorkspace()
+  const before = maintenanceAttachmentRoots()
+  withTestOwnedMaintenanceAttachmentRoot((concurrentRoot) => {
+    const expectedRoots = [...before, basename(concurrentRoot)].sort()
+    let sentinel = null
+    try {
+      sentinel = acquireRuntimeSentinel(workspace.databasePath)
+    const launcher = spawnSync(process.execPath, ['.tmp-v12-paused-server.mjs'], {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        DB_PATH: workspace.databasePath,
+        FORMAL_V12_PAUSE_SEARCH_MAINTENANCE: '1'
+      }
+    })
+    assert.notEqual(launcher.status, 0)
+    assert.match(`${launcher.stdout}\n${launcher.stderr}`, /database_maintenance_active/)
+    assert.deepEqual(maintenanceAttachmentRoots(), expectedRoots)
+    assert.equal(existsSync(concurrentRoot), true)
+    } finally {
+      sentinel?.release()
+    }
+  })
+})
 
 test('commit timeout wins the Worker termination race and rolls back all business writes', { timeout: 45_000 }, async () => {
   const workspace = createWorkspace()

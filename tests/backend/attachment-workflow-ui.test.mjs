@@ -4,6 +4,14 @@ import test from 'node:test'
 import { preserveAttachmentPreviewToken } from '../../src/attachment-preview-state.ts'
 import {
   attachmentFieldLabel,
+  attachmentConflictValueText,
+  attachmentPipelineChannelDetail,
+  attachmentPipelineChannelLabel,
+  attachmentPipelineChannelTone,
+  attachmentParserPipelineLabel,
+  attachmentProvenanceLabel,
+  attachmentEvidenceStatusLabel,
+  attachmentSuggestionEvidenceRefs,
   attachmentSuggestionEvidence,
   attachmentValueText
 } from '../../src/attachment-suggestion-display.ts'
@@ -43,6 +51,120 @@ test('attachment suggestion cards show localized structured values without conta
   assert.match(batchWorkflowSource, /attachmentValueText\(suggestion\.value\)/)
   assert.doesNotMatch(batchWorkflowSource, /<strong>\{suggestion\.field\}<\/strong>/)
   assert.doesNotMatch(batchWorkflowSource, /<small>\{suggestion\.evidence\}<\/small>/)
+})
+
+test('attachment confirmation actions keep a full touch target on narrow screens', () => {
+  const mobileStyles = stylesSource.match(/@media \(max-width: 720px\) \{[\s\S]*?\n\}/g)?.find((block) => block.includes('.attachment-confirm-bar .button'))
+  assert.ok(mobileStyles)
+  assert.match(mobileStyles, /\.attachment-confirm-bar \.button \{[\s\S]*width: 100%;[\s\S]*min-height: 44px;/)
+})
+
+test('dual-channel preview cards expose controlled provenance, page evidence, conflicts, and safe visual fallback', () => {
+  assert.equal(attachmentProvenanceLabel('visual'), '视觉解析')
+  assert.equal(attachmentProvenanceLabel('deterministic_text'), '文本解析')
+  assert.equal(attachmentEvidenceStatusLabel('unverified'), '页面证据待人工核对')
+  assert.equal(attachmentEvidenceStatusLabel('text_verified'), '文本层已核对')
+  assert.equal(attachmentConflictValueText('x'.repeat(300)).length, 240)
+  assert.equal(attachmentParserPipelineLabel('mixed'), '混合文档')
+  assert.equal(attachmentPipelineChannelLabel({ status: 'fallback' }), '已降级')
+  assert.equal(
+    attachmentPipelineChannelDetail({ status: 'fallback', error_code: 'visual_capability_disabled', retryable: false, schema_mode: 'compat' }),
+    '兼容模式 · 错误码：visual_capability_disabled · 不可重试',
+  )
+  assert.equal(attachmentPipelineChannelLabel(undefined), '未记录')
+  assert.equal(attachmentPipelineChannelTone({ status: 'fallback' }), 'is-warning')
+  assert.deepEqual(
+    attachmentSuggestionEvidenceRefs({
+      evidence: '旧证据',
+      evidence_refs: [{ page: 2, text: '第 2 页的可核对文本' }]
+    }),
+    [{ page: 2, text: '第 2 页的可核对文本' }],
+  )
+  assert.match(typesSource, /interface AttachmentParserPipeline[\s\S]*visual:/)
+  assert.match(typesSource, /text_model\?: AttachmentPipelineChannel/)
+  assert.match(typesSource, /schema_mode\?: AttachmentSchemaMode/)
+  assert.match(typesSource, /retryable\?: boolean/)
+  assert.match(typesSource, /parser_version\?: string/)
+  assert.match(typesSource, /evidence_refs\?: AttachmentEvidenceReference\[\]/)
+  assert.match(typesSource, /conflict\?: AttachmentSuggestionConflict/)
+  assert.match(workflowSource, /preview\.pipeline\?\.text\?\.content_type/)
+  assert.match(workflowSource, /preview\.pipeline\?\.text_model/)
+  assert.match(workflowSource, /文本模型：/)
+  assert.match(suggestionDisplaySource, /schema_mode/)
+  assert.match(suggestionDisplaySource, /可重试/)
+  assert.match(workflowSource, /const pipelineRetryable = Boolean\(/)
+  assert.match(workflowSource, /pipelineRetryable && lastFileRef\.current/)
+  assert.match(workflowSource, /onClick=\{\(\) => void retryCurrentFile\(\)\}/)
+  assert.match(workflowSource, /重新运行解析通道/)
+  assert.match(workflowSource, /视觉解析已降级/)
+  assert.match(workflowSource, /attachmentProvenanceLabel\(suggestion\.source\)/)
+  assert.match(workflowSource, /attachmentEvidenceStatusLabel\(suggestion\.evidence_status\)/)
+  assert.match(workflowSource, /attachmentSuggestionEvidenceRefs\(suggestion\)/)
+  assert.match(workflowSource, /suggestion\.conflict/)
+  assert.match(workflowSource, /conflict\.proposed_value/)
+  assert.match(workflowSource, /conflict\.existing_value/)
+  assert.match(workflowSource, /attachmentSuggestionEvidenceRefs\(conflict\)/)
+  assert.match(workflowSource, /AttachmentConflictNotice conflict=\{suggestion\.conflict\}/)
+  assert.match(workflowSource, /AttachmentConflictNotice conflict=\{section\.conflict\}/)
+  assert.match(workflowSource, /item\.default_selected && item\.confidence !== "low" && item\.conflict === undefined/)
+  assert.match(batchWorkflowSource, /preview\.pipeline\?\.text\?\.content_type/)
+  assert.match(batchWorkflowSource, /preview\.pipeline\?\.text_model/)
+  assert.match(batchWorkflowSource, /文本模型：/)
+  assert.match(suggestionDisplaySource, /schema_mode/)
+  assert.match(suggestionDisplaySource, /可重试/)
+  assert.match(batchWorkflowSource, /attachmentProvenanceLabel\(section\.source\)/)
+  assert.match(batchWorkflowSource, /attachmentEvidenceStatusLabel\(section\.evidence_status\)/)
+  assert.match(batchWorkflowSource, /attachmentSuggestionEvidenceRefs\(section\)/)
+  assert.match(batchWorkflowSource, /conflict\.proposed_value/)
+  assert.match(batchWorkflowSource, /conflict\.existing_value/)
+  assert.match(batchWorkflowSource, /attachmentSuggestionEvidenceRefs\(conflict\)/)
+  assert.match(batchWorkflowSource, /AttachmentConflictNotice conflict=\{suggestion\.conflict\}/)
+  assert.match(batchWorkflowSource, /AttachmentConflictNotice conflict=\{section\.conflict\}/)
+  assert.match(batchWorkflowSource, /item\.default_selected && item\.confidence !== "low" && item\.conflict === undefined/)
+  assert.match(workflowSource, /preview\.pipeline\?\.visual\?\.retryable/)
+  assert.match(workflowSource, /preview\.pipeline\?\.visual\?\.used_fallback/)
+  assert.match(workflowSource, /preview\.pipeline\?\.visual\?\.error_code/)
+  assert.match(batchWorkflowSource, /preview\.pipeline\?\.visual\?\.used_fallback/)
+  assert.match(batchWorkflowSource, /preview\.pipeline\?\.visual\?\.error_code/)
+  assert.doesNotMatch(workflowSource, /disabled=\{!selection\.candidateId \|\| !hasRealChange \|\| !safeToSelect\}/)
+  assert.doesNotMatch(workflowSource, /disabled=\{!selection\.candidateId \|\| !safeToSelect\}/)
+  assert.doesNotMatch(batchWorkflowSource, /disabled=\{!selection\.candidateId \|\| !hasRealChange \|\| !safeToSelect\}/)
+  assert.doesNotMatch(batchWorkflowSource, /disabled=\{!selection\.candidateId \|\| !safeToSelect\}/)
+  assert.match(stylesSource, /\.attachment-parser-status/)
+  assert.match(stylesSource, /\.attachment-provenance/)
+  assert.match(stylesSource, /\.attachment-evidence-ref/)
+  assert.match(stylesSource, /\.attachment-conflict/)
+  assert.match(stylesSource, /\.attachment-conflict-value/)
+  assert.match(stylesSource, /overflow-wrap: anywhere/)
+  assert.match(stylesSource, /attachment-pipeline-channel/)
+  assert.match(stylesSource, /attachment-channel-retry/)
+  assert.doesNotMatch(workflowSource, /base64/i)
+  assert.doesNotMatch(batchWorkflowSource, /base64/i)
+  assert.doesNotMatch(workflowSource, /raw_response/i)
+  assert.doesNotMatch(batchWorkflowSource, /raw_response/i)
+})
+
+test('attachment preview creation never carries unverified or conflicted sections into a new candidate draft', () => {
+  assert.match(prefillSource, /section\.evidence_status !== "unverified"/)
+  assert.match(prefillSource, /section\.conflict === undefined/)
+  assert.match(prefillSource, /section\.confidence !== "low"/)
+  assert.match(prefillSource, /evidence_refs/)
+  assert.match(workflowSource, /item\.evidence_status !== "unverified"/)
+  assert.match(workflowSource, /item\.evidence_status !== "unverified"/)
+  assert.match(batchWorkflowSource, /item\.evidence_status !== "unverified"/)
+  assert.match(batchWorkflowSource, /item\.evidence_status !== "unverified"/)
+})
+
+test('self summary stays a scalar suggestion and never appears as a selectable resume section', () => {
+  for (const source of [workflowSource, batchWorkflowSource]) {
+    assert.match(source, /isAttachmentSelfSummarySection/)
+    assert.match(source, /record\.sections\.filter\(\(item\) => !isAttachmentSelfSummarySection\(item\)/)
+    assert.match(source, /const visibleSections = record\.sections\.filter\(\(section\) => !isAttachmentSelfSummarySection\(section\)\)/)
+    assert.match(source, /visibleSections\.length > 0/)
+    assert.match(source, /visibleSections\.map\(\(section\)/)
+    assert.match(source, /record\.suggestions\.map\(\(suggestion\)/)
+    assert.doesNotMatch(source, /suggestion\.field !== "self_summary"/)
+  }
 })
 
 test('attachment batch polling survives unchanged snapshots and transient request failures', () => {
@@ -213,7 +335,7 @@ test('multi-record previews cannot force or duplicate candidate selection and cr
   assert.match(workflowSource, /preview\.records\.length === 1 && record\.match\.status === "not_found"/)
   assert.match(workflowSource, /duplicateCandidateIds\.has\(selectedId\)/)
   assert.match(workflowSource, /同一批附件记录不能重复关联同一候选人/)
-  assert.match(prefillSource, /resume_updated_at: attachmentSuggestionText\(record, "resume_updated_at"\) \|\| null/)
+  assert.match(prefillSource, /resume_updated_at: attachmentSafeSuggestionText\(record, "resume_updated_at"\) \|\| null/)
   assert.match(workflowSource, /source === "existing" \? defaultFieldsForCandidate\(record, candidate\) : new Set\(\)/)
 })
 

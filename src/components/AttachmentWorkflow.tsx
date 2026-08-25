@@ -21,12 +21,22 @@ import {
   candidateDraftFromRecord,
   candidateFieldValue,
   defaultFieldsForCandidate,
+  attachmentSuggestionHasEvidence,
+  isAttachmentSelfSummarySection,
   parsedCandidateName,
   suggestionChangesCandidate,
 } from "../attachment-candidate-prefill";
 import { preserveAttachmentPreviewToken } from "../attachment-preview-state";
 import {
+  attachmentConflictValueText,
   attachmentFieldLabel,
+  attachmentEvidenceStatusLabel,
+  attachmentPipelineChannelDetail,
+  attachmentPipelineChannelLabel,
+  attachmentPipelineChannelTone,
+  attachmentParserPipelineLabel,
+  attachmentProvenanceLabel,
+  attachmentSuggestionEvidenceRefs,
   attachmentSuggestionEvidence,
   attachmentValueText,
 } from "../attachment-suggestion-display";
@@ -34,6 +44,7 @@ import type {
   AttachmentConfirmRecord,
   AttachmentPreview,
   AttachmentPreviewRecord,
+  AttachmentSuggestionConflict,
   Candidate,
   CandidateAttachment,
   CandidateDraft,
@@ -50,6 +61,21 @@ const STATUS_POLL_MAX_FAILURES = 4;
 const STATUS_POLL_FALLBACK_WINDOW_MS = 15 * 60 * 1000;
 const PROCESSING_STATUSES = new Set(["pending", "parsing"]);
 const READY_STATUSES = new Set(["ready", "parsed"]);
+
+function AttachmentConflictNotice({ conflict }: { conflict?: AttachmentSuggestionConflict }) {
+  if (!conflict) return null;
+  const evidenceStatus = attachmentEvidenceStatusLabel(conflict.evidence_status);
+  return <small className="attachment-conflict">
+    <AlertTriangle size={12} />
+    <span>
+      <span>{conflict.message}</span>
+      {conflict.existing_value !== undefined && <span className="attachment-conflict-value">{attachmentProvenanceLabel(conflict.existing_source)}：{attachmentConflictValueText(conflict.existing_value)}</span>}
+      {conflict.proposed_value !== undefined && <span className="attachment-conflict-value">{attachmentProvenanceLabel(conflict.source)}建议：{attachmentConflictValueText(conflict.proposed_value)}</span>}
+      {evidenceStatus && <span className={`attachment-evidence-status is-${conflict.evidence_status}`}>{evidenceStatus}</span>}
+      {attachmentSuggestionEvidenceRefs(conflict).map((reference, index) => <span className="attachment-conflict-evidence" key={`${reference.page ?? "none"}-${index}`}>{reference.page ? `第 ${reference.page} 页：` : "证据："}{reference.text}</span>)}
+    </span>
+  </small>;
+}
 
 const MATCH_COPY: Record<AttachmentPreviewRecord["match"]["status"], { label: string; tone: string }> = {
   high_confidence: { label: "手机号与邮箱一致", tone: "success" },
@@ -150,10 +176,14 @@ function initialSelections(preview: AttachmentPreview, candidates: Candidate[], 
       candidateId: matchedId || (allowForcedCandidate ? forcedCandidateId ?? "" : ""),
       fields: new Set(record.match.resolution === "created"
         ? []
-        : record.suggestions.filter((item) => item.default_selected).map((item) => item.field)),
+        : record.suggestions.filter((item) => item.default_selected && item.confidence !== "low" && item.conflict === undefined
+          && item.evidence_status !== "unverified"
+          && attachmentSuggestionHasEvidence(item)).map((item) => item.field)),
       sections: new Set(record.match.resolution === "created"
         ? []
-        : record.sections.filter((item) => item.default_selected).map((item) => item.section_id)),
+        : record.sections.filter((item) => !isAttachmentSelfSummarySection(item) && item.default_selected && item.confidence !== "low" && item.conflict === undefined
+          && item.evidence_status !== "unverified"
+          && attachmentSuggestionHasEvidence(item)).map((item) => item.section_id)),
     };
     const selectedCandidate = candidates.find((candidate) => candidate.id === next[record.record_id].candidateId);
     if (selectedCandidate?.archived_at) next[record.record_id].candidateId = "";
@@ -739,6 +769,10 @@ export function AttachmentWorkflow({
   }
 
   if (!preview) return null;
+  const pipelineRetryable = Boolean(
+    preview.pipeline?.text_model?.retryable === true
+    || preview.pipeline?.visual?.retryable === true,
+  );
 
   return (
     <>
@@ -748,6 +782,21 @@ export function AttachmentWorkflow({
         {preview.file.format.includes("xls") || preview.file.format === "csv" ? <FileSpreadsheet size={18} /> : <FileText size={18} />}
         <div><strong title={preview.file.original_filename}>{preview.file.original_filename}</strong><span>{preview.file.format.toLocaleUpperCase()} · {fileSize(preview.file.file_size)} · {preview.records.length} 条记录</span></div>
         {state !== "done" && <button className="icon-button compact-icon-button" type="button" onClick={() => void discard()} disabled={state === "confirming"} aria-label="取消并清理临时附件" title="取消上传"><Trash2 size={15} /></button>}
+      </div>
+      <div className="attachment-parser-status" aria-live="polite">
+        <span>{attachmentParserPipelineLabel(preview.pipeline?.text?.content_type)}</span>
+        <span>解析器：{preview.parser_version ?? "未提供"}</span>
+        <span className={`attachment-pipeline-channel ${attachmentPipelineChannelTone(preview.pipeline?.text_model)}`}>
+          文本模型：{attachmentPipelineChannelLabel(preview.pipeline?.text_model)}
+          {attachmentPipelineChannelDetail(preview.pipeline?.text_model) && <small>{attachmentPipelineChannelDetail(preview.pipeline?.text_model)}</small>}
+        </span>
+        <span className={`attachment-pipeline-channel ${attachmentPipelineChannelTone(preview.pipeline?.visual)}`}>
+          视觉通道：{attachmentPipelineChannelLabel(preview.pipeline?.visual)}
+          {attachmentPipelineChannelDetail(preview.pipeline?.visual) && <small>{attachmentPipelineChannelDetail(preview.pipeline?.visual)}</small>}
+        </span>
+        {preview.pipeline?.visual?.used_fallback && <span className="is-warning">视觉解析已降级，已保留文本解析结果{preview.pipeline?.visual?.error_code ? `（${preview.pipeline.visual.error_code}）` : ""}</span>}
+        {preview.pipeline?.text_model?.status === "fallback" && <span className="is-warning">文本模型已降级，当前结果仍需人工核对{preview.pipeline.text_model.error_code ? `（${preview.pipeline.text_model.error_code}）` : ""}</span>}
+        {pipelineRetryable && lastFileRef.current && state === "ready" && <button className="button secondary-button attachment-channel-retry" type="button" onClick={() => void retryCurrentFile()}><RefreshCw size={14} />重新运行解析通道</button>}
       </div>
 
       {state === "error" ? (
@@ -775,6 +824,7 @@ export function AttachmentWorkflow({
               const hasDuplicateCandidate = Boolean(selection.candidateId && duplicateCandidateIds.has(selection.candidateId));
               const rowLabel = record.row_number ? `第 ${record.row_number} 行` : "简历记录";
               const parsedName = parsedCandidateName(record);
+              const visibleSections = record.sections.filter((section) => !isAttachmentSelfSummarySection(section));
               return (
                 <article className="attachment-record" key={record.record_id}>
                   <header>
@@ -819,17 +869,18 @@ export function AttachmentWorkflow({
                     return (
                       <label className={`attachment-diff${selected ? " is-selected" : ""}${hasRealChange ? "" : " is-unchanged"}`} key={suggestion.field}>
                         <input type="checkbox" checked={selected} onChange={() => toggleField(record.record_id, suggestion.field)} disabled={!selection.candidateId || !hasRealChange} />
-                        <span className="attachment-diff-main"><span><strong>{attachmentFieldLabel(suggestion.field)}</strong><em className={`confidence is-${suggestion.confidence}`}>{suggestion.confidence === "high" ? "高" : suggestion.confidence === "medium" ? "中" : "低"}置信</em></span><span className="attachment-values"><del>{attachmentValueText(currentValue)}</del><b>→</b><ins>{attachmentValueText(suggestion.value)}</ins></span>{evidence && <small>{evidence}</small>}</span>
+                        <span className="attachment-diff-main"><span><strong>{attachmentFieldLabel(suggestion.field)}</strong><span className="attachment-suggestion-meta"><em className="attachment-provenance">{attachmentProvenanceLabel(suggestion.source)}</em>{attachmentEvidenceStatusLabel(suggestion.evidence_status) && <em className={`attachment-evidence-status is-${suggestion.evidence_status}`}>{attachmentEvidenceStatusLabel(suggestion.evidence_status)}</em>}<em className={`confidence is-${suggestion.confidence}`}>{suggestion.confidence === "high" ? "高" : suggestion.confidence === "medium" ? "中" : "低"}置信</em></span></span><span className="attachment-values"><del>{attachmentValueText(currentValue)}</del><b>→</b><ins>{attachmentValueText(suggestion.value)}</ins></span>{evidence && <small>{evidence}</small>}{attachmentSuggestionEvidenceRefs(suggestion).map((reference, index) => <small className="attachment-evidence-ref" key={`${reference.page ?? "none"}-${index}`}>{reference.page ? `第 ${reference.page} 页：` : "证据："}{reference.text}</small>)}<AttachmentConflictNotice conflict={suggestion.conflict} /></span>
                       </label>
                     );
                   })}</div>}
 
-                  {record.sections.length > 0 && <div className="attachment-section-suggestions"><h4>履历区块</h4>{record.sections.map((section) => (
-                    <label className={selection.sections.has(section.section_id) ? "is-selected" : ""} key={section.section_id}>
-                      <input type="checkbox" checked={selection.sections.has(section.section_id)} onChange={() => toggleSection(record.record_id, section.section_id)} disabled={!selection.candidateId} />
-                      <span><strong>{section.title || section.section_type}</strong><small>{section.content || section.evidence}</small></span><em className={`confidence is-${section.confidence}`}>{section.confidence === "high" ? "高" : section.confidence === "medium" ? "中" : "低"}</em>
+                  {visibleSections.length > 0 && <div className="attachment-section-suggestions"><h4>履历区块</h4>{visibleSections.map((section) => {
+                    const selected = selection.sections.has(section.section_id);
+                    return <label className={selected ? "is-selected" : ""} key={section.section_id}>
+                      <input type="checkbox" checked={selected} onChange={() => toggleSection(record.record_id, section.section_id)} disabled={!selection.candidateId} />
+                      <span><strong>{section.title || section.section_type}</strong><span className="attachment-suggestion-meta"><em className="attachment-provenance">{attachmentProvenanceLabel(section.source)}</em>{attachmentEvidenceStatusLabel(section.evidence_status) && <em className={`attachment-evidence-status is-${section.evidence_status}`}>{attachmentEvidenceStatusLabel(section.evidence_status)}</em>}<em className={`confidence is-${section.confidence}`}>{section.confidence === "high" ? "高" : section.confidence === "medium" ? "中" : "低"}置信</em></span><small>{section.content || section.evidence}</small>{attachmentSuggestionEvidenceRefs(section).map((reference, index) => <small className="attachment-evidence-ref" key={`${reference.page ?? "none"}-${index}`}>{reference.page ? `第 ${reference.page} 页：` : "证据："}{reference.text}</small>)}<AttachmentConflictNotice conflict={section.conflict} /></span>
                     </label>
-                  ))}</div>}
+                  })}</div>}
                 </article>
               );
             })}

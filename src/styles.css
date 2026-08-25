@@ -5481,6 +5481,16 @@ p {
 .attachment-preview-file > div { display: flex; min-width: 0; flex-direction: column; }
 .attachment-preview-file strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .attachment-preview-file span { color: var(--muted); font-size: 9px; }
+.attachment-parser-status { display: flex; min-width: 0; flex-wrap: wrap; gap: 5px; margin-top: 7px; color: var(--muted); font-size: 9px; }
+.attachment-parser-status > span { max-width: 100%; padding: 2px 5px; overflow-wrap: anywhere; background: var(--surface-soft); border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.attachment-parser-status > .is-ready { color: var(--green); background: var(--green-soft); border-color: #c7dfd3; }
+.attachment-parser-status > .is-warning { color: var(--amber); background: var(--amber-soft); border-color: #ead9a6; }
+.attachment-pipeline-channel { display: inline-flex; min-width: 0; align-items: baseline; gap: 4px; }
+.attachment-pipeline-channel small { min-width: 0; color: inherit; font-size: 8px; overflow-wrap: anywhere; }
+.attachment-parser-status > .attachment-pipeline-channel.is-error { color: var(--red); background: var(--red-soft); border-color: #f0c8c5; }
+.attachment-parser-status > .attachment-pipeline-channel.is-pending { color: var(--primary); background: var(--primary-soft); border-color: #d6e2ff; }
+.attachment-parser-status > .attachment-pipeline-channel.is-muted { color: var(--muted); }
+.attachment-parser-status > .attachment-channel-retry { min-height: 28px; padding: 0 8px; font-size: 9px; }
 .attachment-record-list { display: flex; min-width: 0; flex-direction: column; gap: 8px; margin-top: 9px; }
 .attachment-record { min-width: 0; padding: 11px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
 .attachment-record > header { min-width: 0; }
@@ -5514,6 +5524,7 @@ p {
 .attachment-diff {
   display: grid;
   min-width: 0;
+  min-height: 44px;
   grid-template-columns: 18px minmax(0, 1fr);
   gap: 6px;
   padding: 8px;
@@ -5529,6 +5540,11 @@ p {
 .attachment-diff-main { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
 .attachment-diff-main > span:first-child { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .attachment-diff-main strong { font-size: 10px; }
+.attachment-suggestion-meta { display: flex; min-width: 0; align-items: center; justify-content: flex-end; gap: 4px; flex-wrap: wrap; }
+.attachment-provenance { flex: 0 1 auto; padding: 1px 4px; color: var(--primary); background: var(--primary-soft); border-radius: 3px; font-size: 8px; font-style: normal; overflow-wrap: anywhere; }
+.attachment-evidence-status { flex: 0 1 auto; padding: 1px 4px; color: var(--muted); background: var(--surface-soft); border: 1px solid var(--line); border-radius: 3px; font-size: 8px; font-style: normal; overflow-wrap: anywhere; }
+.attachment-evidence-status.is-unverified { color: var(--amber); background: var(--amber-soft); border-color: #ead9a6; }
+.attachment-evidence-status.is-text_verified { color: var(--green); background: var(--green-soft); border-color: #c7dfd3; }
 .confidence { flex: 0 0 auto; padding: 1px 4px; border-radius: 3px; font-size: 8px; font-style: normal; }
 .confidence.is-high { color: var(--green); background: var(--green-soft); }
 .confidence.is-medium { color: var(--amber); background: var(--amber-soft); }
@@ -5541,11 +5557,17 @@ p {
 .attachment-values b { color: var(--muted); font-size: 9px; }
 .attachment-values-only { grid-template-columns: minmax(0, 1fr); }
 .attachment-diff-main small { color: var(--muted); font-size: 8px; line-height: 1.45; overflow-wrap: anywhere; }
-.attachment-section-suggestions > label { display: grid; min-width: 0; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 6px; padding: 8px; border-top: 1px solid var(--line); }
+.attachment-evidence-ref { display: block; max-width: 100%; color: var(--muted); overflow-wrap: anywhere; }
+.attachment-conflict { display: flex; min-width: 0; align-items: flex-start; gap: 4px; padding: 4px 5px; color: var(--amber) !important; background: var(--amber-soft); border: 1px solid #ead9a6; border-radius: 3px; overflow-wrap: anywhere; }
+.attachment-conflict svg { flex: 0 0 auto; margin-top: 1px; }
+.attachment-conflict > span { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+.attachment-conflict-value { display: block; color: var(--ink); overflow-wrap: anywhere; }
+.attachment-conflict-evidence { display: block; color: var(--muted); overflow-wrap: anywhere; }
+.attachment-section-suggestions > label { display: grid; min-width: 0; min-height: 44px; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 6px; padding: 8px; border-top: 1px solid var(--line); }
 .attachment-section-suggestions > label.is-selected { background: var(--primary-soft); }
 .attachment-section-suggestions label > span { display: flex; min-width: 0; flex-direction: column; }
 .attachment-section-suggestions strong { font-size: 10px; }
-.attachment-section-suggestions small { display: -webkit-box; overflow: hidden; color: var(--muted); font-size: 9px; line-height: 1.5; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.attachment-section-suggestions small { display: block; max-width: 100%; color: var(--muted); font-size: 9px; line-height: 1.5; overflow-wrap: anywhere; }
 .attachment-confirm-bar { position: sticky; bottom: -14px; display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 10px -14px -14px; padding: 10px 14px; background: var(--surface); border-top: 1px solid var(--line); box-shadow: 0 -6px 18px rgb(31 35 41 / 5%); }
 .attachment-confirm-bar > span { color: var(--muted); font-size: 9px; }
 .attachment-confirm-bar .button { flex: 0 0 auto; }
@@ -5656,7 +5678,7 @@ p {
   .assistant-task-result-count { align-self: flex-start; text-align: left; }
   .assistant-tool-panel { padding: 12px; }
   .attachment-confirm-bar { bottom: -12px; margin: 10px -12px -12px; padding: 9px 12px; align-items: stretch; flex-direction: column; }
-  .attachment-confirm-bar .button { width: 100%; }
+  .attachment-confirm-bar .button { width: 100%; min-height: 44px; }
   .attachment-batch-detail .attachment-confirm-bar { bottom: -14px; margin-right: -2px; margin-bottom: -14px; margin-left: -2px; }
   .attachment-processing { align-items: flex-start; flex-wrap: wrap; }
   .attachment-processing > .button { width: 100%; }
@@ -5673,5 +5695,9 @@ p {
   .attachment-delete-dialog { width: 100vw; }
   .attachment-complete { align-items: flex-start; flex-wrap: wrap; }
   .attachment-complete .button { width: 100%; }
+  .attachment-diff-main > span:first-child { align-items: flex-start; flex-direction: column; gap: 4px; }
+  .attachment-suggestion-meta { justify-content: flex-start; }
+  .attachment-parser-status > .attachment-pipeline-channel { flex: 1 1 100%; }
+  .attachment-parser-status > .attachment-channel-retry { width: 100%; min-height: 44px; }
   .permanent-delete-modal .modal-footer .danger-button { max-width: 68%; white-space: normal; line-height: 1.25; }
 }

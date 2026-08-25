@@ -102,7 +102,7 @@ test('V10 migration is idempotent for legacy resume FTS, attachment batches, and
 
     db = openDatabase(databasePath)
     const firstBackfill = migrationSnapshot(db)
-    assert.deepEqual(firstBackfill.versions, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
+    assert.deepEqual(firstBackfill.versions, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
     assert.equal(firstBackfill.resume_documents, 2)
     assert.equal(firstBackfill.resume_fts, 2)
     assert.equal(firstBackfill.dirty_rows, 0)

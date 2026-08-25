@@ -14,6 +14,14 @@ const ZIP_DATA_DESCRIPTOR_SIGNATURE = 0x08074b50
 const ZIP64_EXTRA_FIELD = 0x0001
 const ZIP64_EOCD_LOCATOR_SIGNATURE = 0x07064b50
 const MAX_ZIP_FILENAME_BYTES = 4_096
+const SPREADSHEETML_NAMESPACE = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
+const DOCUMENT_RELATIONSHIPS_NAMESPACE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+const PACKAGE_RELATIONSHIPS_NAMESPACE = 'http://schemas.openxmlformats.org/package/2006/relationships'
+const XMLNS_NAMESPACE = 'http://www.w3.org/2000/xmlns/'
+const WORKSHEET_RELATIONSHIP_TYPES = new Set([
+  `${DOCUMENT_RELATIONSHIPS_NAMESPACE}/worksheet`,
+  'http://purl.oclc.org/ooxml/officeDocument/relationships/worksheet'
+])
 
 const CRC32_TABLE = new Uint32Array(256)
 for (let index = 0; index < CRC32_TABLE.length; index += 1) {
@@ -316,10 +324,11 @@ async function parseCentralDirectory(handle, fileSize, limits) {
     }
     if (name === '[Content_Types].xml') hasContentTypes = true
     if (name === 'xl/workbook.xml') hasWorkbook = true
-    if (/^xl\/worksheets\/sheet\d+\.xml$/i.test(name)) worksheetCount += 1
+    if (/^xl\/worksheets\/[^/]+\.xml$/i.test(name)) worksheetCount += 1
 
     entries.push({
       name,
+      canonicalName: canonical,
       filenameBytes: Buffer.from(filenameBytes),
       versionNeeded,
       flags,
@@ -575,9 +584,10 @@ async function inspectZipContainer(path, limits) {
       categoryBytes[category] += entry.uncompressedSize
     }
     return {
+      validated_entries: entries,
       compressed_bytes: size,
       zip_entries: entries.length,
-      worksheet_entries: entries.filter((entry) => /^xl\/worksheets\/sheet\d+\.xml$/i.test(entry.name)).length,
+      worksheet_entries: entries.filter((entry) => /^xl\/worksheets\/[^/]+\.xml$/i.test(entry.name)).length,
       declared_uncompressed_bytes: entries.reduce((total, entry) => total + entry.uncompressedSize, 0),
       actual_uncompressed_bytes: totalActualBytes,
       uncompressed_bytes_by_category: categoryBytes,
@@ -586,6 +596,57 @@ async function inspectZipContainer(path, limits) {
       shared_strings: hasSharedStrings ? sharedStrings.values : null
     }
   } finally {
+    await handle.close()
+  }
+}
+
+async function* readValidatedZipEntry(path, entry, limits, tracker) {
+  if (entry.compressedSize === 0) return
+  const handle = await open(path, 'r')
+  const source = handle.createReadStream({
+    start: entry.dataStart,
+    end: entry.dataEnd - 1,
+    autoClose: false,
+    highWaterMark: 64 * 1024
+  })
+  const payload = entry.compressionMethod === 0 ? source : createInflateRaw()
+  if (payload !== source) {
+    source.on('error', (error) => payload.destroy(error))
+    source.pipe(payload)
+  }
+  let actualSize = 0
+  let crcState = 0xffffffff
+  try {
+    for await (const chunk of payload) {
+      actualSize += chunk.length
+      if (actualSize > entry.uncompressedSize) {
+        throw importError(422, 'Excel ZIP 条目声明大小与实际内容不一致', 'import_zip_size_mismatch')
+      }
+      if (actualSize > limits.maxEntryUncompressedBytes) {
+        throw importError(422, 'Excel 文件实际解压大小超过安全限制', 'import_uncompressed_limit_exceeded')
+      }
+      if (actualSize > entry.compressedSize * limits.maxCompressionRatio) {
+        throw importError(422, 'Excel ZIP 实际压缩比异常，已阻止解析', 'import_zip_ratio_limit_exceeded')
+      }
+      crcState = updateCrc32(crcState, chunk)
+      tracker.checkDeadline()
+      yield chunk
+    }
+    if (source.bytesRead !== entry.compressedSize) {
+      throw importError(422, 'Excel ZIP 压缩数据被截断', 'import_zip_invalid')
+    }
+    if (actualSize !== entry.uncompressedSize) {
+      throw importError(422, 'Excel ZIP 条目声明大小与实际内容不一致', 'import_zip_size_mismatch')
+    }
+    if (((crcState ^ 0xffffffff) >>> 0) !== entry.crc32) {
+      throw importError(422, 'Excel ZIP 条目 CRC 校验失败', 'import_zip_crc_mismatch')
+    }
+  } catch (cause) {
+    if (cause?.status) throw cause
+    throw importError(422, 'Excel ZIP 压缩数据已损坏或无法安全解压', 'import_zip_invalid')
+  } finally {
+    payload.destroy()
+    if (payload !== source) source.destroy()
     await handle.close()
   }
 }
@@ -766,48 +827,337 @@ async function xlsxToRowsMaterialized(file, limits, tracker, metrics) {
   return { headers, rows, sheetName }
 }
 
-function decodeXmlAttribute(value) {
-  return String(value ?? '')
-    .replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
+function invalidXlsxStructure() {
+  return importError(
+    422,
+    'Unable to parse the Excel workbook; it may be damaged, encrypted, or unsupported.',
+    'import_xlsx_invalid'
+  )
 }
 
-function seedStreamingWorkbookModel(metrics) {
-  const workbookXml = String(metrics.workbook_xml ?? '')
-  const relsXml = String(metrics.workbook_rels_xml ?? '')
-  const rels = []
-  const relPattern = /<Relationship\b([^>]*)\/?>(?:<\/Relationship>)?/gi
-  let match
-  while ((match = relPattern.exec(relsXml))) {
-    const attributes = match[1]
-    const read = (name) => attributes.match(new RegExp(`${name}\\s*=\\s*[\"']([^\"']*)`, 'i'))?.[1]
-    const id = read('Id')
-    const target = read('Target')
-    if (id && target) rels.push({ Id: id, Target: target.replace(/^\/?/, '') })
+function xmlAttribute(node, local, uri = '') {
+  return Object.values(node.attributes ?? {}).find((attribute) => attribute.local === local && attribute.uri === uri)?.value
+}
+
+function parseNamespacedXmlPart(xml, expectedRoot, visitElement) {
+  if (typeof xml !== 'string' || xml.length === 0) throw invalidXlsxStructure()
+  const stack = []
+  let rootSeen = false
+  let rootPrefix = ''
+  let parseFailure = null
+  const parser = new SaxesParser({ xmlns: true })
+
+  parser.on('error', () => {
+    parseFailure ??= invalidXlsxStructure()
+  })
+  parser.on('doctype', () => {
+    parseFailure ??= invalidXlsxStructure()
+  })
+  parser.on('opentag', (node) => {
+    if (parseFailure) return
+    if (stack.length === 0) {
+      if (rootSeen || node.local !== expectedRoot.local || node.uri !== expectedRoot.uri) {
+        throw invalidXlsxStructure()
+      }
+      rootSeen = true
+      rootPrefix = node.prefix
+    } else if (rootPrefix && node.prefix === rootPrefix && node.uri !== expectedRoot.uri) {
+      throw invalidXlsxStructure()
+    }
+    visitElement?.(node, stack.at(-1) ?? null, stack)
+    stack.push(node)
+  })
+  parser.on('closetag', () => {
+    stack.pop()
+  })
+
+  try {
+    parser.write(xml)
+    parser.close()
+  } catch (cause) {
+    if (cause?.status) throw cause
+    parseFailure ??= invalidXlsxStructure()
   }
+  if (parseFailure || !rootSeen || stack.length !== 0) throw parseFailure ?? invalidXlsxStructure()
+}
+
+function parseWorkbookXml(workbookXml) {
   const sheets = []
-  const sheetPattern = /<sheet\b([^>]*)\/?>(?:<\/sheet>)?/gi
-  while ((match = sheetPattern.exec(workbookXml))) {
-    const attributes = match[1]
-    const read = (name) => attributes.match(new RegExp(`${name}(?:\:[^\\s=]+)?\\s*=\\s*[\"']([^\"']*)`, 'i'))?.[1]
-    const name = read('name')
-    const sheetId = read('sheetId')
-    const relationshipId = read('r:id') ?? read('id')
-    if (name && relationshipId) sheets.push({ name: decodeXmlAttribute(name), id: Number(sheetId) || sheets.length + 1, rId: relationshipId })
+  const sheetIds = new Set()
+  const relationshipIds = new Set()
+  const properties = { model: {} }
+  let sheetsElementSeen = false
+  parseNamespacedXmlPart(
+    workbookXml,
+    { local: 'workbook', uri: SPREADSHEETML_NAMESPACE },
+    (node, parent, ancestors) => {
+      if (node.uri !== SPREADSHEETML_NAMESPACE) return
+      const directWorkbookChild =
+        ancestors.length === 1 &&
+        ancestors[0].local === 'workbook' &&
+        ancestors[0].uri === SPREADSHEETML_NAMESPACE
+      if (node.local === 'workbookPr') {
+        if (!directWorkbookChild) throw invalidXlsxStructure()
+        const date1904 = xmlAttribute(node, 'date1904')
+        if (date1904 !== undefined) {
+          if (!['0', '1', 'false', 'true'].includes(date1904)) throw invalidXlsxStructure()
+          properties.model.date1904 = date1904 === '1' || date1904 === 'true'
+        }
+        return
+      }
+      if (node.local === 'sheets') {
+        if (!directWorkbookChild || sheetsElementSeen) throw invalidXlsxStructure()
+        sheetsElementSeen = true
+        return
+      }
+      if (node.local !== 'sheet') return
+      if (
+        ancestors.length !== 2 ||
+        ancestors[0].local !== 'workbook' ||
+        ancestors[0].uri !== SPREADSHEETML_NAMESPACE ||
+        parent?.local !== 'sheets' ||
+        parent.uri !== SPREADSHEETML_NAMESPACE
+      ) {
+        throw invalidXlsxStructure()
+      }
+      const name = xmlAttribute(node, 'name')
+      const rawSheetId = xmlAttribute(node, 'sheetId')
+      const relationshipId = xmlAttribute(node, 'id', DOCUMENT_RELATIONSHIPS_NAMESPACE)
+      const sheetId = Number(rawSheetId)
+      if (
+        !name ||
+        !relationshipId ||
+        !/^[1-9]\d*$/.test(rawSheetId ?? '') ||
+        !Number.isSafeInteger(sheetId) ||
+        sheetIds.has(sheetId) ||
+        relationshipIds.has(relationshipId)
+      ) {
+        throw invalidXlsxStructure()
+      }
+      sheetIds.add(sheetId)
+      relationshipIds.add(relationshipId)
+      sheets.push({
+        name,
+        id: sheetId,
+        rId: relationshipId,
+        ...(xmlAttribute(node, 'state') ? { state: xmlAttribute(node, 'state') } : {})
+      })
+    }
+  )
+  return { model: { sheets }, properties }
+}
+
+function normalizeOpcRelationshipTarget(value) {
+  const target = String(value ?? '')
+  if (
+    !target ||
+    target !== target.trim() ||
+    /^[A-Za-z][A-Za-z\d+.-]*:/.test(target) ||
+    target.startsWith('//') ||
+    /[\\?#:\u0000-\u001f\u007f]/.test(target)
+  ) {
+    throw invalidXlsxStructure()
   }
+
+  const packageParts = target.startsWith('/') ? [] : ['xl']
+  const rawParts = target.split('/').slice(target.startsWith('/') ? 1 : 0)
+  if (rawParts.length === 0 || rawParts.some((part) => part === '')) throw invalidXlsxStructure()
+  for (const rawPart of rawParts) {
+    let part
+    try {
+      part = decodeURIComponent(rawPart)
+    } catch {
+      throw invalidXlsxStructure()
+    }
+    if (!part || /[\\/?#:\u0000-\u001f\u007f]/.test(part)) throw invalidXlsxStructure()
+    if (part === '.') continue
+    if (part === '..') {
+      if (packageParts.length === 0) throw invalidXlsxStructure()
+      packageParts.pop()
+      continue
+    }
+    packageParts.push(part)
+  }
+  if (packageParts.length === 0) throw invalidXlsxStructure()
+  return packageParts[0] === 'xl'
+    ? packageParts.slice(1).join('/')
+    : `../${packageParts.join('/')}`
+}
+
+function parseWorkbookRelationshipsXml(relationshipsXml) {
+  const rels = []
+  const relationshipIds = new Set()
+  parseNamespacedXmlPart(
+    relationshipsXml,
+    { local: 'Relationships', uri: PACKAGE_RELATIONSHIPS_NAMESPACE },
+    (node, parent) => {
+      if (node.local !== 'Relationship') return
+      if (node.uri !== PACKAGE_RELATIONSHIPS_NAMESPACE || parent?.local !== 'Relationships' || parent.uri !== PACKAGE_RELATIONSHIPS_NAMESPACE) {
+        throw invalidXlsxStructure()
+      }
+      const Id = xmlAttribute(node, 'Id')
+      const Type = xmlAttribute(node, 'Type')
+      const rawTarget = xmlAttribute(node, 'Target')
+      const TargetMode = xmlAttribute(node, 'TargetMode')
+      if (
+        !Id ||
+        !Type ||
+        !rawTarget ||
+        relationshipIds.has(Id) ||
+        !/^[A-Za-z][A-Za-z\d+.-]*:\/\/[^\s]+$/.test(Type) ||
+        (TargetMode !== undefined && TargetMode !== 'Internal')
+      ) {
+        throw invalidXlsxStructure()
+      }
+      relationshipIds.add(Id)
+      rels.push({
+        Id,
+        Type,
+        Target: normalizeOpcRelationshipTarget(rawTarget),
+        ...(TargetMode ? { TargetMode } : {})
+      })
+    }
+  )
+  return { rels }
+}
+
+function bindWorkbookWorksheets(model, rels, entries) {
+  const entriesByCanonicalName = new Map(entries.map((entry) => [entry.canonicalName, entry]))
+  const relationshipById = new Map(rels.map((relationship) => [relationship.Id, relationship]))
+  const worksheetTargetOwners = new Map()
+
+  for (const relationship of rels) {
+    if (!WORKSHEET_RELATIONSHIP_TYPES.has(relationship.Type)) continue
+    if (!/^worksheets\/[^/]+\.xml$/i.test(relationship.Target)) throw invalidXlsxStructure()
+    const canonicalTarget = `xl/${relationship.Target}`.normalize('NFC').toLowerCase()
+    if (worksheetTargetOwners.has(canonicalTarget)) throw invalidXlsxStructure()
+    worksheetTargetOwners.set(canonicalTarget, relationship.Id)
+  }
+
+  return model.sheets.map((sheet) => {
+    const relationship = relationshipById.get(sheet.rId)
+    if (!relationship || !WORKSHEET_RELATIONSHIP_TYPES.has(relationship.Type)) throw invalidXlsxStructure()
+    const canonicalTarget = `xl/${relationship.Target}`.normalize('NFC').toLowerCase()
+    const entry = entriesByCanonicalName.get(canonicalTarget)
+    if (!entry || worksheetTargetOwners.get(canonicalTarget) !== relationship.Id) throw invalidXlsxStructure()
+    return { sheet, entry }
+  })
+}
+
+function escapeXmlText(value) {
+  return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+function escapeXmlAttribute(value) {
+  return escapeXmlText(value).replace(/"/g, '&quot;').replace(/\r/g, '&#13;').replace(/\n/g, '&#10;')
+}
+
+async function* normalizeSpreadsheetMlWorksheet(iterator) {
+  const decoder = new TextDecoder('utf-8', { fatal: true })
+  const output = []
+  const emittedElements = []
+  let rootSeen = false
+  let rootPrefix = ''
+  let skippedDepth = 0
+  let parseFailure = null
+  const parser = new SaxesParser({ xmlns: true })
+
+  parser.on('error', () => {
+    parseFailure ??= invalidXlsxStructure()
+  })
+  parser.on('doctype', () => {
+    parseFailure ??= invalidXlsxStructure()
+  })
+  parser.on('opentag', (node) => {
+    if (parseFailure) return
+    if (!rootSeen) {
+      if (node.local !== 'worksheet' || node.uri !== SPREADSHEETML_NAMESPACE) throw invalidXlsxStructure()
+      rootSeen = true
+      rootPrefix = node.prefix
+    } else if (emittedElements.length === 0) {
+      throw invalidXlsxStructure()
+    }
+    if (rootPrefix && node.prefix === rootPrefix && node.uri !== SPREADSHEETML_NAMESPACE) {
+      throw invalidXlsxStructure()
+    }
+    if (skippedDepth > 0 || node.uri !== SPREADSHEETML_NAMESPACE) {
+      skippedDepth += 1
+      emittedElements.push(null)
+      return
+    }
+
+    const attributes = Object.values(node.attributes ?? {})
+      .filter((attribute) => attribute.uri !== XMLNS_NAMESPACE)
+      .map((attribute) => ` ${attribute.name}="${escapeXmlAttribute(attribute.value)}"`)
+      .join('')
+    output.push(`<${node.local}${attributes}>`)
+    emittedElements.push(node.local)
+  })
+  parser.on('text', (value) => {
+    if (skippedDepth === 0) output.push(escapeXmlText(value))
+  })
+  parser.on('cdata', (value) => {
+    if (skippedDepth === 0) output.push(escapeXmlText(value))
+  })
+  parser.on('closetag', () => {
+    const emittedName = emittedElements.pop()
+    if (emittedName === null) {
+      skippedDepth -= 1
+      return
+    }
+    if (emittedName) output.push(`</${emittedName}>`)
+  })
+
+  const write = (value) => {
+    try {
+      parser.write(value)
+    } catch (cause) {
+      if (cause?.status) throw cause
+      throw invalidXlsxStructure()
+    }
+    if (parseFailure) throw parseFailure
+  }
+
+  try {
+    for await (const chunk of iterator) {
+      write(decoder.decode(chunk, { stream: true }))
+      if (output.length) yield output.splice(0).join('')
+    }
+    write(decoder.decode())
+    parser.close()
+  } catch (cause) {
+    if (cause?.status) throw cause
+    throw invalidXlsxStructure()
+  }
+  if (parseFailure || !rootSeen || emittedElements.length !== 0 || skippedDepth !== 0) {
+    throw parseFailure ?? invalidXlsxStructure()
+  }
+  if (output.length) yield output.join('')
+}
+
+function seedStreamingWorkbookModel(metrics, entries) {
+  const workbook = parseWorkbookXml(metrics.workbook_xml)
+  const relationships = parseWorkbookRelationshipsXml(metrics.workbook_rels_xml)
+  const worksheetBindings = bindWorkbookWorksheets(workbook.model, relationships.rels, entries)
   delete metrics.workbook_xml
   delete metrics.workbook_rels_xml
   const sharedStrings = Array.isArray(metrics.shared_strings) ? metrics.shared_strings : null
   delete metrics.shared_strings
-  return { model: { sheets }, rels, sharedStrings }
+  return {
+    model: workbook.model,
+    properties: workbook.properties,
+    rels: relationships.rels,
+    sharedStrings,
+    worksheetBindings
+  }
 }
 
 async function xlsxToRows(file, limits, tracker, metrics) {
   const zipStartedAt = performance.now()
-  Object.assign(metrics, await inspectZipContainer(file.path, limits))
+  const container = await inspectZipContainer(file.path, limits)
+  const validatedEntries = container.validated_entries
+  delete container.validated_entries
+  Object.assign(metrics, container)
   metrics.zip_validation_ms = Math.round(performance.now() - zipStartedAt)
   metrics.zip_security_ms = metrics.zip_validation_ms
   metrics.peak_rss_bytes = Math.max(metrics.peak_rss_bytes, process.memoryUsage().rss)
@@ -834,15 +1184,15 @@ async function xlsxToRows(file, limits, tracker, metrics) {
       worksheets: 'emit'
     })
     reportProgress('parsing', 45)
-    const seed = seedStreamingWorkbookModel(metrics)
-    if (seed.model.sheets.length) workbook.model = seed.model
-    if (seed.rels.length) workbook.workbookRels = seed.rels
+    const seed = seedStreamingWorkbookModel(metrics, validatedEntries)
+    workbook.model = seed.model
+    workbook.properties = seed.properties
+    workbook.workbookRels = seed.rels
     if (seed.sharedStrings) workbook.sharedStrings = seed.sharedStrings
+    const parseWorksheet = workbook._parseWorksheet.bind(workbook)
     metrics.shared_string_count = seed.sharedStrings?.length ?? 0
     let rowExtractMs = 0
-    for await (const event of workbook.parse()) {
-      if (event?.eventType !== 'worksheet') continue
-      const worksheet = event.value
+    for (const binding of seed.worksheetBindings) {
       worksheetCount += 1
       if (worksheetCount > limits.maxWorksheets) {
         throw importError(
@@ -851,6 +1201,17 @@ async function xlsxToRows(file, limits, tracker, metrics) {
           'import_worksheet_limit_exceeded'
         )
       }
+      const iterator = normalizeSpreadsheetMlWorksheet(
+        readValidatedZipEntry(file.path, binding.entry, limits, tracker)
+      )
+      let worksheet = null
+      for (const event of parseWorksheet(iterator, String(worksheetCount))) {
+        if (event?.eventType === 'worksheet') worksheet = event.value
+      }
+      if (!worksheet) throw invalidXlsxStructure()
+      worksheet.id = binding.sheet.id
+      worksheet.name = binding.sheet.name
+      worksheet.state = binding.sheet.state
       const worksheetStartedAt = performance.now()
       for await (const row of worksheet) {
         const width = Number(row.cellCount ?? 0)

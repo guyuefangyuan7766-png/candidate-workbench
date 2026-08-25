@@ -501,7 +501,10 @@ export async function createImportPreview({
     }
     const { row_number: rowNumber, values } = rows[rowIndex]
     const raw = mapImportedRow(values, mapping, defaults)
-    const { value: candidate, errors: validationErrors } = sanitizeCandidateInput(raw, { validStages })
+    const { value: candidate, errors: validationErrors } = sanitizeCandidateInput(raw, {
+      validStages,
+      allowExcelHireDateValues: true
+    })
     const errors = [...validationErrors]
     const position = mapImportedPosition(values, positionMapping, defaults, candidate)
     const positionResolution = positionResolver.resolve(position)

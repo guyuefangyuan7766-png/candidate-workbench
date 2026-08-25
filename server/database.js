@@ -697,6 +697,19 @@ export function migrateV11Database(db) {
   `).run(now())
 }
 
+export function migrateV12Database(db) {
+  ensureColumn(db, 'candidates', 'hire_position', 'TEXT')
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS candidates_hire_position_idx
+      ON candidates(hire_position);
+  `)
+  db.prepare(`
+    INSERT INTO schema_migrations(version, name, applied_at)
+    VALUES (12, 'candidate_hire_information', ?)
+    ON CONFLICT(version) DO UPDATE SET name = excluded.name
+  `).run(now())
+}
+
 function migrateTalentDatabase(db) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -726,6 +739,7 @@ function migrateTalentDatabase(db) {
     ensureColumn(db, 'candidates', 'age', 'INTEGER')
     ensureColumn(db, 'candidates', 'hire_status', 'TEXT')
     ensureColumn(db, 'candidates', 'hire_date', 'TEXT')
+    ensureColumn(db, 'candidates', 'hire_position', 'TEXT')
 
     for (const [name, definition] of [
       ['source_system', 'TEXT'],
@@ -930,6 +944,7 @@ function migrateTalentDatabase(db) {
     migrateV9Database(db)
     migrateV10Database(db)
     migrateV11Database(db)
+    migrateV12Database(db)
     db.exec('COMMIT')
     return { v8PreviouslyApplied, v9Applied: true, v10Applied: true }
   } catch (error) {
@@ -1014,6 +1029,7 @@ export function openDatabase(databasePath = configuredDatabasePath(), { synchron
       age INTEGER,
       years_experience REAL,
       education TEXT,
+      hire_position TEXT,
       hire_status TEXT,
       hire_date TEXT,
       source TEXT,

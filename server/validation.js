@@ -19,6 +19,7 @@ export const HEADER_ALIASES = Object.freeze({
   highest_school: ['highest school', 'highest_school', '最高学历学校', '最高学历院校', '学校'],
   highest_major: ['highest major', 'highest_major', '最高学历专业', '专业'],
   job_seeking_status: ['job seeking status', 'job_seeking_status', '求职状态'],
+  hire_position: ['hire position', 'hire_position', '入职职位', '入职岗位'],
   hire_status: ['hire status', 'hire_status', '入职状态', '入职情况'],
   hire_date: ['hire date', 'hire_date', '入职日期', '入职时间'],
   resume_updated_at: ['resume updated at', 'resume_updated_at', '简历更新时间'],
@@ -86,7 +87,7 @@ const POSITION_HEADER_ALIASES = {
   ],
   position_source_record_id: [
     'position source record id', 'position_source_record_id', 'position id', 'requisition id',
-    '职位id', '招聘职位id', '岗位id'
+    '职位id', '招聘职位id', '岗位id', '最后职位类投递的职位id'
   ]
 }
 
@@ -143,6 +144,12 @@ export function normalizeHireStatus(value) {
   if (value == null) return null
   const status = String(value).trim()
   return status || null
+}
+
+export function normalizeHirePosition(value) {
+  if (value == null) return null
+  const position = String(value).trim()
+  return position || null
 }
 
 export function normalizePhotoUrl(value) {
@@ -227,6 +234,19 @@ export function normalizeBirthDate(value) {
 }
 
 export function normalizeHireDate(value) {
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value) || value <= 0) return null
+    const serial = Math.floor(value)
+    if (!Number.isSafeInteger(serial) || serial < 1 || serial === 60) return null
+
+    // Excel incorrectly treats 1900 as a leap year, reserving serial 60 for 1900-02-29.
+    const daysSince1900 = serial > 60 ? serial - 1 : serial
+    const date = new Date(Date.UTC(1899, 11, 31) + daysSince1900 * 24 * 60 * 60 * 1000)
+    const year = date.getUTCFullYear()
+    if (!Number.isFinite(date.getTime()) || year < 1900 || year > 9999) return null
+    return `${String(year).padStart(4, '0')}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`
+  }
+
   const input = cleanString(value, 80)
   if (!input) return null
   const match = input.match(/^(\d{4})[-/.年](\d{1,2})[-/.月](\d{1,2})(?:日)?(?:[T\s].*)?$/)
@@ -256,7 +276,12 @@ export function normalizeStage(value) {
   return STAGE_ALIASES.get(normalizeHeader(stage)) ?? stage.toLowerCase()
 }
 
-export function sanitizeCandidateInput(input, { partial = false, validStages = [] } = {}) {
+export function sanitizeCandidateInput(input, {
+  partial = false,
+  validStages = [],
+  fallbackHireStatus = !partial,
+  allowExcelHireDateValues = false
+} = {}) {
   const errors = []
   const value = {}
   const has = (field) => Object.prototype.hasOwnProperty.call(input ?? {}, field)
@@ -311,6 +336,13 @@ export function sanitizeCandidateInput(input, { partial = false, validStages = [
     }
   }
 
+  if (!partial || has('hire_position')) {
+    value.hire_position = normalizeHirePosition(input?.hire_position)
+    if (value.hire_position && value.hire_position.length > 300) {
+      errors.push({ field: 'hire_position', message: '入职职位不能超过 300 个字符' })
+    }
+  }
+
   if (!partial || has('years_experience')) {
     value.years_experience = normalizeYears(input?.years_experience)
     if (input?.years_experience != null && input.years_experience !== '' && value.years_experience == null) {
@@ -333,11 +365,15 @@ export function sanitizeCandidateInput(input, { partial = false, validStages = [
   }
 
   if (!partial || has('hire_date')) {
-    value.hire_date = normalizeHireDate(input?.hire_date)
+    value.hire_date = typeof input?.hire_date === 'number' && !allowExcelHireDateValues
+      ? null
+      : normalizeHireDate(input?.hire_date)
     if (cleanString(input?.hire_date) && !value.hire_date) {
       errors.push({ field: 'hire_date', message: '入职日期必须是有效日期' })
     }
   }
+
+  if (fallbackHireStatus && value.hire_date && !value.hire_status) value.hire_status = '不确定'
 
   if (!partial || has('age')) {
     value.age = normalizeAge(input?.age)
@@ -419,7 +455,7 @@ export function mapImportedPosition(row, mapping, defaults = {}, candidate = {})
   const raw = {}
   for (const [field, header] of Object.entries(mapping ?? {})) raw[field] = row[header]
 
-  const title = cleanString(raw.position_title, 200)
+  const title = cleanString(raw.position_title, 200) || cleanString(raw.position_source_record_id, 300)
   const externalCode = cleanString(raw.position_external_code, 300)
   const sourceRecordId = cleanString(raw.position_source_record_id, 300)
   const department = cleanString(raw.position_department, 200)

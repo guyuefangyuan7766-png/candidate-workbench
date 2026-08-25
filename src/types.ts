@@ -172,6 +172,7 @@ export interface Candidate {
   highest_school: string;
   highest_major: string;
   job_seeking_status: string;
+  hire_position: string;
   hire_status: string;
   hire_date: string | null;
   resume_updated_at: string | null;
@@ -243,6 +244,10 @@ export interface AttachmentFieldSuggestion {
   value: unknown;
   confidence: "high" | "medium" | "low";
   evidence: string;
+  source?: AttachmentSuggestionSource;
+  evidence_status?: "text_verified" | "unverified";
+  evidence_refs?: AttachmentEvidenceReference[];
+  conflict?: AttachmentSuggestionConflict;
   current_value: unknown;
   default_selected: boolean;
 }
@@ -255,7 +260,58 @@ export interface AttachmentSectionSuggestion {
   structured_data: Record<string, unknown> | unknown[] | null;
   confidence: "high" | "medium" | "low";
   evidence: string;
+  source?: AttachmentSuggestionSource;
+  evidence_status?: "text_verified" | "unverified";
+  evidence_refs?: AttachmentEvidenceReference[];
+  conflict?: AttachmentSuggestionConflict;
   default_selected: boolean;
+}
+
+export type AttachmentSuggestionSource =
+  | "deterministic_text"
+  | "deterministic_table"
+  | "model_text"
+  | "visual"
+  | "merged";
+
+export interface AttachmentEvidenceReference {
+  page: number | null;
+  text: string;
+  bbox?: { x: number; y: number; width: number; height: number };
+}
+
+export interface AttachmentSuggestionConflict {
+  code: string;
+  source: AttachmentSuggestionSource;
+  existing_source?: AttachmentSuggestionSource;
+  existing_value?: unknown;
+  proposed_value?: unknown;
+  evidence_status?: "text_verified" | "unverified";
+  evidence_refs?: AttachmentEvidenceReference[];
+  message: string;
+}
+
+export type AttachmentSchemaMode = "strict" | "compat" | "unknown";
+
+export interface AttachmentPipelineChannel {
+  status: string;
+  used_fallback?: boolean;
+  capability?: string;
+  error_code?: string;
+  retryable?: boolean;
+  schema_mode?: AttachmentSchemaMode;
+  parser_version?: string;
+  prompt_version?: string;
+}
+
+export interface AttachmentParserPipeline {
+  /** Older durable previews may omit the text route metadata. */
+  text?: { status: string; content_type: string };
+  /** Older durable previews may not have a text-model channel. */
+  text_model?: AttachmentPipelineChannel;
+  visual: AttachmentPipelineChannel & { used_fallback: boolean };
+  /** True when the deterministic/visual coverage needs human review. */
+  review_required?: boolean;
 }
 
 export interface AttachmentAvatarSuggestion {
@@ -286,6 +342,9 @@ export interface AttachmentPreview {
   preview_token: string;
   preview_token_reissued?: boolean;
   status: AttachmentParseStatus;
+  parser_version?: string;
+  pipeline?: AttachmentParserPipeline;
+  review_required?: boolean;
   error_code?: string;
   error?: string;
   retryable?: boolean;
@@ -681,6 +740,7 @@ export interface CandidateDraft extends Pick<
   | "job_seeking_status"
   | "hire_status"
   | "hire_date"
+  | "hire_position"
   | "resume_updated_at"
   | "self_summary"
   | "source"
@@ -830,6 +890,7 @@ export const emptyDraft: CandidateDraft = {
   job_seeking_status: "",
   hire_status: "",
   hire_date: null,
+  hire_position: "",
   resume_updated_at: null,
   self_summary: "",
   source: "手工录入",

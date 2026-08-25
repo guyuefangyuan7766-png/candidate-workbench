@@ -193,28 +193,34 @@ GET /api/candidates/:id?include_legacy_stage=true
 - `self_summary`
 - `photo_url`：高敏字段，只接受不超过 2048 字符、协议为 HTTP/HTTPS 且路径以 `.jpg`、`.jpeg`、`.png` 或 `.webp` 结尾的 URL；允许签名查询参数
 
-#### 入职信息字段（V11）
+#### 入职信息字段（V12）
 
-`POST /api/candidates`、`PATCH /api/candidates/:id`、候选人详情和 CSV/XLSX 导出支持以下两个字段：
+`POST /api/candidates`、`PATCH /api/candidates/:id`、候选人详情和 CSV/XLSX 导出支持以下三个字段：
 
 | API 字段 | 中文标签 | 输入/响应约束 |
 | --- | --- | --- |
+| `hire_position` | 入职职位 | 可空文本；去首尾空白后保留非空原文，最长 300 个字符；它是入职事实，不是招聘职位关联键 |
 | `hire_status` | 入职状态 | 可空文本；去首尾空白后保留非空原文，最长 200 个字符，不强制固定枚举 |
-| `hire_date` | 入职日期 | 可空；接受 ISO、斜线或中文年月日形式，校验真实日期后统一响应/落库为 `YYYY-MM-DD`；允许未来日期 |
+| `hire_date` | 入职日期 | 可空；REST/结构化 JSON 仅接受 ISO、斜线或中文年月日文本，校验真实日期后统一响应/落库为 `YYYY-MM-DD`；允许未来日期 |
 
 示例：
 
 ```json
 {
   "name": "候选人示例",
+  "hire_position": "游戏服务端开发工程师",
   "hire_status": "待入职",
   "hire_date": "2026-09-17"
 }
 ```
 
-成功的详情响应包含 `hire_status` 和 `hire_date`；日期为空时返回 `null`。非法日期（例如 `2026-02-30`）或超过 200 个字符的状态返回统一 `422 validation_error`。状态有值但日期为空不会被拒绝。对已有候选人执行 PATCH 时，未提供字段保持原值；导入更新中的空日期也不会清除已有日期。
+成功的详情响应包含三个字段；各空值返回 `null`。非法日期（例如 `2026-02-30`）、超过 200 个字符的状态或超过 300 个字符的入职职位返回统一 `422 validation_error`。当 `hire_date` 有值而 `hire_status` 为空时，写入层自动保存精确状态 `不确定`；已有明确状态不会被日期补写覆盖。对已有候选人执行 PATCH 时，未提供字段保持原值；导入更新中的空日期、空状态和空入职职位也不会清除已有值。
 
-这两个字段不读取或写入 `candidate_preferences.employment_status`，也不会把旧 `candidates.stage` 自动映射为入职状态。导出中文列名为 `入职状态`、`入职日期`，并与候选人其他导出字段保持同一行。
+Excel 数值日期只在 `.xlsx`/`.xlsm`/BIFF8 `.xls` 文件解析边界按 Excel 1900 日期系统转换；REST、结构化 JSON、附件建议以及 CSV 中形似序列号的文本均拒绝数值日期。这样既保留真实工作簿日期单元格，也避免普通 API 数字被误解释为日期。
+
+档案只在 `hire_position`、`hire_status`、`hire_date` 至少一项有值时展示“入职信息”区块；三项全空时仅隐藏该区块，不隐藏候选人主档。`hire_position` 不读取或写入 `candidate_preferences.employment_status`，也不参与 `candidate_positions` 关系。
+
+这三个字段不读取或写入 `candidate_preferences.employment_status`，也不会把旧 `candidates.stage` 自动映射为入职状态。导出中文列名为 `入职职位`、`入职状态`、`入职日期`，并与候选人其他导出字段保持同一行。
 
 `stage` 仍可写入以兼容历史客户端，但新人才库界面不应用它组织工作。去重使用标准化邮箱、电话或 `source_system + source_record_id`，绝不只按姓名。
 
@@ -359,7 +365,7 @@ V6.1 前端对单条归档、恢复和永久删除都发送 `{ "expected_updated
 | GET | `/attachments/:id/download` | 私有受控下载；不公开附件目录 |
 | GET | `/resume-search` | FTS5 全量履历检索，按候选人聚合证据 |
 
-上传支持文本型 `.pdf`、`.docx`、`.xlsx`、`.xlsm`、合法 BIFF8 `.xls` 和 UTF-8 `.csv`，单文件最大 15 MB。服务端联合校验扩展名、MIME 和签名/Office 容器；原始文件名被清洗，隔离文件和正式文件均使用随机内部名。同步校验失败直接返回结构化 `4xx/5xx`；进入后台解析后，`.doc`、加密文件、扫描/无文本 PDF、损坏文件、伪扩展名、非 BIFF8 XLS、OCR 需求和超限内容会落入 `failed` 终态并返回安全、具体的 `error_code`、`error` 与 `retryable`。
+上传支持 `.pdf`（文本型、扫描型或混合型）、`.docx`、`.xlsx`、`.xlsm`、合法 BIFF8 `.xls`、UTF-8 `.csv` 和 UTF-8 `.txt`，单文件最大 15 MB。服务端联合校验扩展名、MIME 和签名/Office 容器；原始文件名被清洗，隔离文件和正式文件均使用随机内部名。同步校验失败直接返回结构化 `4xx/5xx`；进入后台解析后，`.doc`、加密文件、损坏文件、伪扩展名、非 BIFF8 XLS、无效 OCR 文本和超限内容会落入 `failed` 终态并返回安全、具体的 `error_code`、`error` 与 `retryable`。扫描或无文本 PDF 在视觉能力未启用时仍可形成确定性空文本预览；启用视觉能力但渲染器不可用时返回可确认的文本结果和 `pipeline.visual=fallback`，而不是伪造 OCR 文本。
 
 创建成功响应为 `202 Accepted`，同时返回 `Location: /api/attachments/previews/:id` 与 `Retry-After: 1`。前端应保存首次响应中的 `preview_token`，按 `poll_after_ms` 轮询 `Location`，不得让一次浏览器请求一直等待解析器或模型建议。
 
@@ -391,7 +397,7 @@ V6.1 前端对单条归档、恢复和永久删除都发送 `{ "expected_updated
     "row_number": 1,
     "identity": { "phone": "+8613800000000", "email": "user@example.test" },
     "match": { "status": "high_confidence", "candidate_id": "...", "reason": "..." },
-    "suggestions": [{ "field": "current_company", "value": "Example", "confidence": "high", "evidence": "...", "current_value": null, "default_selected": true }],
+    "suggestions": [{ "field": "current_company", "value": "Example", "confidence": "high", "source": "deterministic_text", "evidence_status": "text_verified", "evidence_refs": [{ "page": 1, "text": "当前公司：Example" }], "evidence": "当前公司：Example", "current_value": null, "default_selected": true }],
     "sections": []
   }]
 }
@@ -422,9 +428,60 @@ PDF/DOCX 产生一条候选记录；Excel/CSV 每个非空数据行独立产生�
 
 候选人编号显示严格区分系统 `candidate.id`、受信任外部编号和附件内部 lineage key。附件没有明确外部编号时，详情页不渲染“应聘者编号”，也不以文件名、行号、UUID 或 `attachment-preview:` 值代替。
 
-生产服务在 Agent 网关配置完整时会调用同一网关生成补充建议：最多发送提取文本前 120,000 字符和前 100 条预览记录，使用 strict JSON Schema `candidate_attachment_suggestions`，不携带 tools/tool choice，系统提示把附件 JSON 视为不可信数据。网关未配置、超时、错误或返回无效 JSON 时，API 保留本地规则建议并继续返回可确认预览；模型建议从不直接写数据库。
+生产服务在 Agent 网关配置完整时会调用同一网关生成文本补充建议：最多发送提取文本前 120,000 字符和前 100 条预览记录，使用 JSON Schema `candidate_attachment_suggestions`，不携带 tools/tool choice，系统提示把附件 JSON 视为不可信数据。默认 `ATTACHMENT_TEXT_SCHEMA_MODE=strict`；只有显式设置为 `compat` 才发送 `strict:false`，且兼容结果仍经本地严格字段白名单、Schema、证据和值校验，绝不标记为 strict。文本通道的 `ATTACHMENT_TEXT_TIMEOUT_MS` 和 `ATTACHMENT_TEXT_MAX_RESPONSE_BYTES` 只收紧有界请求。端点配置错误使用 `attachment_suggestion_endpoint_invalid` 或 `attachment_suggestion_endpoint_insecure`（均不可重试），不输出网关地址/凭据。PDF 视觉通道是独立的固定服务，只在显式 `image_input` 能力和完整视觉配置下接收受限 PNG 页面，不把 `extracted_text` 当作图像输入；端点仅支持 `http`/`https`，生产拒绝明文 HTTP，开发/测试仅允许非生产显式 loopback HTTP（这是与 trusted-private 例外分开的测试通道）。视觉端点默认拒绝私网解析结果；只有 hostname 精确列入 `ATTACHMENT_VISUAL_TRUSTED_PRIVATE_HOSTS` 时，且 URL 使用 HTTPS、（若配置）同时通过 `ATTACHMENT_VISUAL_ALLOWED_HOSTS`，才允许 DNS 结果全部属于 RFC1918/IPv6 ULA 公司私网。该配置只接受精确 DNS 主机名，不接受 IP 字面量、通配符、后缀匹配、`.localhost`/`.internal`/`.local`/metadata 保留主机名或混合公网/私网答案；loopback、metadata、link-local、multicast、保留地址、IPv4-mapped、NAT64 和 6to4 等危险目标仍逐项拒绝。其他公网 HTTPS 主机仍可用 `ATTACHMENT_VISUAL_ALLOWED_HOSTS` 限制。主机名在请求前解析，所有 DNS 结果逐一校验并使用 pinned lookup。端点拒绝使用不含 URL 的稳定错误码 `visual_endpoint_invalid`、`visual_endpoint_insecure`、`visual_endpoint_blocked`、`visual_endpoint_unapproved`，DNS 不可用降级为 `visual_unavailable`。默认 `ATTACHMENT_VISUAL_SCHEMA_MODE=strict`；视觉 compat 同样只能显式开启且仍经本地严格校验。请求使用 `stream:false`、无 tools，并拒绝 HTTP 重定向。网关未配置、超时、错误或返回无效 JSON 时，API 保留本地规则建议并继续返回可确认预览；模型建议从不直接写数据库。
 
 预览变为 `confirmed`、`cancelled` 或 `expired` 时，服务端清空该临时记录的 `extracted_text` 和 `records_json` 并移除隔离路径，只保留文件最小元数据、状态、错误码/时间等审计信息。确认后的完整正文位于正式候选人附件记录，不在预览中保留副本。
+
+### PDF 双通道解析契约
+
+PDF 预览在视觉能力显式声明为 `ATTACHMENT_VISUAL_CAPABILITY=image_input`、且本地配置完整时采用两条独立但不等价的通道：确定性文本通道始终负责文本、身份标准化、数据库身份匹配和基础字段/区块；视觉通道只在已渲染的 PDF 页可用时提出补充建议。该声明不执行标准化的主动探测或健康检查；网关是否可用、响应是否合规只在实际视觉请求/响应期间验证，并以安全 fallback 反映。预览顶层的 `parser_version` 当前为本地确定性解析器版本；`pipeline` 是异步任务完成后的通道状态，而非客户可设置的输入。
+
+```json
+{
+  "status": "ready",
+  "parser_version": "local-resume-parser-v3",
+  "review_required": false,
+  "pipeline": {
+    "text": { "status": "ready", "content_type": "text" },
+    "text_model": { "status": "ready", "schema_mode": "strict", "retryable": false },
+    "visual": {
+      "status": "ready",
+      "used_fallback": false,
+      "capability": "image_input",
+      "parser_version": "attachment-visual-parser-v1",
+      "prompt_version": "attachment-visual-prompt-v3"
+    }
+  }
+}
+```
+
+任务尚在 `parsing` 时，响应仍含同一 `parser_version` 和 `pipeline`：文本状态为 `parsing`，文本模型状态为 `pending|not_run`，PDF 视觉状态为 `not_run`，并带 `poll_after_ms`；终态为 `ready`、`failed`、`cancelled` 或 `expired`。`failed` 以顶层 `error_code`、`error`、`retryable` 表示解析失败；不要把 `pipeline.visual=fallback` 误认为整个预览失败。`pipeline.text_model` 与 `pipeline.visual` 各自保留 `status`、`schema_mode`、`error_code` 和 `retryable`；一个通道失败不会伪装成另一个通道成功。
+
+`pipeline.text.content_type` 对 PDF 为 `text|scanned|mixed`，对非 PDF 为其已解析格式。扫描/混合 PDF、视觉未运行或视觉 fallback 时，顶层和 pipeline 都返回 `review_required: true`；任一格式的 `pipeline.text_model.status=fallback` 也会要求人工核对。这表示需要人工核对，不表示解析任务失败。纯文本 PDF 只有视觉成功且文本模型未 fallback 时才可为 `review_required: false`。非 PDF 的 `pipeline.visual` 为 `not_applicable`，不会因视觉通道自身要求复核；文本模型未 fallback 时 `review_required: false`，否则仍为 `true`。视觉降级不会撤销已完成的确定性文本结果。PDF 是目前唯一可能使用图像通道的格式；DOCX、XLSX、XLSM、BIFF8 XLS、UTF-8 CSV 和 TXT 仅走确定性通道。
+
+记录中的每个字段建议和履历区块可包含 `source`、`evidence`、`evidence_refs`、`confidence`、`default_selected` 和可选 `conflict`。视觉候选还带 `evidence_status: "text_verified"|"unverified"`：前者表示同页文本层包含并核对了最小证据，后者只表示页面图像中可供人工复核的证据，默认不勾选且不参与自动栏目替换。`source` 为 `deterministic_text`、`deterministic_table`、`model_text`、`visual` 或合并后的 `merged`。`evidence_refs` 的稳定投影为页码和最小文本证据：`[{ "page": 1, "text": "..." }]`。仅当 PDF.js 已从该页文本层提取并校验 span 时，引用才可额外带归一化 `bbox: { "x", "y", "width", "height" }`；视觉模型不得返回或生成坐标，纯图像页也不能伪造 bbox。
+
+视觉履历区块的 `structured_data` 只允许 `organization`、`role`、`start_date`、`end_date`、`period` 五个白名单键。只有同一条 `text_verified` 证据逐字包含对应值时才持久化这些关系；视觉-only 的区块可以展示给用户，但不能用短证据反向推导公司/职位/时间关系。未知键、坐标、无证据字段、字段重复或其他 Schema 违反都会以 `visual_invalid_schema` 安全降级。
+
+文本通道优先于视觉通道：电话和邮箱只来自确定性文本标准化及精确数据库匹配，视觉建议不会改变身份；视觉建议与既有同字段值不一致时保留既有值并取消默认选择。稳定冲突对象为：
+
+```json
+{
+  "code": "channel_value_conflict",
+  "source": "visual",
+  "existing_source": "deterministic_text",
+  "existing_value": "...",
+  "proposed_value": "...",
+  "evidence_refs": [{ "page": 1, "text": "..." }],
+  "message": "文本与视觉通道结果不一致，已保留文本结果并取消默认选择"
+}
+```
+
+视觉区块调整已确定栏目边界时使用 `visual_replaces_deterministic_section`，同样要求人工选择。历史任职不能因视觉建议写成当前公司或当前职位，除非证据明确表明当前/在职关系。所有建议仍须由用户在确认端点显式选择，服务端会再次执行 token、版本、归档状态、身份冲突和字段校验。
+
+视觉能力状态和降级使用稳定错误码，不把网关原始错误、路径、附件正文或凭据返回给调用方。当前包括 `visual_capability_disabled`、`visual_capability_unknown`、`visual_configuration_invalid`、`visual_pages_unavailable`、`pdf_visual_renderer_unavailable`、`pdf_visual_page_limit`、`pdf_visual_dimensions_invalid`、`pdf_visual_pixel_limit`、`pdf_visual_total_pixel_limit`、`pdf_visual_total_memory_limit`、`pdf_visual_png_limit`、`pdf_visual_total_png_limit`、`pdf_visual_render_timeout`、`pdf_visual_render_failed`、`visual_timeout`、`visual_http_error`、`visual_invalid_json`、`visual_invalid_schema`、`visual_response_too_large` 和 `visual_unavailable`。文本模型端点策略错误为 `attachment_suggestion_endpoint_invalid`、`attachment_suggestion_endpoint_insecure`，均不可重试；其他文本模型错误出现在 `pipeline.text_model.error_code`。解析器仍可能以既有 `pdf_no_text`、`pdf_parse_failed`、`parse_timeout`、`parser_unavailable` 等稳定 `error_code` 进入 `failed`；客户端应以 code 分支，不应解析中文消息。
+
+PDF Worker 的页面视觉渲染最多 12 页、3,000,000 像素/页、18,000,000 总像素、64 MiB 累计 RGBA raster、4 MiB PNG/页和 24 MiB 总 PNG；raster 预算在原生 canvas 分配前按 `width * height * 4` 检查。每页渲染最多 8 秒，整份 PDF 的顺序页面渲染共用 30 秒预算，后续页面只能使用该文档渲染预算的剩余时间。视觉适配器的默认资源上限为最多 12 页、4,000,000 像素/页、3 MiB/页、12 MiB 总图像、8,000 字符/页、100 条记录、512 KiB 响应和 15 秒请求超时；附件服务另有 45 秒外层预算。环境变量或进程内 override 只能把这些预算下调，超过硬上限会被 clamp，不会扩大外发包络。页面 PNG、Base64、OCR 全文和模型原始响应只存在于 Worker/请求/合并期间，成功、失败、取消和过期路径都会清空。
 
 `GET /resume-search` 接受 `q|query`、`keywords`、`match_mode=all|any`、`archived=include|exclude|only`、`location`、`min_years`、`max_years`、`stage`、`position_id`、`talent_pool_id|pool_id`、`source_types`、`page`、`page_size` 和 `evidence_limit`。每页最多 100；Agent 工具进一步限制为最多 50、默认 20，每位候选人最多 1 至 5 条 evidence。V8 保留这个兼容路径和参数，但底层已从三类履历正文升级为政策业务表全字段 FTS5：候选人主档、关系、职位、人才库、阶段、导入批次、备注、活动、来源 JSON、履历区块和附件正文都可形成候选人证据。
 
@@ -482,6 +539,10 @@ PDF/DOCX 产生一条候选记录；Excel/CSV 每个非空数据行独立产生�
 
 1. **通用候选人导入**：写入候选人和批次；当用户显式映射招聘职位字段时，还会预览并在提交事务中匹配/创建职位及关系。旧 `stage` 不再自动映射，但显式手工 mapping/default 仍可用于兼容。
 2. **北森人才库导入**：任一支持格式的首工作表/CSV 表头包含大小写准确的“应聘者ID”时启用。“申请ID”和职位信息为可选；完全没有招聘职位字段时可只写候选人并跳过关系。显式职位字段无效、缺少新职位名称、匹配歧义或命中归档职位时，受影响源行失败且不写入候选人、职位、关系或原始载荷；职位关系可建立时写入职位关系和申请血缘，有真实评估载荷时可用申请 ID 标识评估。
+
+北森文件中的 `最后职位类投递的职位id` 是关联招聘职位字段，不是入职职位字段。工作簿存在该专用表头时，单行空值不创建 `candidate_positions`，不得回退普通 `职位编号` 或入职职位；只有整表缺少专用表头时普通编号才可兼容回退。导入器将非空专用值作为职位外部键；真实历史导出中该列有时实际承载职位显示名，此时会结合同一候选人的 `最后职位类投递时间` 与既有申请来源中的 `最后投递时间`，在同名职位中解析唯一的 canonical `positions.external_code`。解析成功后写入 `candidate_positions`；没有历史唯一命中时保留该值作为稳定回退键并创建 `draft` 职位，歧义不会静默绑定。`入职职位` 只写 `candidates.hire_position`，绝不作为招聘职位关系键。
+
+一次 100 人验收应至少核对：预览有效/失败行数及关系计数；提交后 `hire_position`、`hire_date` 和日期无状态时的 `hire_status=不确定`；每位有职位键候选人的 `candidate_positions`；至少一条 `candidate_talent_pools`；至少一条 `source_records`（有效、最初或最后来源）；以及重放不新增候选人、职位、职位关系、人才库关系或来源历史。SQLite `integrity_check` 和外键检查必须通过。当前记录分两层：20260821 为 `:memory:` 隔离导入（`formal_database_commit=false`）；2026-08-24 正式 HTTP 预览/提交为 100/100/0、0 导入/100 更新/0 失败/0 跳过，职位预览 create/match/link/conflict 为 0/32/36/0。用户豁免该提交后的全库摘要、逐行字段、完整性/外键后检和恢复演练，故 API 验收文档不将其列为已完成。
 
 通用映射和北森轮廓均支持 `gender`/“性别”、`birth_date`/“出生日期”和 `age`/“年龄”。北森“应聘者ID”继续写入外部 `source_record_id`，不会被内部 UUID 替代；同一 ID 的多行非空补充规则保持不变。
 

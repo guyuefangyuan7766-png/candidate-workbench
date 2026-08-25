@@ -2,7 +2,7 @@
 
 ## 1. 适用范围与部署边界
 
-本手册以当前 `talent-library v2 / schema V9` 代码为准，并保留旧版本升级和回退要求。应用默认地址为：
+本手册以当前 `talent-library v2 / schema V12` 代码为准，并保留旧版本升级和回退要求；代码版本不等于正式数据库已执行的版本。当前 V12 已完成代码和 100 人隔离验收，但正式库升级与导入仍须按本手册的备份、副本验证、入口预览和确认门禁执行。应用默认地址为：
 
 ```text
 http://127.0.0.1:4173
@@ -27,6 +27,9 @@ http://127.0.0.1:4173
 | 7 | `candidate_demographics_and_large_import` | 候选人性别、生日、年龄和性别索引。 |
 | 8 | `agent_sessions_and_full_business_search` | Agent 会话/消息/摘要、全业务字段搜索文档/FTS5、dirty/checkpoint/coverage 及查询辅助索引。 |
 | 9 | `agent_async_tasks_and_phase_audits` | Agent 持久任务、追踪/阶段审计和候选人查询辅助索引。 |
+| 10 | `durable_attachment_import_batches` | 持久附件导入批次、批次项目和导入查询索引。 |
+| 11 | `candidate_hire_status_and_date` | 候选人可空 `hire_status`/`hire_date` 列及状态/日期查询索引。 |
+| 12 | `candidate_hire_information` | 候选人可空 `hire_position` 列及职位查询索引；保留 V11 状态/日期列。 |
 
 v2 新增八张表：
 
@@ -39,7 +42,7 @@ v2 新增八张表：
 - `candidate_consents`
 - `candidate_position_sources`
 
-迁移在数据库打开时自动幂等执行，并在 `BEGIN IMMEDIATE` 事务中只增加列、表、索引和触发器。V8 首次打开还会同步回填全业务搜索文档并核验表级/字段级 coverage，后续打开只同步 dirty 项。V9 只新增 Agent 任务表、审计列和辅助索引，不重建 FTS 或业务表。当前没有自动 down migration；回退必须恢复旧代码和升级前数据库文件集。FTS5 不可用、索引回填失败或 coverage 未 ready 时明确失败，不能忽略后继续运行。
+迁移在数据库打开时自动幂等执行，并在 `BEGIN IMMEDIATE` 事务中只增加列、表、索引和触发器。V8 首次打开还会同步回填全业务搜索文档并核验表级/字段级 coverage，后续打开只同步 dirty 项。V9 只新增 Agent 任务表、审计列和辅助索引，不重建 FTS 或业务表。V10 只新增持久附件导入批次及其索引；V11 只增加两个可空入职字段和索引；V12 只增加可空 `hire_position` 和 `candidates_hire_position_idx`。V11/V12 均保留既有候选人数据，不重建、清空或从旧 `stage` 回填。当前没有自动 down migration；回退必须恢复旧代码和升级前数据库文件集。FTS5 不可用、索引回填失败或 coverage 未 ready 时明确失败，不能忽略后继续运行。
 
 ## 3. 运行要求
 
@@ -72,7 +75,7 @@ Node 主版本必须至少为 24，因为后端使用 Node 内置 `node:sqlite`�
 2. 检查关键运行依赖是否存在，包括 ExcelJS、`xls-reader`、`pdfjs-dist` 和 `mammoth`；仅在缺失或锁文件变化时安装锁文件中的依赖。
 3. 执行 `npm run build`。
 4. 执行 `npm start`。
-5. `openDatabase()` 打开数据库并幂等应用 V1-V9 schema；首次 V8 启动会同步完成全业务搜索回填，数据库较大时启动时间和文件体积可能明显增加；V9 迁移本身不再次全量回填。
+5. `openDatabase()` 打开数据库并幂等应用 V1-V12 schema；首次 V8 启动会同步完成全业务搜索回填，数据库较大时启动时间和文件体积可能明显增加；V9-V12 迁移本身不再次全量回填或改写既有候选人资料。
 6. Express 在回环地址提供 React 静态文件和 `/api`。
 
 监听日志形式为：
@@ -148,7 +151,7 @@ recruitment.db-shm
 
 浏览器写请求的 Origin 检查注册在 JSON 和 multipart 请求体解析之前。不允许的 Origin 对非 `GET` / `HEAD` 请求以及预检请求返回 `403 origin_not_allowed`；缺少 Origin、回环 Origin 和 `CORS_ORIGIN` 明确追加的 Origin 继续兼容。正常接受的应用响应设置 CSP、`X-Frame-Options: DENY`、`X-Content-Type-Options: nosniff`、`Referrer-Policy: no-referrer` 和受限 `Permissions-Policy`。这只是一层本机浏览器防护，不能替代登录、RBAC、会话或多人版 CSRF 设计。
 
-附件解析 worker 的硬化包括：15 秒超时、空 `execArgv`、V8 old generation 256 MB / young generation 64 MB / code range 32 MB / stack 4 MB 的 `resourceLimits`；这些不是 Node 进程总 RSS 上限。Office ZIP 会实际读取 stored entry 或 inflate deflate entry，并对实际单条大小、累计 64 MB、声明长度一致性和压缩比执行限制；加密、ZIP64、未知压缩方法和 `zip_size_mismatch` 均安全失败。
+附件解析 worker 的硬化包括：60 秒解析超时、空 `execArgv`、V8 old generation 256 MB / young generation 64 MB / code range 32 MB / stack 4 MB 的 `resourceLimits`；视觉适配器另有默认 15 秒出站请求超时，附件服务外层视觉调用预算默认 45 秒。这些不是 Node 进程总 RSS 上限。PDF visual renderer 仅在显式视觉能力启用并确实需要页面图像时懒加载；模块缺失或加载失败以 `pdf_visual_renderer_unavailable` 降级，不影响禁用视觉时的文本解析。Office ZIP 会实际读取 stored entry 或 inflate deflate entry，并对实际单条大小、累计 64 MB、声明长度一致性和压缩比执行限制；加密、ZIP64、未知压缩方法和 `zip_size_mismatch` 均安全失败。
 
 `attachment_cleanup_jobs` 每 60 秒尝试处理待删除路径，单轮默认最多 25 个；取消、失败、过期、确认后的隔离文件和候选人永久删除后的正式文件都使用该失败重试机制。预览进入 `confirmed`、`cancelled` 或 `expired` 后还会清空数据库中的临时 `extracted_text` 与 `records_json`，确认正文只保留在正式附件记录。不得手工删除仍被数据库引用的 `files`，也不得把清理队列当作附件备份。
 
@@ -175,6 +178,10 @@ recruitment.db-shm
 ### 8.2 北森正式导入
 
 北森专用增量导入的唯一必需稳定表头是大小写准确的 `应聘者ID`。相同 ID 可以跨文件、跨批次补充不同字段：非空值补充或更新，同一文件后出现的非空标量覆盖先出现值，非空姓名可纠正旧姓名，空值不清除旧值，标签取并集且最多 50 个；姓名仍不参与自动合并。已有 ID 的后续批次可以省略姓名，新 ID 必须提供姓名；手机或邮箱属于其他候选人时阻断。
+
+V12 入职字段规则如下：`hire_position` 去首尾空白、最多 300 个字符；`hire_status` 去首尾空白、最多 200 个字符并保留来源任意文本；`hire_date` 规范为 `YYYY-MM-DD` 且允许未来日期。非空日期对应的显式状态为空时写入精确文本 `不确定`，但不得覆盖候选人已有的显式状态。增量文件中的空职位、状态或日期均不清除旧值。三项全空只会让档案隐藏“入职信息”区块，不会删除、过滤或隐藏候选人主记录。
+
+北森字段必须按来源事实分开处理：`最后职位类投递的职位id` 是候选人与招聘职位的关系键，非空时必须建立 `candidate_positions`；工作簿有该专用表头时行空不建立关系、不得回退普通 `职位编号`，仅整表缺表头时才允许兼容回退；`入职职位` 只写 `candidates.hire_position`，不得作为招聘职位关系键；`入职雇佣关系` 只保留在来源 `raw_payload`，不得投影为 `hire_status`。源文件没有精确 `入职状态` 表头时，不能以“入职雇佣关系”代替，日期非空行按上述规则使用 `不确定`。
 
 `申请ID` 和职位信息是可选项。完全没有招聘职位字段时只跳过候选人职位关系；显式职位字段无效、歧义或命中归档职位时，受影响源行失败且不写入候选人、职位、关系或原始载荷。职位编号能够匹配已有职位，或同时有职位名称可创建职位时，系统才写候选人职位关系；同时有 `申请ID` 时再写申请血缘。没有职位关系但有真实面试/测评等评估载荷时，申请 ID 仅用于评估来源及归属校验。两者都不具备时，重复或已使用的申请 ID 也只作为未使用信息跳过，不阻断候选人资料。参与校验的申请 ID 如果已属于另一候选人则阻断，绝不改绑。
 
@@ -221,7 +228,7 @@ node --input-type=module -e "import { DatabaseSync } from 'node:sqlite'; const d
 
 预期 `integrity_check` 为 `ok`，`foreign_key_check` 为空。该检查不等于恢复或迁移演练。
 
-## 10. 迁移验证（V2-V9）
+## 10. 迁移验证（V2-V12）
 
 ### 10.1 已完成的自动化验证
 
@@ -265,6 +272,9 @@ node --input-type=module -e "import { openDatabase } from './server/database.js'
 7 candidate_demographics_and_large_import
 8 agent_sessions_and_full_business_search
 9 agent_async_tasks_and_phase_audits
+10 durable_attachment_import_batches
+11 candidate_hire_status_and_date
+12 candidate_hire_information
 ```
 
 验证完成后将副本标记为测试产物，不能把它误当作正式数据库或长期备份。
@@ -372,6 +382,30 @@ V9 新增 `agent_tasks`，表定义 SHA-256 为 `c480c640686e24a2b1bda10535ba309
 
 本次正式验收只读取 schema、状态、聚合计数、摘要哈希、完整性、外键和普通运行状态，没有读取或输出候选人正文、搜索词、命中内容、消息、附件文本或 `raw_payload`，也没有在正式库执行搜索、模型问答、截图、负载、写入、删除、上传或故障注入。完整脱敏结构化记录见 [v9-formal-deployment.json](evidence/v9-formal-deployment.json)。实际回退仅验证了可丢弃恢复副本迁移，没有对正式文件集实施破坏性恢复演练。
 
+### 10.8 V10-V12 代码迁移、V11 正式收尾与 V12 隔离验收（2026-08-21）
+
+当前代码已包含 V10 `durable_attachment_import_batches`、V11 `candidate_hire_status_and_date` 和 V12 `candidate_hire_information`。正式数据库升级仍必须先停止服务、备份同一时点的 `.db`、`-wal`、`-shm` 文件集，并先在可丢弃副本执行迁移；V11 只补充可空 `hire_status`/`hire_date` 和两个索引，V12 只补充可空 `hire_position` 和一个索引，均不重建候选人表、不清空旧数据，也不把旧 `stage` 自动回填为入职状态。
+
+本轮正式维护窗口已完成：旧服务 PID `32716` 已停止，升级前三件套备份位于 `backups/pre-v11-hire-status-20260821-111600/data/`，原始 `.db`、`-wal`、`-shm` 均保留，未用于测试数据写入。随后以显式目标 `data/recruitment.db` 执行 V11 加法迁移和只读核对（迁移/核对进程 PID `31752`）；迁移连接关闭时完成 checkpoint，主库当时为 `22,021,361,664` bytes，关闭时 WAL/SHM 已清理，服务重启后由 SQLite 重新创建的运行时 WAL/SHM 不属于迁移残留。结果为 `schema_migrations` V1-V11 完整，`candidates.hire_status`、`candidates.hire_date` 和 `candidates_hire_status_idx`、`candidates_hire_date_idx` 均存在，`PRAGMA integrity_check` 返回 `ok`，`PRAGMA foreign_key_check` 返回 0 条异常。没有读取或输出候选人明文、原始载荷、附件正文或搜索命中内容；脱敏证据见 [v11-formal-deployment.json](evidence/v11-formal-deployment.json)。
+
+备份三件套的 SHA-256 已记录在证据文件中：`recruitment.db=793E873A44E2...E5942`、`recruitment.db-wal=279E4477BE84...92ED8`、`recruitment.db-shm=CF1659CCB88E...3DD6`；文档中不展开真实候选人数据。迁移后服务已以 PID `22096` 重启，`http://127.0.0.1:4173/api/health` 返回 HTTP 200、`status=ok`，启动 stderr 为空。
+
+本轮已生成 7 个逐文件 `_已整理.xlsx` 工作簿，输出目录为 `outputs/2026-08-21-hire-status-cleaned/`，另有 `cleanup-summary.json`。强制真实文件专项为 8/8 通过（含最终输出、暂存导出、artifact inspect sidecar、渲染预览和清理摘要的硬链接别名保护）；共保留 1,390 行、移除 61,471 行，4 行保留记录的入职日期为空，原始 `.xls` 文件保持只读且 SHA-256 未变。清理规则为 `trim(status) !== '' && trim(status) !== '空'`，日期为空不会删除有状态行。专项结束后已删除包含真实预览的 `.tmp-hire-status-artifact` 临时目录，交付目录只保留 7 个 `.xlsx` 和 `cleanup-summary.json`。
+
+收尾复核命令：
+
+```powershell
+node --test tests/backend/hire-status-v11.test.mjs tests/backend/xls-import.test.mjs tests/backend/candidate-demographics-ui.test.mjs
+$env:HIRE_STATUS_WORKBOOKS_REQUIRED = '1'
+node --test tests/backend/hire-status-workbooks.test.mjs
+```
+
+本轮收尾结果：上述 focused 门禁合计 23/23，真实工作簿专项 8/8（0 跳过）；在清除宿主预设 `ATTACHMENT_VISUAL_*`/`AGENT_*` 变量的清洁子进程中，完整 `npm test` 为 532 项、531 通过、0 失败、1 跳过；`npm run build` 退出码 0（Vite 转换 1,858 个模块，保留主 chunk 大小提示）；`git diff --check` 退出码 0。若宿主预设视觉/Agent 变量，先按测试说明清除变量后运行门禁，不能打印配置值。
+
+V12 另使用新的 BIFF8 `.xls` 完成脱敏 100 人隔离验收：原表 191 列、10,000 行，135 行有入职日期且没有精确 `入职状态` 表头；隔离样本预览 100/100 有效，36 行含非空 `最后职位类投递的职位id`。提交仅写入 `:memory:` SQLite，得到 100 位候选人、100 份人才库关系、100 份来源记录、31 个职位和 36 条候选人职位关系，完整性为 `ok`、外键异常为 0。`入职职位`、日期触发的 `不确定` 状态和原始 `入职雇佣关系` 均按 8.2 的边界验证。脱敏证据见 [v12-hire-information-import-20260821.json](evidence/v12-hire-information-import-20260821.json)。
+
+该隔离证据明确记录 `formal_database_commit=false`，不能替代正式事实。2026-08-24 已验证维护服务绑定正式 `data/recruitment.db` 且后台写入暂停，并对 `北森候选人入职信息导入样本-100人.xlsx`（SHA-256 `7D92DB6C37B892F3237E490E5424CC367CE14C9CAAE3F3584FB3083AD0A6C741`）完成 HTTP 预览与用户确认提交：`profile=beisen_talent`、100/100/0、`existing_duplicates=100`；职位映射为 `最后职位类投递的职位id`，create/match/link/conflict 为 0/32/36/0；提交为 0 导入、100 更新、0 失败/跳过、100 候选人，`positions_created/matched=0/32`、`links_created=0`、`pools_created=0`、`application_count=0`。前 20 条预览的入职职位/日期/`不确定` 状态及人才库、来源预览已核对。用户明确豁免提交后的 22GB 全库摘要、100 行逐项字段查询、完整性/外键后检和恢复演练；不得将本段写成 V12 schema postcheck、字段逐行后检或恢复成功。脱敏 HTTP 证据见 [v12-hire-information-formal-import-20260824.json](evidence/v12-hire-information-formal-import-20260824.json)。
+
 ## 11. 恢复
 
 恢复会切换当前数据集。操作前必须停止应用，并把现有目录另存为可回退副本。默认路径示例：
@@ -402,13 +436,13 @@ Copy-Item -LiteralPath $restoreSource -Destination ".\data" -Recurse
 1. 记录代码版本、Node 版本和实际数据库路径。
 2. 停止应用并完成数据库文件集备份。
 3. 执行备份完整性检查。
-4. 先在可丢弃备份副本上执行 V1-V9 幂等迁移、全业务 FTS5、dirty/coverage、持久会话/任务、附件、只读查询和人口字段验证。
+4. 先在可丢弃备份副本上执行 V1-V12 幂等迁移、全业务 FTS5、dirty/coverage、持久会话/任务、附件批次、只读查询、人口字段和三项入职字段验证。
 5. 更新代码，保留 `.env` 和外部数据目录。
 6. 运行 `npm install --no-audit --no-fund`。
 7. 运行 `npm test`。
 8. 运行 `npm run build`。
 9. 启动应用，检查健康接口、schema 版本和关键数量。
-10. 验证候选人、人才库、职位、导入预览、删除预览、附件、全业务 FTS5、会话 API 和 Agent 只读状态。
+10. 验证候选人、人才库、职位、导入预览、删除预览、附件、附件批次、全业务 FTS5、会话 API、Agent 只读状态及 `hire_position`/`hire_status`/`hire_date` CRUD、导入导出和条件展示；北森预览还须核对人才库、来源记录和 `最后职位类投递的职位id` 关系计数。需要清理北森文件时，另运行 10.8 的七份工作簿专项。
 
 若升级失败，停止新版本，恢复上一版代码和升级前同一时间点数据库文件集。不要只回退代码继续使用 V6 数据库；当前没有 down migration。
 
@@ -452,6 +486,9 @@ V9 的 `agent_tasks` 是 Agent 专用持久任务状态，不是外部消息队�
 | `schema_migrations` 缺少 V7 / 性别筛选失败 | 确认运行当前代码并在副本复现 V7 加法迁移；不得手工删除或重建候选人表。迁移成功但旧进程未加载新路由时需安排受控重启。 |
 | `schema_migrations` 缺少 V8 / 首次启动很久 | V8 首次打开同步回填全业务搜索；确认磁盘空间和进程仍在运行，不要中断后手工改迁移账本。先在同规模副本测量并检查 checkpoint/coverage。 |
 | `schema_migrations` 缺少 V9 / 任务端点 404 | 当前进程未加载 V9 路由或数据库未执行加法迁移。在恢复副本先验证 V8→V9，再安排受控重启；不得手工插入迁移账本。 |
+| `schema_migrations` 缺少 V10 / 附件批次查询异常 | 在停止服务并备份文件集后，先在可丢弃副本验证 V9→V10；确认 `attachment_import_batches`、`attachment_import_items` 及其索引存在，不得手工插入迁移账本。 |
+| `schema_migrations` 缺少 V11 / 入职字段缺失 | 在停止服务并备份文件集后，先在可丢弃副本验证 V10→V11；确认 `candidates.hire_status`、`candidates.hire_date` 及两个索引存在。V11 不会从 `stage` 回填，也不应手工重建候选人表或清除旧数据。 |
+| `schema_migrations` 缺少 V12 / 入职职位缺失 | 在停止服务并备份文件集后，先在可丢弃副本验证 V11→V12；确认 `candidates.hire_position` 和 `candidates_hire_position_idx` 存在。不得手工插入迁移账本、把 `入职职位` 当招聘职位关系键或以 `入职雇佣关系` 回填状态。 |
 | 搜索返回 `search_index_not_ready` | 检查 dirty、checkpoint、表级/字段级 coverage 和最后错误；在副本复现触发来源，不得手工标 ready 或退化为整库正文扫描。 |
 | Agent 历史会话未恢复 | 检查会话 API、活动状态和存储的值是否为合法 UUID；`localStorage` 只用于定位，正文应从 SQLite 重新读取。已归档/已删除会话不会作为活动会话恢复。 |
 | Agent 会话返回 `session_busy` / `request_already_failed` | 等待当前请求完成；超过 2 分钟的锁会被视为陈旧。失败或中断后使用新的 `client_request_id`，不要修改会话表绕过锁。 |
@@ -492,6 +529,16 @@ V9 的 `agent_tasks` 是 Agent 专用持久任务状态，不是外部消息队�
 - V9 完整自动化、100,000/120,000 匿名容量、并发/取消/partial/恢复、分层超时和双视口浏览器门禁均已通过；正式三件套备份、恢复副本门禁、V8→V9 加法迁移、聚合/摘要一致性核对和回环重启也已完成。当前正式服务为 PID `22904`、schema `[1,2,3,4,5,6,7,8,9]`，详细证据见 10.7 节。
 
 V9 匿名基准和浏览器结论不能替代真实北森文件、正式数据分布或多人吞吐验收；正式迁移证据也只证明备份一致、加法 schema、聚合/摘要保持、完整性、外键、coverage 和运行健康，不包含正式候选人搜索内容验收。详细结果以 `docs/TESTING.md` 最新收尾记录为准。
+
+## 15.1 PDF 双通道附件解析运维
+
+当前服务没有持久化指标、告警或日志轮转；以下均为建议观测点，不代表已部署监控：按 `pipeline.text.status`、`pipeline.visual.status`、`pipeline.visual.error_code` 和顶层附件 `error_code` 计数；记录无正文的解析/渲染/视觉请求耗时、队列深度、Worker 终止数、fallback 比率、页数、像素与 PNG 字节预算命中、清理队列积压和重试次数。标签不得包含附件正文、页图/base64、文件名、绝对路径、token、网关地址或密钥；需要关联时使用短期随机 preview/job ID 或已脱敏的错误码。
+
+排障顺序：先检查顶层预览是否仍为 `parsing` 或已 `failed`，再分别查看 `pipeline.text`、`pipeline.text_model` 和 `pipeline.visual`。`review_required=true` 表示扫描/混合 PDF 或视觉未成功，必须人工核对，但不等同于整个解析失败；`pipeline.visual=fallback` 仍可确认确定性结果。`visual_capability_disabled` 表示未显式声明 `image_input`；`visual_capability_unknown` 表示能力值未知；`visual_configuration_invalid` 表示本地配置不完整；`visual_endpoint_invalid`、`visual_endpoint_insecure`、`visual_endpoint_blocked` 和 `visual_endpoint_unapproved` 表示端点安全校验拒绝。文本端点 `attachment_suggestion_endpoint_invalid`、`attachment_suggestion_endpoint_insecure` 是不可重试的配置错误。上述配置错误不是网关主动探测结果，网关可达性和响应合规性只在实际请求/响应中验证。`pdf_visual_*` 表示渲染安全限制或超时；其中 `pdf_visual_render_timeout` 会标记视觉通道可重试，渲染器缺失、尺寸/像素/PNG 上限和其他资源限制保持不可重试。`visual_timeout`、`visual_http_error`、`visual_invalid_json`、`visual_invalid_schema`、`visual_response_too_large` 和 `visual_unavailable` 表示视觉适配器的安全降级。不要把任意网关错误原样输出，也不要把 fallback 处理成重试全文解析、调用在线转换/OCR 或直接确认写库。
+
+先核对配置名称及部署时是否显式设置端点，但不得打印值：文本通道 `ATTACHMENT_TEXT_SCHEMA_MODE`、`ATTACHMENT_TEXT_TIMEOUT_MS`、`ATTACHMENT_TEXT_MAX_RESPONSE_BYTES`；视觉通道 `ATTACHMENT_VISUAL_CAPABILITY`、`ATTACHMENT_VISUAL_SCHEMA_MODE`、`ATTACHMENT_VISUAL_BASE_URL`、`ATTACHMENT_VISUAL_ALLOWED_HOSTS`、`ATTACHMENT_VISUAL_TRUSTED_PRIVATE_HOSTS`、`ATTACHMENT_VISUAL_API_KEY`、`ATTACHMENT_VISUAL_MODEL`、`ATTACHMENT_VISUAL_TIMEOUT_MS` 与各页/像素/字节上限。compat 必须显式设置，不能把网关不支持 strict 当作自动回退。端点必须为 `http`/`https`；生产拒绝明文 HTTP，非生产 loopback HTTP 仅限隔离测试。私网默认拒绝，只有精确列入 `ATTACHMENT_VISUAL_TRUSTED_PRIVATE_HOSTS` 的 DNS 主机名、HTTPS 端点、且（若配置）同时在普通主机 allowlist 中，才允许全部 DNS 地址为 RFC1918/IPv6 ULA；IP 字面量、通配符/后缀匹配、`.localhost`/`.internal`/`.local`/metadata 保留主机名、混合公网/私网答案，以及 URL 用户信息、回环、link-local、metadata、multicast、保留地址、IPv4-mapped、NAT64 和 6to4 等危险目标仍拒绝。主机名在请求前解析，所有 DNS 结果逐一校验，实际连接使用 pinned lookup 固定到这些地址；公网 HTTPS 可用主机名 allowlist 进一步约束，部署网络出口策略仍作为独立纵深控制。配置在服务创建适配器时读取，变更后需受控重启。维持两层边界：附件 15 MiB、PDF 200 页；Worker 渲染最多 12 页、单页 3,000,000 像素、总计 18,000,000 像素、累计 RGBA raster 64 MiB、单页/总 PNG 4/24 MiB、单页 8 秒，整份 PDF 的顺序页面渲染共用 30 秒且每页只能使用剩余预算、解析 Worker 60 秒；视觉适配器的出站请求最多 12 页、4,000,000 像素/页、3 MiB/页、12 MiB 总图像、8,000 字符/页、单 span 1,000 字符、100 条记录、512 KiB 响应，默认 15 秒。适配器请求固定 `stream:false`、无 tools 并拒绝重定向；附件服务外层视觉总预算默认 45 秒。视觉配置和 override 只能下调这些值，超过硬上限会安全 clamp。资源受限时保持确定性通道结果而不是提高上限掩盖异常输入。
+
+回滚不需要数据迁移：在受控发布中把视觉能力设为非 `image_input` 后重启服务，新的 PDF 预览会跳过页渲染并返回确定性结果及视觉 fallback。已存在的预览和正式附件不含持久化 PNG/data URL，不应尝试从数据库恢复视觉页；需要重新得到视觉建议时只能在合规边界内重新上传并人工复核。回滚前后都不得删除 `candidate_attachments`、`attachment_update_previews` 或 `attachment_cleanup_jobs` 来解决视觉故障；先在匿名隔离实例复现，确认清理队列与附件下载不受影响。
 
 ## 16. 多人部署前置条件
 

@@ -24,6 +24,14 @@ export function candidateHireStatusText(value: unknown): string {
   return String(value ?? "").trim();
 }
 
+export function hasHireInformation(candidate: Pick<Candidate, "hire_status" | "hire_date" | "hire_position">): boolean {
+  return Boolean(
+    String(candidate.hire_status ?? "").trim()
+    || String(candidate.hire_date ?? "").trim()
+    || String(candidate.hire_position ?? "").trim(),
+  );
+}
+
 export function candidateDisplayAge(
   candidate: Pick<Candidate, "birth_date" | "age">,
   today = new Date(),

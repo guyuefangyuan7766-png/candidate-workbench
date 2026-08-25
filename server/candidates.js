@@ -22,14 +22,14 @@ function candidateStatements(db) {
       INSERT INTO candidates(
         id, name, phone, email, photo_url, current_company, current_title, location,
         gender, birth_date, age, years_experience, education, highest_school, highest_major,
-        job_seeking_status, hire_status, hire_date, resume_updated_at, self_summary, source, stage, owner, tags,
+        job_seeking_status, hire_position, hire_status, hire_date, resume_updated_at, self_summary, source, stage, owner, tags,
         expected_salary, source_system, source_record_id, import_batch_id,
         created_at, updated_at, archived_at
       ) VALUES (
         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-        ?
+        ?, ?
       )
     `),
     updates: new Map()
@@ -230,6 +230,7 @@ export function insertCandidate(db, candidate, {
     record.highest_school,
     record.highest_major,
     record.job_seeking_status,
+    record.hire_position,
     record.hire_status,
     record.hire_date,
     record.resume_updated_at,

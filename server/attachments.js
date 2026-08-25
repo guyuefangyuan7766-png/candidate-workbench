@@ -38,12 +38,13 @@ import {
   sanitizeCandidateInput
 } from './validation.js'
 
-const PARSER_VERSION = 'local-resume-parser-v2'
+const PARSER_VERSION = 'local-resume-parser-v3'
 const DEFAULT_PREVIEW_TTL_MS = 15 * 60 * 1000
 const DEFAULT_PARSE_CONCURRENCY = 2
 const MAX_CONFIRM_RECORDS = 1000
 const MAX_PROFILE_SECTIONS = 100
 const ATTACHMENT_SUGGESTION_TIMEOUT_MS = 5_000
+const ATTACHMENT_VISUAL_SUGGESTION_TIMEOUT_MS = 45_000
 const ATTACHMENT_AVATAR_URL_PREFIX = 'attachment-avatar:'
 const PARSE_FAILURE_MESSAGES = Object.freeze({
   attachment_empty: '附件中没有可确认的候选人记录',
@@ -90,6 +91,54 @@ const RETRYABLE_PARSE_FAILURES = new Set([
   'parse_interrupted',
   'parse_timeout',
   'parser_unavailable'
+])
+const ATTACHMENT_SUGGESTION_ERROR_CODES = new Set([
+  'attachment_suggestion_not_configured',
+  'attachment_suggestion_endpoint_invalid',
+  'attachment_suggestion_endpoint_insecure',
+  'attachment_suggestion_aborted',
+  'attachment_suggestion_timeout',
+  'attachment_suggestion_network_error',
+  'attachment_suggestion_http_error',
+  'attachment_suggestion_response_too_large',
+  'attachment_suggestion_invalid_outer_json',
+  'attachment_suggestion_invalid_inner_json',
+  'attachment_suggestion_invalid_schema',
+  'attachment_suggestion_unavailable'
+])
+const RETRYABLE_ATTACHMENT_SUGGESTION_ERRORS = new Set([
+  'attachment_suggestion_aborted',
+  'attachment_suggestion_timeout',
+  'attachment_suggestion_network_error',
+  'attachment_suggestion_response_too_large',
+  'attachment_suggestion_unavailable'
+])
+const ATTACHMENT_VISUAL_ERROR_CODES = new Set([
+  'visual_capability_disabled',
+  'visual_capability_unknown',
+  'visual_configuration_invalid',
+  'visual_endpoint_invalid',
+  'visual_endpoint_insecure',
+  'visual_endpoint_blocked',
+  'visual_endpoint_unapproved',
+  'visual_endpoint_unavailable',
+  'visual_unavailable',
+  'visual_aborted',
+  'visual_timeout',
+  'visual_http_error',
+  'visual_response_too_large',
+  'visual_invalid_json',
+  'visual_invalid_schema',
+  'visual_pages_unavailable'
+])
+const RETRYABLE_ATTACHMENT_VISUAL_ERRORS = new Set([
+  'visual_unavailable',
+  'visual_aborted',
+  'visual_timeout',
+  'visual_http_error',
+  'visual_response_too_large',
+  'visual_endpoint_unavailable',
+  'pdf_visual_render_timeout'
 ])
 const ALLOWED_UPDATE_FIELDS = new Set([
   'name', 'phone', 'email', 'gender', 'birth_date', 'age',
@@ -177,9 +226,9 @@ const RESUME_SECTION_DEFINITIONS = Object.freeze([
     title: '实习经历',
     aliases: ['实习经历', '实习经验', '实习履历', '实习', 'internship', 'intern experience']
   }),
-  // self_summary is a scalar candidate field.  It is retained as an internal
-  // preview semantic for selection linkage, but is omitted from profile-section
-  // persistence to avoid storing the same content twice.
+  // self_summary is a scalar candidate field. The marker remains available to
+  // scalar extraction and section-boundary detection, but never becomes a
+  // public or persisted profile section.
   Object.freeze({
     section_type: 'self_summary',
     title: '自我评价',
@@ -312,22 +361,139 @@ function publicParseFailure(error) {
   }
 }
 
-async function optionalSuggestionWithin(promise, timeoutMs = ATTACHMENT_SUGGESTION_TIMEOUT_MS, signal) {
+function safeAttachmentSuggestionErrorCode(value) {
+  const code = String(value ?? '')
+  return ATTACHMENT_SUGGESTION_ERROR_CODES.has(code) ? code : 'attachment_suggestion_unavailable'
+}
+
+function attachmentSuggestionPipelineState(result, error) {
+  if (result?.__attachment_timeout === true) {
+    return {
+      status: 'fallback',
+      error_code: 'attachment_suggestion_timeout',
+      retryable: true
+    }
+  }
+  if (result?.status === 'ready' || Array.isArray(result?.records) && result?.status == null) {
+    return {
+      status: 'ready',
+      ...(result?.schema_mode ? { schema_mode: String(result.schema_mode) === 'compat' ? 'compat' : String(result.schema_mode) === 'strict' ? 'strict' : 'unknown' } : { schema_mode: 'unknown' }),
+      retryable: false
+    }
+  }
+  if (result?.status === 'fallback') {
+    const errorCode = safeAttachmentSuggestionErrorCode(result.error_code)
+    return {
+      status: 'fallback',
+      error_code: errorCode,
+      retryable: result.retryable === true || RETRYABLE_ATTACHMENT_SUGGESTION_ERRORS.has(errorCode),
+      ...(result.schema_mode ? { schema_mode: String(result.schema_mode) === 'compat' ? 'compat' : String(result.schema_mode) === 'strict' ? 'strict' : 'unknown' } : {})
+    }
+  }
+  if (error) {
+    const errorCode = safeAttachmentSuggestionErrorCode(error.code)
+    return {
+      status: 'fallback',
+      error_code: errorCode,
+      retryable: error.retryable === true || RETRYABLE_ATTACHMENT_SUGGESTION_ERRORS.has(errorCode),
+      ...(error.schema_mode ? { schema_mode: String(error.schema_mode) === 'compat' ? 'compat' : String(error.schema_mode) === 'strict' ? 'strict' : 'unknown' } : {})
+    }
+  }
+  return {
+    status: 'fallback',
+    error_code: 'attachment_suggestion_unavailable',
+    retryable: true
+  }
+}
+
+function safeAttachmentVisualErrorCode(value) {
+  const code = String(value ?? '')
+  // PDF rendering errors are produced by the isolated parser and are already
+  // stable, bounded identifiers. Keep only the known visual namespace here so
+  // an injected provider cannot copy arbitrary exception text into the API.
+  if (ATTACHMENT_VISUAL_ERROR_CODES.has(code) || [
+    'pdf_visual_renderer_unavailable',
+    'pdf_visual_render_timeout',
+    'pdf_visual_dimensions_invalid',
+    'pdf_visual_pixel_limit',
+    'pdf_visual_total_pixel_limit',
+    'pdf_visual_total_memory_limit',
+    'pdf_visual_png_limit',
+    'pdf_visual_total_png_limit',
+    'pdf_visual_page_limit',
+    'pdf_visual_render_failed'
+  ].includes(code)) return code
+  return 'visual_unavailable'
+}
+
+function safeAttachmentSchemaMode(value) {
+  return value === 'compat' || value === 'strict' ? value : 'unknown'
+}
+
+function attachmentVisualPipelineState(result, error) {
+  const candidate = result && typeof result === 'object' ? result : error
+  // A provider may only claim readiness when it returned the contract's
+  // records array.  Treat a bare `status: ready` as a schema failure instead
+  // of allowing a false visual success to reach the preview UI.
+  if (candidate?.status === 'ready' && !Array.isArray(candidate?.records)) {
+    return {
+      status: 'fallback',
+      error_code: 'visual_invalid_schema',
+      retryable: false,
+      ...(candidate?.schema_mode === 'compat' || candidate?.schema_mode === 'strict'
+        ? { schema_mode: candidate.schema_mode }
+        : {})
+    }
+  }
+  if ((candidate?.status === 'ready' && Array.isArray(candidate?.records)) ||
+      (Array.isArray(candidate?.records) && candidate?.status == null)) {
+    return {
+      status: 'ready',
+      schema_mode: safeAttachmentSchemaMode(candidate?.schema_mode),
+      retryable: false
+    }
+  }
+  const errorCode = safeAttachmentVisualErrorCode(candidate?.error_code ?? candidate?.code)
+  return {
+    status: 'fallback',
+    error_code: errorCode,
+    retryable: typeof candidate?.retryable === 'boolean'
+      ? candidate.retryable
+      : RETRYABLE_ATTACHMENT_VISUAL_ERRORS.has(errorCode),
+    ...(candidate?.schema_mode === 'compat' || candidate?.schema_mode === 'strict'
+      ? { schema_mode: candidate.schema_mode }
+      : {})
+  }
+}
+
+async function optionalSuggestionWithin(operation, timeoutMs = ATTACHMENT_SUGGESTION_TIMEOUT_MS, signal) {
   let timer
   let abortHandler
+  const controller = new AbortController()
+  const operationSignal = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal
   const timeout = new Promise((resolve) => {
-    timer = setTimeout(() => resolve(null), timeoutMs)
+    timer = setTimeout(() => {
+      controller.abort()
+      resolve({ __attachment_timeout: true })
+    }, timeoutMs)
     timer.unref()
   })
   const aborted = new Promise((resolve) => {
     if (!signal) return
-    abortHandler = () => resolve(null)
+    abortHandler = () => {
+      controller.abort()
+      resolve(null)
+    }
     signal.addEventListener('abort', abortHandler, { once: true })
     if (signal.aborted) abortHandler()
   })
+  const promise = typeof operation === 'function'
+    ? Promise.resolve().then(() => operation(operationSignal))
+    : Promise.resolve(operation)
   try {
     return await Promise.race([promise, timeout, aborted])
   } finally {
+    controller.abort()
     clearTimeout(timer)
     if (abortHandler) signal?.removeEventListener('abort', abortHandler)
   }
@@ -349,6 +515,64 @@ function cleanValue(value, maximum = 20_000) {
   if (value === null || value === undefined) return null
   const text = String(value).replace(/\u0000/g, '').trim()
   return text ? text.slice(0, maximum) : null
+}
+
+function clearVisualPages(pages) {
+  for (const page of Array.isArray(pages) ? pages : []) {
+    try {
+      if (page?.image instanceof Uint8Array) page.image.fill(0)
+      else if (Buffer.isBuffer(page?.image)) page.image.fill(0)
+    } catch {}
+    if (page && typeof page === 'object') {
+      page.image = new Uint8Array()
+      page.text = ''
+      page.text_spans = []
+    }
+  }
+  if (Array.isArray(pages)) pages.length = 0
+}
+
+function normalizedEvidenceText(value) {
+  return normalizeChineseSpacing(String(value ?? ''))
+    .replace(/[\u00a0\u3000]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function validNormalizedBox(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const box = {
+    x: Number(value.x),
+    y: Number(value.y),
+    width: Number(value.width),
+    height: Number(value.height)
+  }
+  if (!Object.values(box).every(Number.isFinite)) return null
+  if (box.x < 0 || box.y < 0 || box.width <= 0 || box.height <= 0) return null
+  if (box.x + box.width > 1.000001 || box.y + box.height > 1.000001) return null
+  return box
+}
+
+function evidenceRefsForText(evidence, pages, preferredPage = null) {
+  const text = cleanEvidenceSegment(evidence, 1_000)
+  if (!text) return []
+  const needle = normalizedEvidenceText(text)
+  if (!needle) return []
+  const candidates = (Array.isArray(pages) ? pages : [])
+    .filter((page) => preferredPage == null || page?.page_number === preferredPage)
+  for (const page of candidates) {
+    const pageText = normalizedEvidenceText(page?.text)
+    if (!pageText || !pageText.includes(needle)) continue
+    const reference = { page: Number(page.page_number), text }
+    const matchingSpan = (Array.isArray(page.text_spans) ? page.text_spans : []).find((span) => {
+      const spanText = normalizedEvidenceText(span?.text)
+      return spanText && needle === spanText
+    })
+    const bbox = validNormalizedBox(matchingSpan?.bbox)
+    if (bbox) reference.bbox = bbox
+    return [reference]
+  }
+  return [{ page: Number.isInteger(preferredPage) ? preferredPage : null, text }]
 }
 
 const PLACEHOLDER_VALUE_PATTERN = /^(?:[-\u2010\u2011\u2012\u2013\u2014\u2212]+|未填写|未填|未提供|未提取|未知|暂无|无|n\/a|na|null|none)$/iu
@@ -1326,6 +1550,15 @@ function sectionTitle(type) {
   }[type] ?? type
 }
 
+function isScalarSummarySection(section) {
+  const sectionType = String(section?.section_type ?? '').trim().toLowerCase()
+  if (sectionType === 'self_summary' || sectionType === 'resume_summary') return true
+  const rawStructured = section?.structured_data
+  const structured = typeof rawStructured === 'string' ? parseJson(rawStructured, {}) : rawStructured
+  const semanticType = String(structured?.semantic_type ?? '').trim().toLowerCase()
+  return semanticType === 'self_summary' || semanticType === 'resume_summary'
+}
+
 function extractStructuredSectionFields(sectionType, content) {
   const source = String(content ?? '')
   const result = {}
@@ -1363,6 +1596,7 @@ export function extractResumeSections(text) {
     ...scanStandaloneFieldMarkers(source)
   ])
   const sections = []
+  let sawSelfSummary = false
   for (const [index, marker] of markers.entries()) {
     const next = markers[index + 1]
     let boundary = next ? markerBoundaryStart(next) : source.length
@@ -1376,6 +1610,10 @@ export function extractResumeSections(text) {
     if (!content) continue
     const definition = marker.descriptor.section
     const sectionType = definition.section_type
+    if (sectionType === 'self_summary') {
+      sawSelfSummary = true
+      continue
+    }
     sections.push({
       section_id: randomUUID(),
       section_type: sectionType,
@@ -1396,6 +1634,7 @@ export function extractResumeSections(text) {
     })
   }
   if (sections.length) return sections.slice(0, 50)
+  if (sawSelfSummary) return []
   const fallback = cleanResumeSegment(source, 50_000)
   return fallback
     ? [{
@@ -1504,7 +1743,7 @@ function sanitizeAttachmentPatch(input) {
   }
 }
 
-function buildSuggestions(sourceValues, candidate, sourceEvidence = {}) {
+function buildSuggestions(sourceValues, candidate, sourceEvidence = {}, provenance = {}) {
   const safeInput = Object.fromEntries(
     Object.entries(sourceValues).filter(([field, value]) => ALLOWED_UPDATE_FIELDS.has(field) && nonEmpty(value))
   )
@@ -1523,6 +1762,8 @@ function buildSuggestions(sourceValues, candidate, sourceEvidence = {}) {
         value: suggested,
         confidence,
         evidence,
+        source: provenance.source ?? 'deterministic_text',
+        evidence_refs: evidenceRefsForText(evidence, provenance.pages),
         current_value: current,
         default_selected: !nonEmpty(current) && confidence !== 'low'
       }]
@@ -1567,32 +1808,145 @@ function recordSourceCorpus(record) {
 
 function sourceEvidence(corpus, value, proposedEvidence) {
   const evidence = cleanEvidenceSegment(proposedEvidence, 1000)
-  if (evidence && corpus.includes(evidence)) return evidence
   const needles = (Array.isArray(value) ? value : [value])
     .map((item) => String(item ?? '').trim())
     .filter(Boolean)
-  for (const needle of needles) {
-    const index = corpus.indexOf(needle)
-    if (index >= 0) {
-      return cleanEvidenceSegment(
-        corpus.slice(Math.max(0, index - 80), Math.min(corpus.length, index + needle.length + 80)),
-        1_000
-      )
-    }
+  if (!needles.length) return null
+  const evidenceText = normalizedEvidenceText(evidence)
+  const normalizedNeedles = needles.map(normalizedEvidenceText).filter(Boolean)
+  if (evidence && corpus.includes(evidence) && normalizedNeedles.every((needle) => evidenceText.includes(needle))) {
+    return evidence
   }
-  return null
+  const occurrences = needles.map((needle) => ({ needle, index: corpus.indexOf(needle) }))
+  if (occurrences.some(({ index }) => index < 0)) return null
+  const first = Math.min(...occurrences.map(({ index }) => index))
+  const last = Math.max(...occurrences.map(({ index, needle }) => index + needle.length))
+  if (last - first > 840) return null
+  const derived = cleanEvidenceSegment(
+    corpus.slice(Math.max(0, first - 80), Math.min(corpus.length, last + 80)),
+    1_000
+  )
+  const derivedText = normalizedEvidenceText(derived)
+  return derived && normalizedNeedles.every((needle) => derivedText.includes(needle)) ? derived : null
 }
 
-function mergeModelSuggestions(baseRecord, modelRecord) {
+function visualEvidence(item, pages, value, { requireCompleteValue = false } = {}) {
+  const proposedRef = Array.isArray(item?.evidence_refs) ? item.evidence_refs[0] : null
+  const pageNumber = Number.isInteger(item?.page) ? item.page : proposedRef?.page
+  if (!Number.isInteger(pageNumber) || pageNumber < 1) return null
+  const page = (Array.isArray(pages) ? pages : []).find((entry) => entry?.page_number === pageNumber)
+  if (!page) return null
+  const evidence = cleanEvidenceSegment(item.evidence ?? proposedRef?.text, 1_000)
+  if (!evidence) return null
+  const evidenceText = normalizedEvidenceText(evidence)
+  const pageTextSource = String(page.text ?? '')
+  const pageText = normalizedEvidenceText(pageTextSource)
+  const values = (Array.isArray(value) ? value : [value])
+    .map(normalizedEvidenceText)
+    .filter(Boolean)
+  const completeValueEvidence = values.length > 0 && values.every((entry) => evidenceText.includes(entry))
+  const partialValueEvidence = values.some((entry) => entry.includes(evidenceText))
+  if (!evidenceText || values.length === 0 || (!completeValueEvidence && !partialValueEvidence) ||
+    (requireCompleteValue && !completeValueEvidence)) {
+    return null
+  }
+  // A page containing only a short prefix cannot verify a longer model value.
+  // Sections may still remain as explicit unverified review candidates, but
+  // they cannot become default-selected or replace deterministic content.
+  const textVerified = Boolean(completeValueEvidence && pageText && pageText.includes(evidenceText))
+  const refs = evidenceRefsForText(evidence, pages, pageNumber)
+  return {
+    evidence,
+    refs,
+    textVerified,
+    evidence_status: textVerified ? 'text_verified' : 'unverified',
+    pageText: pageTextSource
+  }
+}
+
+const VISUAL_STRUCTURED_FIELD_LIMITS = Object.freeze({
+  organization: 300,
+  role: 300,
+  start_date: 80,
+  end_date: 80,
+  period: 160
+})
+
+function verifiedVisualStructuredData(item, visualProof) {
+  // A visual-only snippet may be useful for manual review, but it cannot
+  // establish a company/role/period relationship until the same evidence is
+  // present in the PDF text layer. Ignore unknown keys and values that are not
+  // literally auditable in that evidence; never copy model coordinates.
+  if (!visualProof?.textVerified) return {}
+  const raw = item?.structured_data
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+  const pageLines = String(visualProof.pageText ?? '')
+    .split(/\r?\n/u)
+    .map(normalizedEvidenceText)
+    .filter(Boolean)
+  const candidates = []
+  for (const [field, maximum] of Object.entries(VISUAL_STRUCTURED_FIELD_LIMITS)) {
+    const candidate = cleanResumeSegment(raw[field], maximum)
+    if (!candidate) continue
+    const normalized = normalizedEvidenceText(candidate)
+    if (!normalized) continue
+    candidates.push({ field, candidate, normalized })
+  }
+  const auditableCandidates = candidates.filter(({ normalized }) => pageLines.some((line) => line.includes(normalized)))
+  if (!auditableCandidates.length) return {}
+  const bindingLine = pageLines.find((line) => auditableCandidates.every(({ normalized }) => line.includes(normalized)))
+  return bindingLine
+    ? Object.fromEntries(auditableCandidates.map(({ field, candidate }) => [field, candidate]))
+    : {}
+}
+
+const CURRENT_ROLE_MARKER_PATTERN = /(?:当前|现任|在职|至今|现在|\b(?:present|current|now)\b)/iu
+const HISTORICAL_DATE_RANGE_PATTERN = /(?:19|20)\d{2}(?:(?:[./-]\d{1,2}){1,2}|年(?:\d{1,2}月(?:\d{1,2}日)?)?)?\s*[-\u2013\u2014~至]\s*(?:19|20)\d{2}(?:(?:[./-]\d{1,2}){1,2}|年(?:\d{1,2}月(?:\d{1,2}日)?)?)?/u
+
+function visualCurrentRoleIsExplicit(field, evidence, value) {
+  if (field !== 'current_company' && field !== 'current_title') return true
+  const normalizedValue = normalizedEvidenceText(value)
+  if (!normalizedValue) return false
+  if (HISTORICAL_DATE_RANGE_PATTERN.test(String(evidence ?? ''))) return false
+  const clauses = String(evidence ?? '')
+    .split(/\r?\n/u)
+    .flatMap((line) => line.split(/(?:[;；。！？!?]+|(?<=\.)\s+(?=[A-Za-z]))/u))
+    .map(normalizedEvidenceText)
+    .filter(Boolean)
+  return clauses.some((clause) => (
+    clause.includes(normalizedValue) &&
+    CURRENT_ROLE_MARKER_PATTERN.test(clause)
+  ))
+}
+
+function channelConflict(existing, incoming, evidenceRefs, evidenceStatus) {
+  return {
+    code: 'channel_value_conflict',
+    source: 'visual',
+    existing_source: existing.source ?? 'deterministic_text',
+    existing_value: existing.value,
+    proposed_value: incoming,
+    evidence_status: evidenceStatus,
+    evidence_refs: evidenceRefs,
+    message: '文本与视觉通道结果不一致，已保留文本结果并取消默认选择'
+  }
+}
+
+function mergeModelSuggestions(baseRecord, modelRecord, options = {}) {
   if (!modelRecord || typeof modelRecord !== 'object') return baseRecord
+  const source = options.source === 'visual' ? 'visual' : 'model_text'
+  const pages = Array.isArray(options.pages) ? options.pages : []
+  const visual = source === 'visual'
   const corpus = recordSourceCorpus(baseRecord)
   const suggestionsByField = new Map((baseRecord.suggestions ?? []).map((item) => [item.field, item]))
   if (Array.isArray(modelRecord.suggestions)) {
     for (const item of modelRecord.suggestions.slice(0, ALLOWED_UPDATE_FIELDS.size)) {
       if (!item || !ALLOWED_UPDATE_FIELDS.has(item.field) || !nonEmpty(item.value)) continue
       if (!['high', 'medium', 'low'].includes(item.confidence)) continue
-      if (suggestionsByField.has(item.field)) continue
       const contactField = item.field === 'phone' || item.field === 'email'
+      // The visual channel may help with layout, but identity always comes
+      // from deterministic text normalization and exact database matching.
+      if (visual && contactField) continue
       if (contactField && (
         baseRecord.identity_candidates?.ambiguous === true ||
         baseRecord.match?.status === 'multiple_matches' ||
@@ -1602,27 +1956,42 @@ function mergeModelSuggestions(baseRecord, modelRecord) {
       // from prose, since that can silently choose the wrong candidate.
       const boundedValue = contactField
         ? strictContactCandidate(item.field, item.value)
-        : ['tags', 'desired_titles'].includes(item.field) && Array.isArray(item.value)
+        : ['tags', 'desired_titles', 'desired_locations'].includes(item.field) && Array.isArray(item.value)
           ? item.value
               .map((entry) => cleanResumeSegment(entry, 1_000))
               .filter((entry) => nonEmpty(entry) && !isLikelyAttachmentNoiseToken(entry))
           : cleanResumeSegment(truncateAtKnownBoundary(String(item.value)), FIELD_LIMITS[item.field] ?? 20_000)
       if (!nonEmpty(boundedValue)) continue
-      const evidence = contactField
-        ? contactEvidenceFromText(corpus, item.field, boundedValue, item.evidence)
-        : sourceEvidence(corpus, boundedValue, item.evidence)
+      const visualProof = visual ? visualEvidence(item, pages, boundedValue, { requireCompleteValue: true }) : null
+      const evidence = visual
+        ? visualProof?.evidence
+        : contactField
+          ? contactEvidenceFromText(corpus, item.field, boundedValue, item.evidence)
+          : sourceEvidence(corpus, boundedValue, item.evidence)
       if (!evidence) continue
+      if ((visual || source === 'model_text') && !visualCurrentRoleIsExplicit(item.field, evidence, boundedValue)) continue
       const { value, errors } = sanitizeAttachmentPatch({ [item.field]: boundedValue })
       const suggested = value[item.field]
       if (errors.length || !nonEmpty(suggested)) continue
+      const existing = suggestionsByField.get(item.field)
+      if (existing) {
+        if (!sameValue(item.field, existing.value, suggested)) {
+          existing.default_selected = false
+          existing.conflict = channelConflict(existing, suggested, visualProof?.refs ?? [], visualProof?.evidence_status)
+        }
+        continue
+      }
       const current = baseRecord.current_values?.[item.field] ?? null
       suggestionsByField.set(item.field, {
         field: item.field,
         value: suggested,
         confidence: item.confidence,
         evidence,
+        source,
+        evidence_refs: visual ? visualProof.refs : evidenceRefsForText(evidence, pages),
+        ...(visual ? { evidence_status: visualProof.evidence_status } : {}),
         current_value: current,
-        default_selected: item.default_selected === true && !nonEmpty(current) && item.confidence !== 'low'
+        default_selected: !nonEmpty(current) && item.confidence !== 'low' && (!visual || visualProof.textVerified)
       })
     }
   }
@@ -1630,13 +1999,15 @@ function mergeModelSuggestions(baseRecord, modelRecord) {
   const baseSections = baseRecord.sections ?? []
   const verifiedModelSections = Array.isArray(modelRecord.sections)
     ? modelRecord.sections.flatMap((item) => {
+        if (isScalarSummarySection(item)) return []
         const canonicalType = canonicalSectionType(item?.section_type)
         const definition = SECTION_DEFINITION_BY_TYPE.get(item?.section_type) ?? SECTION_DEFINITION_BY_TYPE.get(canonicalType)
         if (!definition || typeof item.content !== 'string' || !item.content.trim()) return []
         const bounded = cleanResumeSegment(truncateAtKnownBoundary(item.content), 50_000)
         if (!bounded) return []
+        const visualProof = visual ? visualEvidence(item, pages, bounded) : null
         const sourceOffset = corpus.indexOf(bounded)
-        if (sourceOffset < 0) return []
+        if (visual ? !visualProof : sourceOffset < 0) return []
         return [{
           section_id: typeof item.section_id === 'string' ? item.section_id : randomUUID(),
           section_type: definition.section_type,
@@ -1644,25 +2015,80 @@ function mergeModelSuggestions(baseRecord, modelRecord) {
           content: bounded,
           structured_data: {
             parser: PARSER_VERSION,
-            source_offset: sourceOffset,
-            canonical_type: canonicalSectionType(definition.section_type)
+            ...(sourceOffset >= 0 ? { source_offset: sourceOffset } : {}),
+            ...(visual ? { source_page: visualProof.refs[0]?.page } : {}),
+            canonical_type: canonicalSectionType(definition.section_type),
+            ...(visual ? verifiedVisualStructuredData(item, visualProof) : {})
           },
           confidence: ['high', 'medium', 'low'].includes(item.confidence) ? item.confidence : 'low',
-          evidence: sourceEvidence(corpus, bounded, item.evidence) ?? bounded.slice(0, 240),
-          default_selected: item.default_selected === true && item.confidence !== 'low'
+          evidence: visual
+            ? visualProof.evidence
+            : sourceEvidence(corpus, bounded, item.evidence) ?? bounded.slice(0, 240),
+          source,
+          evidence_refs: visual ? visualProof.refs : evidenceRefsForText(item.evidence, pages),
+          ...(visual ? { evidence_status: visualProof.evidence_status } : {}),
+          default_selected: item.confidence !== 'low' && (!visual || visualProof.textVerified)
         }]
       }).slice(0, 50)
     : []
   const deterministicSections = baseSections.filter((section) => (
-    section.section_type !== 'resume_summary' && section.structured_data?.fallback !== true
+    !isScalarSummarySection(section) && section.structured_data?.fallback !== true
   ))
-  const sections = deterministicSections.length
-    ? deterministicSections
-    : (verifiedModelSections.length ? verifiedModelSections : baseSections)
+  let sections
+  if (visual && verifiedModelSections.length) {
+    // A visual-only (unverified) section is an additional review candidate,
+    // never a replacement for deterministic text from the same canonical
+    // section. Only page-text-verified sections may participate in the
+    // existing visual boundary/conflict replacement flow.
+    const verifiedVisualSections = verifiedModelSections.filter((section) => section.evidence_status === 'text_verified')
+    const unverifiedVisualSections = verifiedModelSections.filter((section) => section.evidence_status !== 'text_verified')
+    const consumedDeterministicIds = new Set()
+    for (const section of verifiedVisualSections) {
+      const sectionType = canonicalSectionType(section.section_type)
+      const exact = deterministicSections.find((candidate) => (
+        !consumedDeterministicIds.has(candidate.section_id) &&
+        canonicalSectionType(candidate.section_type) === sectionType &&
+        normalizedEvidenceText(candidate.content) === normalizedEvidenceText(section.content)
+      ))
+      if (exact) {
+        consumedDeterministicIds.add(exact.section_id)
+        section.source = 'merged'
+        continue
+      }
+      const existing = deterministicSections.find((candidate) => canonicalSectionType(candidate.section_type) === sectionType)
+      if (existing) {
+        section.default_selected = false
+        section.conflict = {
+          code: 'visual_replaces_deterministic_section',
+          source: 'visual',
+          existing_source: existing.source ?? 'deterministic_text',
+          existing_value: existing.content,
+          proposed_value: section.content,
+          evidence_status: section.evidence_status,
+          evidence_refs: section.evidence_refs,
+          message: '视觉通道建议调整该栏目边界，需人工核对后选择'
+        }
+      }
+    }
+    sections = [
+      ...verifiedVisualSections,
+      ...deterministicSections.filter((section) => !consumedDeterministicIds.has(section.section_id)),
+      ...unverifiedVisualSections
+    ]
+  } else {
+    sections = deterministicSections.length
+      ? deterministicSections
+      : (verifiedModelSections.length ? verifiedModelSections : baseSections.filter((section) => !isScalarSummarySection(section)))
+    sections = sections.filter((section) => !isScalarSummarySection(section))
+  }
   sections.sort((left, right) => {
     const leftOrder = Number(left.structured_data?.source_order)
     const rightOrder = Number(right.structured_data?.source_order)
     if (Number.isFinite(leftOrder) && Number.isFinite(rightOrder)) return leftOrder - rightOrder
+    // Visual candidates intentionally precede deterministic sections in the
+    // merge array. They carry page/evidence provenance rather than a text
+    // offset, so a missing order must not push them to the end of the list.
+    if (Number.isFinite(leftOrder) !== Number.isFinite(rightOrder)) return 0
     const leftOffset = Number(left.structured_data?.source_offset)
     const rightOffset = Number(right.structured_data?.source_offset)
     return (Number.isFinite(leftOffset) ? leftOffset : Number.MAX_SAFE_INTEGER) -
@@ -1671,17 +2097,10 @@ function mergeModelSuggestions(baseRecord, modelRecord) {
   sections.forEach((section, index) => {
     section.structured_data = { ...section.structured_data, source_order: index }
   })
-  const selfSummarySection = sections.find((section) => section.section_type === 'self_summary')
-  const selfSummarySuggestion = suggestions.find((suggestion) => suggestion.field === 'self_summary')
-  if (selfSummarySection && selfSummarySuggestion) {
-    selfSummarySuggestion.value = selfSummarySection.content
-    selfSummarySuggestion.evidence = selfSummarySection.evidence
-    selfSummarySection.default_selected = selfSummarySuggestion.default_selected
-  }
   return { ...baseRecord, suggestions, sections }
 }
 
-function buildPreviewRecord(db, parsedRecord, index, format, requestedCandidateId) {
+function buildPreviewRecord(db, parsedRecord, index, format, requestedCandidateId, provenance = {}) {
   const values = parsedRecord?.values ?? {}
   const rawText = cleanValue(values.raw_text, 2_000_000)
   const labeledData = rawText ? extractLabeledCandidateData(rawText) : null
@@ -1712,11 +2131,12 @@ function buildPreviewRecord(db, parsedRecord, index, format, requestedCandidateI
         availability: suggestionPreferences?.availability ?? ''
       }
     : null
-  const sections = rawText ? extractResumeSections(rawText) : spreadsheetData.sections
-  const selfSummarySection = sections.find((section) => section.section_type === 'self_summary')
-  if (labeledData && selfSummarySection && !nonEmpty(labeledData.values.self_summary)) {
-    labeledData.values.self_summary = selfSummarySection.content
-    labeledData.evidence.self_summary = selfSummarySection.evidence
+  const sections = (rawText ? extractResumeSections(rawText) : spreadsheetData.sections)
+    .filter((section) => !isScalarSummarySection(section))
+  const deterministicSource = rawText ? 'deterministic_text' : 'deterministic_table'
+  for (const section of sections) {
+    section.source = deterministicSource
+    section.evidence_refs = evidenceRefsForText(section.evidence, provenance.pages)
   }
   const sourceValues = rawText
     ? textCandidateValues(rawText, identity, labeledData)
@@ -1732,13 +2152,10 @@ function buildPreviewRecord(db, parsedRecord, index, format, requestedCandidateI
         email: labeledData.evidence.email ?? contactEvidenceFromText(rawText, 'email', identity.email)
       }
     : spreadsheetData.evidence
-  const suggestions = buildSuggestions(sourceValues, suggestionContext, sourceEvidence)
-  const selfSummarySuggestion = suggestions.find((suggestion) => suggestion.field === 'self_summary')
-  for (const section of sections) {
-    if (section.section_type === 'self_summary') {
-      section.default_selected = selfSummarySuggestion?.default_selected === true
-    }
-  }
+  const suggestions = buildSuggestions(sourceValues, suggestionContext, sourceEvidence, {
+    source: deterministicSource,
+    pages: provenance.pages
+  })
   return {
     record_id: randomUUID(),
     row_number: Number.isInteger(parsedRecord?.row_number) ? parsedRecord.row_number : index + 1,
@@ -1769,7 +2186,7 @@ function publicRecord(record) {
     },
     match: record.match,
     suggestions: record.suggestions ?? [],
-    sections: record.sections ?? [],
+    sections: (record.sections ?? []).filter((section) => !isScalarSummarySection(section)),
     avatar: record.avatar ?? { status: 'none', available: false, source: null, confidence: null, candidate_count: 0 }
   }
 }
@@ -2093,7 +2510,9 @@ function updateCandidateFields(db, candidate, record, selectedFields, attachment
 
 function applySections(db, candidateId, record, selectedSectionIds, attachmentId, timestamp, mergeMode, confirmReplace) {
   const selectedIds = new Set(selectedSectionIds)
-  const selected = (record.sections ?? []).filter((section) => selectedIds.has(section.section_id))
+  const selected = (record.sections ?? []).filter((section) => (
+    selectedIds.has(section.section_id) && !isScalarSummarySection(section)
+  ))
   if (!selected.length) return []
   if (mergeMode === 'replace') {
     if (!confirmReplace) throw attachmentError(422, 'replace_confirmation_required', '整体替换履历必须单独确认')
@@ -2101,7 +2520,7 @@ function applySections(db, candidateId, record, selectedSectionIds, attachmentId
 
   const normalizedSections = selected.flatMap((section, sourceIndex) => {
     const originalSectionType = cleanValue(section.section_type, 80)
-    if (originalSectionType === 'self_summary') return []
+    if (isScalarSummarySection(section)) return []
     const canonicalType = canonicalSectionType(originalSectionType)
     const normalized = {
       section_type: canonicalType,
@@ -2236,7 +2655,7 @@ function normalizeAttachmentCreateSections(input, sourceRecordId) {
     // Self summaries belong to candidates.self_summary. Older preview clients
     // may still send the semantic section, so ignore it instead of duplicating
     // the same text in a profile section.
-    if (rawType === 'self_summary' || rawType === 'resume_summary') continue
+    if (isScalarSummarySection({ section_type: rawType, structured_data: section.structured_data })) continue
     const sectionType = canonicalSectionType(rawType)
     if (!sectionType || !CANONICAL_PROFILE_SECTION_TYPES.has(sectionType)) {
       throw attachmentError(422, 'validation_error', `profile_sections.${index}.section_type 无效`)
@@ -2335,11 +2754,13 @@ export function createAttachmentService({
   rootDir,
   parser = parseAttachment,
   suggestionProvider,
+  visualSuggestionProvider,
   previewTtlMs = DEFAULT_PREVIEW_TTL_MS,
   clock = Date.now,
   removeRootOnClose = false,
   cleanupIntervalMs = 60_000,
-  parseConcurrency = DEFAULT_PARSE_CONCURRENCY
+  parseConcurrency = DEFAULT_PARSE_CONCURRENCY,
+  visualSuggestionTimeoutMs = ATTACHMENT_VISUAL_SUGGESTION_TIMEOUT_MS
 } = {}) {
   if (!db) throw new TypeError('db is required')
   if (!rootDir) throw new TypeError('rootDir is required')
@@ -2348,6 +2769,9 @@ export function createAttachmentService({
   }
   if (!Number.isInteger(parseConcurrency) || parseConcurrency < 1 || parseConcurrency > 8) {
     throw new TypeError('parseConcurrency must be between 1 and 8')
+  }
+  if (!Number.isInteger(visualSuggestionTimeoutMs) || visualSuggestionTimeoutMs < 1 || visualSuggestionTimeoutMs > 5 * 60 * 1000) {
+    throw new TypeError('visualSuggestionTimeoutMs must be between 1 and 300000')
   }
   const root = resolve(rootDir)
   const quarantineRoot = resolve(root, 'quarantine')
@@ -2361,6 +2785,33 @@ export function createAttachmentService({
   let activeParses = 0
   let closing = false
   let cancelScheduledParse = () => false
+
+  const visualProviderStatus = () => {
+    if (visualSuggestionProvider && typeof visualSuggestionProvider.status === 'function') {
+      try { return visualSuggestionProvider.status() } catch {}
+    }
+    return null
+  }
+
+  const invokeVisualSuggestionProvider = (input, signal) => {
+    if (typeof visualSuggestionProvider === 'function') return visualSuggestionProvider(input, { signal })
+    if (visualSuggestionProvider && typeof visualSuggestionProvider.suggest === 'function') {
+      return visualSuggestionProvider.suggest(input, { signal })
+    }
+    return null
+  }
+
+  const visualCapabilityEnabled = () => {
+    if (!visualSuggestionProvider) return false
+    if (visualSuggestionProvider.enabled === true) return true
+    const status = visualProviderStatus()
+    if (status) return status.status === 'enabled'
+    // Explicitly injected in-process providers are already inside the fixed
+    // attachment service boundary; their absence of a status method is not an
+    // ambient capability grant.
+    return typeof visualSuggestionProvider === 'function'
+      || typeof visualSuggestionProvider.suggest === 'function'
+  }
 
   const enqueueCleanup = (storagePath, reason, createdAt = now()) => {
     const id = randomUUID()
@@ -2462,7 +2913,20 @@ export function createAttachmentService({
 
   const serializePreview = (row) => {
     if (!row) return null
-    const records = parseJson(row.records_json, []).map(publicRecord)
+    const storedRecords = parseJson(row.records_json, [])
+    const records = (Array.isArray(storedRecords) ? storedRecords : []).map(publicRecord)
+    const storedPipeline = Array.isArray(storedRecords) ? storedRecords[0]?._pipeline : null
+    const pipeline = storedPipeline && typeof storedPipeline === 'object'
+      ? storedPipeline
+      : {
+          text: { status: row.parse_status === 'parsed' ? 'ready' : row.parse_status, content_type: row.format },
+          text_model: { status: suggestionProvider ? 'pending' : 'not_run' },
+          visual: {
+            status: row.format === 'pdf' ? 'not_run' : 'not_applicable',
+            used_fallback: false
+          },
+          review_required: row.format === 'pdf'
+        }
     // Only the token hash is durable. A client that crosses a service restart
     // must retain the raw token issued by createPreview.
     const previewToken = rawTokens.get(row.id) ?? ''
@@ -2471,6 +2935,9 @@ export function createAttachmentService({
       preview_token: previewToken,
       preview_token_reissued: Boolean(previewToken),
       status: row.parse_status === 'parsed' ? 'ready' : row.parse_status,
+      parser_version: row.parser_version,
+      pipeline,
+      review_required: pipeline.review_required === true,
       expires_at: row.expires_at,
       file: {
         original_filename: sanitizeOriginalFilename(row.original_filename),
@@ -2583,7 +3050,10 @@ export function createAttachmentService({
   const runPreviewParsing = async ({ id, validated, requestedId, quarantinePath, buffer: suppliedBuffer, signal }) => {
     let avatarResults = []
     let avatarTransfers = []
+    let visualPages = []
     try {
+      const configuredVisualStatus = validated.format === 'pdf' ? visualProviderStatus() : null
+      const visualEnabled = validated.format === 'pdf' && visualCapabilityEnabled()
       let buffer = suppliedBuffer
       if (!Buffer.isBuffer(buffer)) {
         if (!quarantinePath) {
@@ -2607,11 +3077,130 @@ export function createAttachmentService({
         mimetype: validated.mimeType,
         buffer
       }
-      const parsed = await parser(stagedFile, validated, undefined, { signal })
+      const parsed = await parser(stagedFile, validated, undefined, {
+        signal,
+        renderVisualPages: visualEnabled,
+        allowTextlessPdf: validated.format === 'pdf'
+      })
+      visualPages = Array.isArray(parsed?.visual_pages) ? parsed.visual_pages : []
+      const visualEvidencePages = visualPages.map((page) => ({
+        page_number: page?.page_number,
+        width: page?.width,
+        height: page?.height,
+        pixel_count: page?.pixel_count,
+        mime_type: page?.mime_type,
+        text: String(page?.text ?? ''),
+        text_spans: Array.isArray(page?.text_spans) ? page.text_spans : []
+      }))
       const sensitiveAvatarValues = extractExplicitAvatarSensitiveValues({
         text: parsed.text,
         records: parsed.records
       })
+      const durableExtractedText = redactAvatarValuesForModel(parsed.text, sensitiveAvatarValues)
+      const durableParsedRecords = redactAvatarValuesForStorage(parsed.records ?? [], sensitiveAvatarValues)
+      let records = durableParsedRecords.map((record, index) => (
+        buildPreviewRecord(db, record, index, validated.format, requestedId, { pages: visualEvidencePages })
+      ))
+      if (!records.length) throw attachmentError(422, 'attachment_empty', '附件中没有可确认的候选人记录')
+      if (records.length > MAX_CONFIRM_RECORDS) {
+        throw attachmentError(413, 'attachment_record_limit', `附件最多支持 ${MAX_CONFIRM_RECORDS} 条候选人记录`)
+      }
+      const parserVisual = parsed?.metadata?.visual
+      const pdfContentType = validated.format === 'pdf'
+        ? String(parsed?.metadata?.pdf_content_type ?? 'text')
+        : null
+      const initialVisualError = !visualEnabled
+        ? safeAttachmentVisualErrorCode(configuredVisualStatus?.error_code ?? 'visual_capability_disabled')
+        : parserVisual?.status === 'fallback'
+          ? safeAttachmentVisualErrorCode(parserVisual.error_code ?? 'visual_pages_unavailable')
+          : visualPages.length ? null : 'visual_pages_unavailable'
+      const pipeline = {
+        text: {
+          status: 'ready',
+          content_type: pdfContentType ?? validated.format
+        },
+        text_model: suggestionProvider
+          ? { status: 'pending' }
+          : { status: 'not_run' },
+        visual: validated.format === 'pdf'
+          ? visualEnabled && visualPages.length
+            ? {
+                status: 'not_run',
+                used_fallback: false,
+                capability: configuredVisualStatus?.capability ?? 'image_input',
+                ...(configuredVisualStatus?.schema_mode === 'compat' || configuredVisualStatus?.schema_mode === 'strict'
+                  ? { schema_mode: configuredVisualStatus.schema_mode }
+                  : {}),
+                ...(configuredVisualStatus?.parser_version
+                  ? { parser_version: String(configuredVisualStatus.parser_version).slice(0, 120) }
+                  : {}),
+                ...(configuredVisualStatus?.prompt_version
+                  ? { prompt_version: String(configuredVisualStatus.prompt_version).slice(0, 120) }
+                  : {})
+              }
+            : {
+                status: 'fallback',
+                used_fallback: true,
+                capability: configuredVisualStatus?.capability ?? (visualEnabled ? 'image_input' : 'disabled'),
+                ...(initialVisualError ? { error_code: initialVisualError } : {}),
+                retryable: initialVisualError
+                  ? RETRYABLE_ATTACHMENT_VISUAL_ERRORS.has(initialVisualError)
+                  : false,
+                ...(configuredVisualStatus?.schema_mode === 'compat' || configuredVisualStatus?.schema_mode === 'strict'
+                  ? { schema_mode: configuredVisualStatus.schema_mode }
+                  : {}),
+                ...(configuredVisualStatus?.parser_version
+                  ? { parser_version: String(configuredVisualStatus.parser_version).slice(0, 120) }
+                  : {}),
+                ...(configuredVisualStatus?.prompt_version
+                  ? { prompt_version: String(configuredVisualStatus.prompt_version).slice(0, 120) }
+                  : {})
+              }
+          : { status: 'not_applicable', used_fallback: false }
+      }
+      let visualRequest = null
+      if (validated.format === 'pdf' && visualEnabled && visualPages.length > 0) {
+        const configuredStatus = visualProviderStatus()
+        const transientVisualInput = visualPages.map((page) => ({
+          ...page,
+          text_spans: Array.isArray(page.text_spans) ? page.text_spans : []
+        }))
+        visualRequest = (async () => {
+          let proposed
+          try {
+            proposed = await optionalSuggestionWithin((suggestionSignal) => invokeVisualSuggestionProvider({
+                format: validated.format,
+                records: records.map(publicRecord),
+                schema_version: 2,
+                document: {
+                  parser_version: PARSER_VERSION,
+                  page_count: Number(parsed?.metadata?.page_count ?? 0),
+                  pdf_content_type: parsed?.metadata?.pdf_content_type ?? null
+                },
+                visual_pages: transientVisualInput
+              }, suggestionSignal), visualSuggestionTimeoutMs, signal)
+            if (proposed?.__attachment_timeout === true) {
+              proposed = { records: [], status: 'fallback', error_code: 'visual_timeout' }
+            }
+          } catch (error) {
+            // Preserve the provider's stable channel outcome (code,
+            // retryability, and schema mode) without exposing details.
+            proposed = {
+              records: [],
+              ...attachmentVisualPipelineState(null, error)
+            }
+          } finally {
+            clearVisualPages(transientVisualInput)
+            clearVisualPages(visualPages)
+            visualPages = []
+          }
+          return { proposed, configuredStatus }
+        })()
+      } else {
+        clearVisualPages(visualPages)
+        visualPages = []
+      }
+
       const parserProvidedAvatarTransfers = Object.prototype.hasOwnProperty.call(parsed, 'avatar_transfers')
       let avatarProjections
       if (parserProvidedAvatarTransfers) {
@@ -2623,44 +3212,98 @@ export function createAttachmentService({
         avatarResults = await extractAttachmentAvatarResults(buffer, validated.format, parsed)
         avatarProjections = avatarResults.map(publicAvatarProjection)
       }
-      const durableExtractedText = redactAvatarValuesForModel(parsed.text, sensitiveAvatarValues)
-      const durableParsedRecords = redactAvatarValuesForStorage(parsed.records ?? [], sensitiveAvatarValues)
-      let records = durableParsedRecords.map((record, index) => (
-        buildPreviewRecord(db, record, index, validated.format, requestedId)
-      ))
       records.forEach((record, index) => {
         record.avatar = avatarProjections[index]
       })
-      if (!records.length) throw attachmentError(422, 'attachment_empty', '附件中没有可确认的候选人记录')
-      if (records.length > MAX_CONFIRM_RECORDS) {
-        throw attachmentError(413, 'attachment_record_limit', `附件最多支持 ${MAX_CONFIRM_RECORDS} 条候选人记录`)
-      }
+
       if (typeof suggestionProvider === 'function') {
+        let textModelResult
+        let textModelError
         try {
-          const proposed = await optionalSuggestionWithin(suggestionProvider({
-            format: validated.format,
-            extracted_text: durableExtractedText,
-            records: records.map(publicRecord),
-            schema_version: 1
-          }), ATTACHMENT_SUGGESTION_TIMEOUT_MS, signal)
+          textModelResult = await optionalSuggestionWithin((suggestionSignal) => suggestionProvider({
+              format: validated.format,
+              extracted_text: durableExtractedText,
+              records: records.map(publicRecord),
+              schema_version: 2,
+              document: {
+                parser_version: PARSER_VERSION,
+                page_count: Number(parsed?.metadata?.page_count ?? 0),
+                pdf_content_type: parsed?.metadata?.pdf_content_type ?? null
+              }
+            }, { signal: suggestionSignal }), ATTACHMENT_SUGGESTION_TIMEOUT_MS, signal)
           if (signal.aborted) {
             for (const result of avatarResults) releaseAvatarResult(result)
             for (const transfer of avatarTransfers) releaseAttachmentAvatarTransfer(transfer)
+            clearVisualPages(visualPages)
             avatarResults = []
             avatarTransfers = []
             return
           }
-          if (Array.isArray(proposed?.records)) {
+          pipeline.text_model = attachmentSuggestionPipelineState(textModelResult)
+          if (Array.isArray(textModelResult?.records)) {
             const knownRecordIds = new Set(records.map((record) => record.record_id))
-            const byId = new Map(proposed.records
+            const byId = new Map(textModelResult.records
               .filter((record) => knownRecordIds.has(record?.record_id))
               .map((record) => [record.record_id, record]))
-            records = records.map((record) => mergeModelSuggestions(record, byId.get(record.record_id)))
+            records = records.map((record) => mergeModelSuggestions(record, byId.get(record.record_id), {
+              source: 'model_text',
+              pages: visualEvidencePages
+            }))
           }
-        } catch {
-          // Local, schema-validated suggestions remain available when the configured model gateway is unavailable.
+        } catch (error) {
+          textModelError = error
+          pipeline.text_model = attachmentSuggestionPipelineState(null, textModelError)
         }
       }
+      if (visualRequest) {
+        const { proposed, configuredStatus } = await visualRequest
+        if (signal.aborted) {
+          for (const result of avatarResults) releaseAvatarResult(result)
+          for (const transfer of avatarTransfers) releaseAttachmentAvatarTransfer(transfer)
+          avatarResults = []
+          avatarTransfers = []
+          return
+        }
+        if (Array.isArray(proposed?.records)) {
+          const knownRecordIds = new Set(records.map((record) => record.record_id))
+          const byId = new Map(proposed.records
+            .filter((record) => knownRecordIds.has(record?.record_id))
+            .map((record) => [record.record_id, record]))
+          records = records.map((record) => mergeModelSuggestions(record, byId.get(record.record_id), {
+            source: 'visual',
+            pages: visualEvidencePages
+          }))
+        }
+        const visualState = attachmentVisualPipelineState(proposed)
+        const fallbackCode = visualState.status === 'fallback'
+          ? visualState.error_code
+          : null
+          pipeline.visual = {
+            status: visualState.status,
+            used_fallback: visualState.status !== 'ready',
+            capability: configuredStatus?.capability ?? 'image_input',
+            ...(visualState.schema_mode || configuredStatus?.schema_mode
+              ? { schema_mode: safeAttachmentSchemaMode(visualState.schema_mode ?? configuredStatus.schema_mode) }
+              : {}),
+            retryable: visualState.status === 'ready' ? false : visualState.retryable,
+            ...(fallbackCode ? { error_code: String(fallbackCode).slice(0, 120) } : {}),
+          ...(proposed?.parser_version ?? configuredStatus?.parser_version
+            ? { parser_version: String(proposed?.parser_version ?? configuredStatus.parser_version).slice(0, 120) }
+            : {}),
+          ...(proposed?.prompt_version ?? configuredStatus?.prompt_version
+            ? { prompt_version: String(proposed?.prompt_version ?? configuredStatus.prompt_version).slice(0, 120) }
+            : {})
+        }
+      }
+      // A searchable text PDF can remain usable when vision is unavailable,
+      // but scanned/mixed content or any visual fallback must be surfaced as a
+      // review-required result rather than looking fully complete.
+      pipeline.review_required = pipeline.text_model.status === 'fallback' || (
+        validated.format === 'pdf' && (
+          pdfContentType !== 'text' || pipeline.visual.status !== 'ready'
+        )
+      )
+      if (records[0]) records[0]._pipeline = pipeline
       const updatedAt = new Date(clock()).toISOString()
       db.prepare(`
         UPDATE attachment_update_previews
@@ -2670,11 +3313,14 @@ export function createAttachmentService({
       `).run(durableExtractedText, JSON.stringify(records), updatedAt, id)
       for (const result of avatarResults) releaseAvatarResult(result)
       for (const transfer of avatarTransfers) releaseAttachmentAvatarTransfer(transfer)
+      clearVisualPages(visualPages)
       avatarResults = []
       avatarTransfers = []
+      visualPages = []
     } catch (error) {
       for (const result of avatarResults) releaseAvatarResult(result)
       for (const transfer of avatarTransfers) releaseAttachmentAvatarTransfer(transfer)
+      clearVisualPages(visualPages)
       if (signal?.aborted && closing) return
       const updatedAt = new Date(clock()).toISOString()
       const failure = publicParseFailure(error)
@@ -2820,8 +3466,12 @@ export function createAttachmentService({
   }
 
   const cancelPreview = (id) => {
+    cleanupExpiredPreviews()
     const row = readPreview(id)
     if (!row) throw attachmentError(404, 'not_found', '附件预览不存在')
+    if (row.parse_status === 'expired') {
+      throw attachmentError(409, 'attachment_preview_expired', '附件预览令牌已过期')
+    }
     if (row.parse_status === 'confirmed') {
       throw attachmentError(409, 'attachment_preview_consumed', '已确认的附件预览不能取消')
     }
@@ -2872,7 +3522,12 @@ export function createAttachmentService({
     if (validated.format !== preview.format || validated.sha256 !== preview.sha256) {
       throw attachmentError(422, 'attachment_staging_invalid', '附件隔离文件格式或内容校验失败')
     }
-    const parsed = await parser(stagedFile, validated)
+    const parsed = await parser(stagedFile, validated, undefined, {
+      // Avatar recovery must preserve the same textless-PDF contract as the
+      // initial preview parse. Scanned PDFs have no text layer, but their
+      // embedded image can still be recovered deterministically.
+      allowTextlessPdf: validated.format === 'pdf'
+    })
     const parsedRecords = Array.isArray(parsed?.records) ? parsed.records : []
     const resultIndex = parsedRecords.findIndex((item, index) => (
       (Number.isInteger(item?.row_number) ? item.row_number : index + 1) === record.row_number
@@ -2921,6 +3576,9 @@ export function createAttachmentService({
     cleanupExpiredPreviews()
     const preview = readPreview(id)
     if (!preview) throw attachmentError(404, 'not_found', '附件预览不存在')
+    if (preview.parse_status === 'expired') {
+      throw attachmentError(409, 'attachment_preview_expired', '附件预览令牌已过期')
+    }
     if (preview.parse_status !== 'parsed' || preview.consumed_at) {
       throw attachmentError(409, 'attachment_preview_not_ready', '附件预览尚未就绪或已经使用')
     }
@@ -3001,6 +3659,9 @@ export function createAttachmentService({
       value.source_record_id = sourceRecordId
       value.import_batch_id = null
       const latestPreview = readPreview(id)
+      if (latestPreview?.parse_status === 'expired') {
+        throw attachmentError(409, 'attachment_preview_expired', '附件预览令牌已过期')
+      }
       if (!latestPreview || latestPreview.parse_status !== 'parsed' || latestPreview.consumed_at) {
         throw attachmentError(409, 'attachment_preview_not_ready', '附件预览状态已变化，请刷新后重试')
       }
@@ -3129,6 +3790,12 @@ export function createAttachmentService({
     cleanupExpiredPreviews()
     const preview = readPreview(id)
     if (!preview) throw attachmentError(404, 'not_found', '附件预览不存在')
+    // Expiry cleanup marks the row consumed while erasing its staged payload.
+    // Check the terminal reason before the generic replay guard so a caller
+    // receives the actionable expiry code rather than a misleading replay.
+    if (preview.parse_status === 'expired') {
+      throw attachmentError(409, 'attachment_preview_expired', '附件预览令牌已过期')
+    }
     if (preview.parse_status === 'confirmed' || preview.consumed_at) {
       throw attachmentError(409, 'attachment_preview_replayed', '附件预览令牌已使用，不能重复提交')
     }
@@ -3171,20 +3838,11 @@ export function createAttachmentService({
       }
       revalidateIdentity(db, record, candidateId)
       const suggestionFields = new Set((record.suggestions ?? []).map((item) => item.field))
-      const sectionIds = new Set((record.sections ?? []).map((item) => item.section_id))
+      const sectionIds = new Set((record.sections ?? [])
+        .filter((item) => !isScalarSummarySection(item))
+        .map((item) => item.section_id))
       const selectedFields = validateSelectedList(confirmation.selected_fields ?? [], suggestionFields, 'selected_fields')
       const selectedSections = validateSelectedList(confirmation.selected_sections ?? [], sectionIds, 'selected_sections')
-      const selfSummarySectionIds = (record.sections ?? [])
-        .filter((section) => section.section_type === 'self_summary')
-        .map((section) => section.section_id)
-      const selfSummarySelected = selectedFields.includes('self_summary') ||
-        selfSummarySectionIds.some((sectionId) => selectedSections.includes(sectionId))
-      if (selfSummarySelected && suggestionFields.has('self_summary') && selfSummarySectionIds.length) {
-        if (!selectedFields.includes('self_summary')) selectedFields.push('self_summary')
-        for (const sectionId of selfSummarySectionIds) {
-          if (!selectedSections.includes(sectionId)) selectedSections.push(sectionId)
-        }
-      }
       const mergeMode = confirmation.merge_mode ?? 'merge'
       if (!['merge', 'replace'].includes(mergeMode)) {
         throw attachmentError(422, 'validation_error', 'merge_mode 仅支持 merge 或 replace')

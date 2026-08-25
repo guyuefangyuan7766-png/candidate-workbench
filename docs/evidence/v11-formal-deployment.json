@@ -1,0 +1,70 @@
+{
+  "version": "V11",
+  "migration_name": "candidate_hire_status_and_date",
+  "date": "2026-08-21",
+  "database_path": "data/recruitment.db",
+  "maintenance": {
+    "previous_service_pid": 32716,
+    "migration_process_pid": 31752,
+    "backup_directory": "backups/pre-v11-hire-status-20260821-111600/data",
+    "backup_file_set": [
+      "recruitment.db",
+      "recruitment.db-wal",
+      "recruitment.db-shm"
+    ],
+    "backup_sha256": {
+      "recruitment.db": "793E873A44E2AEDDDE0D03556BCC9D43F1C0B598A933E1815E02866AF98E5942",
+      "recruitment.db-wal": "279E4477BE846DB2C1D8C58330B5A10B57D804513B1112B1AFD2B4540C692ED8",
+      "recruitment.db-shm": "CF1659CCB88EE47293A8BEE85BF7749EF2F86F67E47451203D894C9EA3313DD6"
+    },
+    "source_files_modified": false
+  },
+  "migration": {
+    "exit_code": 0,
+    "schema_versions": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+    "columns": [
+      { "table": "candidates", "name": "hire_status", "type": "TEXT" },
+      { "table": "candidates", "name": "hire_date", "type": "TEXT" }
+    ],
+    "indexes": [
+      "candidates_hire_status_idx",
+      "candidates_hire_date_idx"
+    ],
+    "data_policy": "additive; no candidate table rebuild, delete, or stage backfill",
+    "post_close_main_db_bytes": 22021361664,
+    "post_close_wal_present": false,
+    "post_close_shm_present": false
+  },
+  "integrity": {
+    "integrity_check": "ok",
+    "foreign_key_errors": 0
+  },
+  "service_restart": {
+    "pid": 22096,
+    "url": "http://127.0.0.1:4173",
+    "health_http_status": 200,
+    "health_status": "ok",
+    "stderr_bytes": 0,
+    "runtime_wal_bytes": 222512,
+    "runtime_shm_bytes": 32768
+  },
+  "temporary_artifacts": {
+    "directory": ".tmp-hire-status-artifact",
+    "contains_real_candidate_preview": true,
+    "removed_after_final_gate": true
+  },
+  "privacy_boundary": {
+    "candidate_rows_output": false,
+    "raw_payload_output": false,
+    "attachment_text_output": false,
+    "search_hit_output": false
+  },
+  "workbook_cleanup": {
+    "output_directory": "outputs/2026-08-21-hire-status-cleaned",
+    "source_rows": 62861,
+    "retained_rows": 1390,
+    "removed_rows": 61471,
+    "missing_date_rows": 4,
+    "source_unchanged": true
+  }
+}

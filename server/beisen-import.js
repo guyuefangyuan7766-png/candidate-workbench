@@ -23,12 +23,14 @@ function failureDetailMetadata(failedRows, failures) {
 const FIELD_ALIASES = {
   candidate_id: ['应聘者ID'],
   application_id: ['申请ID'],
-  position_code: ['职位编号'],
+  position_code: ['职位编号', '最后职位类投递的职位id'],
+  last_position_key: ['最后职位类投递的职位id'],
+  last_position_delivery_at: ['最后职位类投递时间'],
   name: ['姓名', '应聘者姓名', '应聘者Id'],
   phone: ['手机', '手机号', '手机号码', '联系电话'],
   email: ['邮箱', '电子邮箱'],
   photo_url: ['证件照'],
-  position_title: ['职位名称', '招聘职位', '应聘职位'],
+  position_title: ['职位名称', '招聘职位', '应聘职位', '最后职位类投递的职位id'],
   current_company: ['最近工作公司', '最近公司', '当前公司'],
   current_title: ['最近工作职位', '最近职位', '当前职位'],
   location: ['现居住地', '现居地', '所在地'],
@@ -40,6 +42,7 @@ const FIELD_ALIASES = {
   highest_school: ['最高学历学校', '最高学历院校'],
   highest_major: ['最高学历专业'],
   job_seeking_status: ['求职状态'],
+  hire_position: ['入职职位', '入职岗位'],
   hire_status: ['入职状态', '入职情况'],
   hire_date: ['入职日期', '入职时间'],
   resume_updated_at: ['简历更新时间'],
@@ -104,6 +107,22 @@ function firstValue(values, aliases, maximum) {
 
 function fieldValue(values, field, maximum) {
   return firstValue(values, FIELD_ALIASES[field] ?? [], maximum)
+}
+
+function associatedPositionKey(values) {
+  const dedicatedHeader = '最后职位类投递的职位id'
+  if (Object.prototype.hasOwnProperty.call(values, dedicatedHeader)) {
+    return textValue(values[dedicatedHeader], 300)
+  }
+  return fieldValue(values, 'position_code', 300)
+}
+
+function rawFieldValue(values, field) {
+  for (const alias of FIELD_ALIASES[field] ?? []) {
+    const value = values[alias]
+    if (hasNonEmptyValue(value)) return value
+  }
+  return null
 }
 
 function fieldValues(values, field, maximum) {
@@ -172,6 +191,7 @@ function mergeNonEmptyPayload(existing, incoming) {
 function mergeCandidateValues(target, incoming) {
   for (const [field, value] of Object.entries(incoming ?? {})) {
     if (!hasNonEmptyValue(value)) continue
+    if (field === 'hire_status' && value === '不确定' && hasNonEmptyValue(target.hire_status) && target.hire_status !== '不确定') continue
     if (field === 'tags') {
       target.tags = [...new Set([...(target.tags ?? []), ...value])].slice(0, 50)
       continue
@@ -179,6 +199,10 @@ function mergeCandidateValues(target, incoming) {
     target[field] = value
   }
   return target
+}
+
+function sourceFieldHasValue(values, field) {
+  return (FIELD_ALIASES[field] ?? []).some((alias) => hasNonEmptyValue(values?.[alias]))
 }
 
 const IMPORT_POSITION_TEXT_FIELDS = [
@@ -553,10 +577,11 @@ function candidateFromValues(values, validStages) {
     highest_school: fieldValue(values, 'highest_school', 300),
     highest_major: fieldValue(values, 'highest_major', 300),
     job_seeking_status: fieldValue(values, 'job_seeking_status', 200),
+    hire_position: fieldValue(values, 'hire_position', 301),
     // Keep one character beyond the API limit so sanitizeCandidateInput can reject,
     // rather than silently normalize, an overlong source status.
     hire_status: fieldValue(values, 'hire_status', 201),
-    hire_date: fieldValue(values, 'hire_date', 80),
+    hire_date: rawFieldValue(values, 'hire_date'),
     resume_updated_at: fieldValue(values, 'resume_updated_at', 80),
     self_summary: fieldValue(values, 'self_summary', 20_000),
     source: fieldValue(values, 'effective_source', 200),
@@ -565,29 +590,150 @@ function candidateFromValues(values, validStages) {
     source_record_id: fieldValue(values, 'candidate_id', 300)
   }
   const raw = Object.fromEntries(Object.entries(rawValues).filter(([, value]) => hasNonEmptyValue(value)))
-  const { value, errors } = sanitizeCandidateInput(raw, { partial: true, validStages })
+  const { value, errors } = sanitizeCandidateInput(raw, {
+    partial: true,
+    validStages,
+    fallbackHireStatus: true,
+    allowExcelHireDateValues: true
+  })
   delete value.stage
   return { candidate: value, errors }
 }
 
 function positionFromValues(values) {
+  const dedicatedHeaderPresent = Object.prototype.hasOwnProperty.call(values, '最后职位类投递的职位id')
+  const positionCode = associatedPositionKey(values)
+  if (dedicatedHeaderPresent && !positionCode) {
+    return {
+      title: null,
+      department: null,
+      location: null,
+      owner: null,
+      headcount: null,
+      status: 'draft',
+      source_system: SOURCE_SYSTEM,
+      source_record_id: null,
+      external_code: null,
+      category: null,
+      professional_line: null,
+      job_sequence: null,
+      headcount_type: null,
+      project_name: null
+    }
+  }
   const headcountText = fieldValue(values, 'headcount', 40)
   const match = headcountText?.match(/\d+/)
   return {
-    title: fieldValue(values, 'position_title', 200),
+    // A standalone 职位编号 is only a stable lookup key. It must not become
+    // a synthetic title for a new position; the resolver requires a title
+    // unless an existing canonical position is matched.
+    title: dedicatedHeaderPresent ? textValue(positionCode, 200) : fieldValue(values, 'position_title', 200),
     department: fieldValue(values, 'position_department', 200),
     location: fieldValue(values, 'position_location', 200),
     owner: fieldValue(values, 'position_owner', 200),
     headcount: match ? Math.min(10_000, Math.max(1, Number(match[0]))) : null,
     status: 'draft',
     source_system: SOURCE_SYSTEM,
-    source_record_id: fieldValue(values, 'position_code', 300),
-    external_code: fieldValue(values, 'position_code', 300),
+    source_record_id: positionCode,
+    external_code: positionCode,
     category: fieldValue(values, 'position_category', 300),
     professional_line: fieldValue(values, 'professional_line', 300),
     job_sequence: fieldValue(values, 'job_sequence', 300),
     headcount_type: fieldValue(values, 'headcount_type', 300),
     project_name: fieldValue(values, 'project_name', 300)
+  }
+}
+
+function normalizeImportTimestamp(value) {
+  if (value == null) return ''
+  return String(value)
+    .trim()
+    .replace(/T/g, ' ')
+    .replace(/\.\d{1,3}(?=Z$|[+-]\d{2}:?\d{2}$)/, '')
+    .replace(/Z$/, '')
+    .replace(/\s+/g, ' ')
+}
+
+function positionLabelMatches(sourceLabel, position) {
+  const source = normalizePositionText(sourceLabel)
+  if (!source) return false
+  if (source === normalizePositionText(position?.external_code)
+    || source === normalizePositionText(position?.source_record_id)) return true
+  const title = normalizePositionText(position?.title)
+  if (source === title) return true
+  // Existing positions commonly append the stable code in parentheses, e.g.
+  // "用研实习生(J10407)" while the Beisen export contains "用研实习生".
+  return title.startsWith(`${source}(`) || title.startsWith(`${source}（`)
+}
+
+function addAssociatedPositionIndex(index, candidateSourceId, deliveryAt, record) {
+  const candidateKey = stablePositionValue(candidateSourceId)
+  const timestampKey = normalizeImportTimestamp(deliveryAt)
+  if (!candidateKey || !timestampKey || !record?.id) return
+  const key = `${candidateKey}\u0000${timestampKey}`
+  const records = index.get(key) ?? []
+  if (!records.some((item) => item.id === record.id)) records.push(record)
+  index.set(key, records)
+}
+
+/**
+ * Build a Beisen-specific lookup for the "最后职位类投递" column.
+ *
+ * The export calls the value a position ID, but many historical rows contain
+ * only the display title. Candidate application history retains the exact
+ * delivery timestamp and the canonical position code, so using both fields
+ * lets us resolve duplicate titles without inventing a new draft position.
+ */
+function createBeisenAssociatedPositionIndex(db, candidateSourceIds = []) {
+  const index = new Map()
+  const ids = [...new Set(candidateSourceIds)].filter(Boolean)
+  if (ids.length === 0) return index
+  const baseQuery = `
+    SELECT c.source_record_id AS candidate_source_id,
+      cps.raw_payload, p.id, p.title, p.department, p.location, p.owner,
+      p.headcount, p.source_system, p.source_record_id, p.external_code,
+      p.category, p.professional_line, p.job_sequence, p.headcount_type,
+      p.project_name, p.archived_at
+    FROM candidates c
+    JOIN candidate_position_sources cps ON cps.candidate_id = c.id
+    JOIN positions p ON p.id = cps.position_id
+    WHERE c.source_system = ? AND c.source_record_id IN (`
+  // Keep the parameter list below SQLite's variable limit for large imports.
+  for (let offset = 0; offset < ids.length; offset += 500) {
+    const chunk = ids.slice(offset, offset + 500)
+    for (const row of db.prepare(`${baseQuery}${chunk.map(() => '?').join(',')})`).all(SOURCE_SYSTEM, ...chunk)) {
+      const payload = parseJsonObject(row.raw_payload)
+      const deliveryAt = payload['最后投递时间'] ?? payload['最后职位类投递时间']
+      addAssociatedPositionIndex(index, row.candidate_source_id, deliveryAt, row)
+    }
+  }
+  return index
+}
+
+function resolveBeisenAssociatedPosition(index, candidateSourceId, positionKey, deliveryAt) {
+  if (!index || !candidateSourceId || !positionKey || !deliveryAt) return null
+  const key = `${stablePositionValue(candidateSourceId)}\u0000${normalizeImportTimestamp(deliveryAt)}`
+  const matches = (index.get(key) ?? []).filter((position) => positionLabelMatches(positionKey, position))
+  return matches.length === 1 ? matches[0] : null
+}
+
+function enrichBeisenPosition(position, associatedPosition) {
+  if (!associatedPosition) return position
+  return {
+    ...position,
+    title: associatedPosition.title || position.title,
+    department: associatedPosition.department ?? position.department,
+    location: associatedPosition.location ?? position.location,
+    owner: associatedPosition.owner ?? position.owner,
+    headcount: associatedPosition.headcount ?? position.headcount,
+    source_system: associatedPosition.source_system || position.source_system,
+    source_record_id: associatedPosition.source_record_id || associatedPosition.external_code || position.source_record_id,
+    external_code: associatedPosition.external_code || associatedPosition.source_record_id || position.external_code,
+    category: associatedPosition.category ?? position.category,
+    professional_line: associatedPosition.professional_line ?? position.professional_line,
+    job_sequence: associatedPosition.job_sequence ?? position.job_sequence,
+    headcount_type: associatedPosition.headcount_type ?? position.headcount_type,
+    project_name: associatedPosition.project_name ?? position.project_name
   }
 }
 
@@ -712,12 +858,21 @@ export function prepareBeisenPreview({ db, rows, headers, filename, sheetName, v
   if (!isBeisenTalentWorkbook(headers)) throw importError(422, '北森人才库导入缺少应聘者ID列')
   const candidateIds = new Set()
   const applicationIds = new Set()
+  const candidateSourceIds = rows
+    .map(({ values }) => fieldValue(values, 'candidate_id', 300))
+    .filter(Boolean)
+  const associatedPositionIndex = createBeisenAssociatedPositionIndex(db, candidateSourceIds)
   const preparedRows = rows.map(({ row_number: rowNumber, values }) => {
     const candidateId = fieldValue(values, 'candidate_id', 300)
     const applicationId = fieldValue(values, 'application_id', 300)
-    const positionCode = fieldValue(values, 'position_code', 300)
+    const positionCode = associatedPositionKey(values)
     const { candidate, errors: candidateErrors } = candidateFromValues(values, validStages)
-    const position = positionFromValues(values)
+    const positionKey = positionCode
+    const lastDeliveryAt = fieldValue(values, 'last_position_delivery_at', 80)
+    const position = enrichBeisenPosition(
+      positionFromValues(values),
+      resolveBeisenAssociatedPosition(associatedPositionIndex, candidateId, positionKey, lastDeliveryAt)
+    )
     const errors = [...candidateErrors]
     if (!candidateId) errors.push({ field: '应聘者ID', code: 'missing_candidate_id', message: '缺少稳定候选人 ID' })
     if (candidateId) candidateIds.add(candidateId)
@@ -731,6 +886,7 @@ export function prepareBeisenPreview({ db, rows, headers, filename, sheetName, v
       application_ready: false,
       application_used: false,
       existing_position_id: null,
+      last_position_delivery_at: lastDeliveryAt,
       applied_at: fieldValue(values, 'applied_at', 80),
       pool_names: splitValues(fieldValues(values, 'talent_pool', 5_000)),
       sources: {
@@ -854,7 +1010,11 @@ export function prepareBeisenPreview({ db, rows, headers, filename, sheetName, v
     mapping: {
       source_record_id: '应聘者ID',
       source_application_id: '申请ID',
-      position_external_code: '职位编号'
+      // In a Beisen talent export this column is the authoritative relation
+      // key. A generic 职位编号 is only a fallback for files without it.
+      position_external_code: headers.includes('最后职位类投递的职位id')
+        ? '最后职位类投递的职位id'
+        : (headers.includes('职位编号') ? '职位编号' : null)
     },
     unmapped_headers: [],
     summary,
@@ -1090,7 +1250,7 @@ export function commitBeisenImport({ db, preview, batchId, taskId = null, metric
         summary.updated_rows += 1
       } else {
         const existing = db.prepare(`
-          SELECT id, tags, archived_at FROM candidates WHERE source_system = ? AND source_record_id = ?
+          SELECT id, tags, hire_status, archived_at FROM candidates WHERE source_system = ? AND source_record_id = ?
         `).get(SOURCE_SYSTEM, row.candidate_source_id)
         const duplicate = findDuplicate(db, row.candidate, existing?.id ?? null)
         if (duplicate) {
@@ -1112,6 +1272,11 @@ export function commitBeisenImport({ db, preview, batchId, taskId = null, metric
         if (existing) {
           candidateId = existing.id
           const patch = patchFromCandidate(row.candidate, batchId)
+          if (
+            patch.hire_status === '不确定'
+            && existing.hire_status
+            && !sourceFieldHasValue(row.raw_payload, 'hire_status')
+          ) delete patch.hire_status
           if (patch.tags) patch.tags = [...new Set([...parseJsonArray(existing.tags), ...patch.tags])].slice(0, 50)
           patchCandidate(db, candidateId, patch, {
             activityType: 'candidate_import_updated',

@@ -3,14 +3,30 @@ import { Readable } from 'node:stream'
 import ExcelJS from 'exceljs'
 import mammothModule from 'mammoth'
 import { readFirstSheet, XlsError } from 'xls-reader'
-import { getDocument, PasswordException } from 'pdfjs-dist/legacy/build/pdf.mjs'
+import { getDocument, PasswordException, Util } from 'pdfjs-dist/legacy/build/pdf.mjs'
 import {
   extractAttachmentAvatarResults,
   serializeAttachmentAvatarResult
 } from './attachment-avatar.js'
 import { inspectSecureZipBuffer } from './secure-zip-buffer.js'
+import {
+  ATTACHMENT_VISUAL_HARD_LIMITS,
+  getRemainingVisualTimeoutMs
+} from './attachment-parser.js'
 
 const mammoth = mammothModule.default ?? mammothModule
+let canvasFactory
+
+async function loadCanvasFactory() {
+  if (canvasFactory) return canvasFactory
+  try {
+    const canvasModule = await import('@napi-rs/canvas')
+    canvasFactory = canvasModule.createCanvas
+    return canvasFactory
+  } catch {
+    throw parserError('pdf_visual_renderer_unavailable', 'PDF 页面视觉渲染器暂时不可用')
+  }
+}
 
 function verifyZipPayload(buffer, limits) {
   inspectSecureZipBuffer(buffer, limits, { verifyPayload: true })
@@ -31,6 +47,345 @@ function cleanText(value, maximum) {
     .replace(/\n{4,}/g, '\n\n\n')
     .trim()
   return text.length <= maximum ? { text, truncated: false } : { text: text.slice(0, maximum), truncated: true }
+}
+
+function boundedVisualNumber(value, fallback, minimum = 1, maximum = Number.MAX_SAFE_INTEGER) {
+  const number = Number(value)
+  return Number.isFinite(number) && number >= minimum
+    ? Math.min(number, maximum)
+    : fallback
+}
+
+function visualLimits(limits) {
+  const hard = ATTACHMENT_VISUAL_HARD_LIMITS
+  return {
+    maxPages: Math.floor(boundedVisualNumber(limits.maxVisualPdfPages, hard.maxVisualPdfPages, 1, hard.maxVisualPdfPages)),
+    scale: boundedVisualNumber(limits.visualRenderScale, hard.visualRenderScale, 0.1, hard.visualRenderScale),
+    maxWidth: Math.floor(boundedVisualNumber(limits.maxVisualPageWidth, hard.maxVisualPageWidth, 1, hard.maxVisualPageWidth)),
+    maxHeight: Math.floor(boundedVisualNumber(limits.maxVisualPageHeight, hard.maxVisualPageHeight, 1, hard.maxVisualPageHeight)),
+    maxPagePixels: Math.floor(boundedVisualNumber(limits.maxVisualPagePixels, hard.maxVisualPagePixels, 1, hard.maxVisualPagePixels)),
+    maxTotalPixels: Math.floor(boundedVisualNumber(limits.maxVisualTotalPixels, hard.maxVisualTotalPixels, 1, hard.maxVisualTotalPixels)),
+    maxTotalRasterBytes: Math.floor(boundedVisualNumber(limits.maxVisualTotalRasterBytes, hard.maxVisualTotalRasterBytes, 1, hard.maxVisualTotalRasterBytes)),
+    maxPagePngBytes: Math.floor(boundedVisualNumber(limits.maxVisualPagePngBytes, hard.maxVisualPagePngBytes, 1, hard.maxVisualPagePngBytes)),
+    maxTotalPngBytes: Math.floor(boundedVisualNumber(limits.maxVisualTotalPngBytes, hard.maxVisualTotalPngBytes, 1, hard.maxVisualTotalPngBytes)),
+    maxTextSpans: Math.floor(boundedVisualNumber(limits.maxVisualTextSpans, hard.maxVisualTextSpans, 1, hard.maxVisualTextSpans)),
+    maxPageTextCharacters: Math.floor(boundedVisualNumber(limits.maxVisualPageTextCharacters, hard.maxVisualPageTextCharacters, 1, hard.maxVisualPageTextCharacters)),
+    maxTextSpanCharacters: Math.floor(boundedVisualNumber(limits.maxVisualTextSpanCharacters, hard.maxVisualTextSpanCharacters, 1, hard.maxVisualTextSpanCharacters)),
+    pageTimeoutMs: Math.floor(boundedVisualNumber(limits.visualRenderPageTimeoutMs, hard.visualRenderPageTimeoutMs, 1, hard.visualRenderPageTimeoutMs)),
+    timeoutMs: Math.floor(boundedVisualNumber(limits.visualRenderTimeoutMs, hard.visualRenderTimeoutMs, 1, hard.visualRenderTimeoutMs))
+  }
+}
+
+function contentStreamText(content, maximum = Number.MAX_SAFE_INTEGER) {
+  let text = ''
+  for (const item of content.items) {
+    if (!item || typeof item.str !== 'string') continue
+    if (text.length >= maximum) break
+    const suffix = item.hasEOL ? '\n' : ' '
+    const remaining = Math.max(0, maximum - text.length)
+    text += `${item.str}${suffix}`.slice(0, remaining)
+  }
+  return text
+}
+
+function normalizedTextSpans(content, viewport, maximum, maxCharacters, maxTotalCharacters = Number.MAX_SAFE_INTEGER) {
+  const spans = []
+  let retainedCharacters = 0
+  for (const [sourceOrder, item] of content.items.entries()) {
+    if (spans.length >= maximum || !item || typeof item.str !== 'string' || !item.str.trim()) continue
+    if (!Array.isArray(item.transform) || item.transform.length !== 6 || !Number.isFinite(item.width)) continue
+    let transform
+    try {
+      transform = Util.transform(viewport.transform, item.transform)
+    } catch {
+      continue
+    }
+    const x = transform[4]
+    const baseline = transform[5]
+    const width = Math.abs(item.width * viewport.scale)
+    const height = Math.hypot(transform[2], transform[3])
+    if (!Number.isFinite(x) || !Number.isFinite(baseline) || !Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+      continue
+    }
+    const y = baseline - height
+    if (x < 0 || y < 0 || x + width > viewport.width || y + height > viewport.height) continue
+    const remainingCharacters = Math.max(0, maxTotalCharacters - retainedCharacters)
+    if (remainingCharacters === 0) break
+    const text = item.str.slice(0, Math.min(maxCharacters, remainingCharacters))
+    retainedCharacters += text.length
+    spans.push({
+      text,
+      source_order: sourceOrder,
+      bbox: {
+        x: Math.round((x / viewport.width) * 10_000) / 10_000,
+        y: Math.round((y / viewport.height) * 10_000) / 10_000,
+        width: Math.round((width / viewport.width) * 10_000) / 10_000,
+        height: Math.round((height / viewport.height) * 10_000) / 10_000
+      }
+    })
+  }
+  return spans
+}
+
+function visualLineGroups(spans) {
+  const sorted = [...spans].sort((left, right) => {
+    const leftCenter = left.bbox.y + left.bbox.height / 2
+    const rightCenter = right.bbox.y + right.bbox.height / 2
+    return leftCenter - rightCenter || left.bbox.x - right.bbox.x || left.source_order - right.source_order
+  })
+  const lines = []
+  for (const span of sorted) {
+    const center = span.bbox.y + span.bbox.height / 2
+    const matching = lines.at(-1)
+    if (!matching || !(
+      Math.abs(center - matching.center) <= Math.max(0.002, span.bbox.height * 0.6, matching.height * 0.6)
+    )) {
+      lines.push({ center, height: span.bbox.height, spans: [span] })
+      continue
+    }
+    matching.spans.push(span)
+    matching.center = matching.spans.reduce((sum, item) => sum + item.bbox.y + item.bbox.height / 2, 0) / matching.spans.length
+    matching.height = Math.max(matching.height, span.bbox.height)
+  }
+  return lines.map((line) => line.spans.sort((left, right) => (
+    left.bbox.x - right.bbox.x || left.source_order - right.source_order
+  )))
+}
+
+function distinctLineCount(spans) {
+  return visualLineGroups(spans).length
+}
+
+function hasDenseRowAlignedCells(spans) {
+  const lines = visualLineGroups(spans)
+  if (lines.length < 3) return false
+  const denseRows = lines.filter((line) => {
+    if (line.length < 3) return false
+    const gaps = line
+      .slice(1)
+      .map((span, index) => span.bbox.x - line[index].bbox.x)
+      .filter((gap) => Number.isFinite(gap) && gap > 0)
+    if (gaps.length < 2) return false
+    const smallestGap = Math.min(...gaps)
+    const largestGap = Math.max(...gaps)
+    return smallestGap >= 0.16 && smallestGap / largestGap >= 0.5
+  })
+  return denseRows.length >= 3 && denseRows.length / lines.length >= 0.5
+}
+
+function detectedColumnGroups(spans) {
+  if (spans.length < 4) return [spans]
+  // A repeated three-or-more-cell row is stronger evidence of a table or
+  // timeline than a page-level column break. Keep those cells together so
+  // labels, values, and dates remain associated by row.
+  if (hasDenseRowAlignedCells(spans)) return [spans]
+  const byStart = [...spans].sort((left, right) => left.bbox.x - right.bbox.x || left.source_order - right.source_order)
+  const candidates = []
+  for (let index = 1; index < byStart.length; index += 1) {
+    const gap = byStart[index].bbox.x - byStart[index - 1].bbox.x
+    if (gap >= 0.18) candidates.push({ gap, index })
+  }
+  candidates.sort((left, right) => right.gap - left.gap)
+  let split = null
+  for (const { gap, index } of candidates.slice(0, 8)) {
+    const left = byStart.slice(0, index)
+    const right = byStart.slice(index)
+    if (distinctLineCount(left) < 2 || distinctLineCount(right) < 2) continue
+    const leftTop = Math.min(...left.map((span) => span.bbox.y))
+    const leftBottom = Math.max(...left.map((span) => span.bbox.y + span.bbox.height))
+    const rightTop = Math.min(...right.map((span) => span.bbox.y))
+    const rightBottom = Math.max(...right.map((span) => span.bbox.y + span.bbox.height))
+    if (Math.min(leftBottom, rightBottom) - Math.max(leftTop, rightTop) < 0.04) continue
+    split = { gap, left, right }
+  }
+  return split ? [split.left, split.right] : [spans]
+}
+
+function orderedSpanLines(spans) {
+  return detectedColumnGroups(spans).flatMap((column) => visualLineGroups(column))
+}
+
+function joinSpanLine(spans) {
+  let line = ''
+  for (const span of spans) {
+    const text = span.text.trim()
+    if (!text) continue
+    const separator = line && !/\s$/u.test(line) && !/^[,.;:!?%)\]}]/u.test(text) ? ' ' : ''
+    line += `${separator}${text}`
+  }
+  return line
+}
+
+function orderedSpanText(spans, maximum) {
+  let text = ''
+  for (const lineSpans of orderedSpanLines(spans)) {
+    const line = joinSpanLine(lineSpans)
+    if (!line) continue
+    const separator = text ? '\n' : ''
+    const remaining = maximum - text.length
+    if (remaining <= 0) break
+    text += `${separator}${line}`.slice(0, remaining)
+  }
+  return text
+}
+
+function publicTextSpans(spans) {
+  return orderedSpanLines(spans).flat().map(({ text, bbox }) => ({ text, bbox }))
+}
+
+function geometryPageText(content, viewport, maximum, maximumSpans) {
+  if (maximum <= 0) return ''
+  const usableItems = content.items.filter((item) => item && typeof item.str === 'string' && item.str.trim())
+  const spans = normalizedTextSpans(content, viewport, maximumSpans, maximum, maximum)
+  if (spans.length < Math.min(usableItems.length, maximumSpans)) {
+    return contentStreamText(content, maximum)
+  }
+  return orderedSpanText(spans, maximum)
+}
+
+function visualTimeoutError() {
+  return parserError('pdf_visual_render_timeout', 'PDF 页面视觉渲染超时', 504)
+}
+
+const TEST_VISUAL_STAGES = new Set(['getPage', 'getTextContent', 'loadCanvas', 'render', 'encodePng'])
+
+function visualStageDelay(stage) {
+  if (!process.env.NODE_TEST_CONTEXT || !TEST_VISUAL_STAGES.has(stage)) return 0
+  const delay = Number(workerData.testVisualStageDelays?.[stage])
+  return Number.isFinite(delay) && delay > 0 ? Math.min(Math.floor(delay), 10_000) : 0
+}
+
+async function runVisualStage(stage, operation, visual, renderStartedAt, pageStartedAt, onTimeout) {
+  const timeoutMs = getRemainingVisualTimeoutMs(
+    visual.pageTimeoutMs,
+    visual.timeoutMs,
+    renderStartedAt,
+    Date.now(),
+    pageStartedAt
+  )
+  if (timeoutMs <= 0) throw visualTimeoutError()
+
+  let delayTimer
+  let deadlineTimer
+  const delayMs = visualStageDelay(stage)
+  const operationPromise = (async () => {
+    if (delayMs) {
+      await new Promise((resolve) => {
+        delayTimer = setTimeout(resolve, delayMs)
+      })
+    }
+    return operation()
+  })()
+  try {
+    return await Promise.race([
+      operationPromise,
+      new Promise((_, reject) => {
+        deadlineTimer = setTimeout(() => {
+          if (delayTimer) clearTimeout(delayTimer)
+          try { onTimeout?.() } catch {}
+          reject(visualTimeoutError())
+        }, timeoutMs)
+      })
+    ])
+  } finally {
+    if (delayTimer) clearTimeout(delayTimer)
+    if (deadlineTimer) clearTimeout(deadlineTimer)
+  }
+}
+
+function constrainedViewport(page, visual) {
+  const base = page.getViewport({ scale: 1 })
+  if (!Number.isFinite(base.width) || !Number.isFinite(base.height) || base.width <= 0 || base.height <= 0) {
+    throw parserError('pdf_visual_dimensions_invalid', 'PDF 页面尺寸无效，无法安全渲染')
+  }
+  const scale = Math.min(
+    visual.scale,
+    visual.maxWidth / base.width,
+    visual.maxHeight / base.height,
+    Math.sqrt(visual.maxPagePixels / (base.width * base.height))
+  )
+  if (!Number.isFinite(scale) || scale <= 0) {
+    throw parserError('pdf_visual_dimensions_invalid', 'PDF 页面尺寸无效，无法安全渲染')
+  }
+  const viewport = page.getViewport({ scale })
+  const width = Math.floor(viewport.width)
+  const height = Math.floor(viewport.height)
+  const pixelCount = width * height
+  if (width < 1 || height < 1 || width > visual.maxWidth || height > visual.maxHeight || pixelCount > visual.maxPagePixels) {
+    throw parserError('pdf_visual_pixel_limit', 'PDF 页面渲染超过安全像素限制', 413)
+  }
+  return { viewport, width, height, pixelCount }
+}
+
+async function renderPdfPage(page, pageNumber, content, visual, totals, renderStartedAt, pageStartedAt) {
+  const { viewport, width, height, pixelCount } = constrainedViewport(page, visual)
+  if (totals.pixels + pixelCount > visual.maxTotalPixels) {
+    throw parserError('pdf_visual_total_pixel_limit', 'PDF 总渲染像素超过安全限制', 413)
+  }
+  const rasterBytes = pixelCount * 4
+  if (totals.rasterBytes + rasterBytes > visual.maxTotalRasterBytes) {
+    throw parserError('pdf_visual_total_memory_limit', 'PDF 总渲染内存超过安全限制', 413)
+  }
+  const createCanvas = await runVisualStage(
+    'loadCanvas',
+    loadCanvasFactory,
+    visual,
+    renderStartedAt,
+    pageStartedAt
+  )
+  const canvas = createCanvas(width, height)
+  let renderTask
+  try {
+    await runVisualStage(
+      'render',
+      () => {
+        renderTask = page.render({ canvasContext: canvas.getContext('2d'), viewport, background: 'white' })
+        return renderTask.promise
+      },
+      visual,
+      renderStartedAt,
+      pageStartedAt,
+      () => renderTask?.cancel()
+    )
+    const png = Buffer.from(await runVisualStage(
+      'encodePng',
+      () => canvas.encode('png'),
+      visual,
+      renderStartedAt,
+      pageStartedAt
+    ))
+    if (png.length > visual.maxPagePngBytes) {
+      throw parserError('pdf_visual_png_limit', 'PDF 页面图像超过安全大小限制', 413)
+    }
+    if (totals.pngBytes + png.length > visual.maxTotalPngBytes) {
+      throw parserError('pdf_visual_total_png_limit', 'PDF 总图像超过安全大小限制', 413)
+    }
+    totals.pixels += pixelCount
+    totals.rasterBytes += rasterBytes
+    totals.pngBytes += png.length
+    const image = Uint8Array.from(png)
+    const pageSpans = normalizedTextSpans(
+      content,
+      viewport,
+      visual.maxTextSpans,
+      visual.maxTextSpanCharacters,
+      visual.maxPageTextCharacters
+    )
+    return {
+      page_number: pageNumber,
+      width,
+      height,
+      pixel_count: pixelCount,
+      mime_type: 'image/png',
+      image_buffer: image.buffer,
+      text: cleanText(orderedSpanText(pageSpans, visual.maxPageTextCharacters), visual.maxPageTextCharacters).text,
+      text_spans: publicTextSpans(pageSpans)
+    }
+  } finally {
+    // Release the native surface promptly; this worker may render many pages.
+    canvas.width = 0
+    canvas.height = 0
+  }
 }
 
 function cellValue(value) {
@@ -177,7 +532,16 @@ async function parseSpreadsheet(buffer, format, limits) {
   }
 }
 
-async function parsePdf(buffer, limits) {
+function clearVisualPageTransfers(pages) {
+  for (const page of pages) {
+    try {
+      if (page?.image_buffer instanceof ArrayBuffer) new Uint8Array(page.image_buffer).fill(0)
+    } catch {}
+  }
+  pages.length = 0
+}
+
+async function parsePdf(buffer, limits, { renderVisualPages = false, allowTextlessPdf = false } = {}) {
   let loadingTask
   let pdf
   try {
@@ -191,38 +555,125 @@ async function parsePdf(buffer, limits) {
       verbosity: 0
     })
     pdf = await loadingTask.promise
+    if (pdf.numPages === 0) {
+      throw parserError('pdf_empty', 'PDF 中没有可解析的页面')
+    }
     if (pdf.numPages > limits.maxPdfPages) {
       throw parserError('pdf_page_limit', `PDF 最多支持 ${limits.maxPdfPages} 页`, 413)
     }
+    let visual = renderVisualPages ? visualLimits(limits) : null
+    let visualErrorCode = null
+    if (visual && pdf.numPages > visual.maxPages) {
+      visualErrorCode = 'pdf_visual_page_limit'
+      visual = null
+    }
     let combined = ''
     let truncated = false
+    const visualPages = []
+    const pageKinds = []
+    const totals = { pixels: 0, rasterBytes: 0, pngBytes: 0 }
+    const disableVisual = (cause) => {
+      visualErrorCode = String(cause?.code ?? '').startsWith('pdf_visual_')
+        ? cause.code
+        : 'pdf_visual_render_failed'
+      clearVisualPageTransfers(visualPages)
+      visual = null
+    }
+    const renderStartedAt = Date.now()
+    const visualPromise = visual
+      ? (async () => {
+          for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+            const pageStartedAt = Date.now()
+            const activeVisual = visual
+            try {
+              const page = await runVisualStage(
+                'getPage',
+                () => pdf.getPage(pageNumber),
+                activeVisual,
+                renderStartedAt,
+                pageStartedAt
+              )
+              const content = await runVisualStage(
+                'getTextContent',
+                () => page.getTextContent({ includeMarkedContent: false, disableNormalization: false }),
+                activeVisual,
+                renderStartedAt,
+                pageStartedAt
+              )
+              visualPages.push(await renderPdfPage(
+                page,
+                pageNumber,
+                content,
+                activeVisual,
+                totals,
+                renderStartedAt,
+                pageStartedAt
+              ))
+            } catch (cause) {
+              disableVisual(cause)
+              break
+            }
+          }
+        })()
+      : Promise.resolve()
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
       const page = await pdf.getPage(pageNumber)
       const content = await page.getTextContent({ includeMarkedContent: false, disableNormalization: false })
-      let pageText = ''
-      for (const item of content.items) {
-        if (!item || typeof item.str !== 'string') continue
-        pageText += item.str
-        pageText += item.hasEOL ? '\n' : ' '
-      }
-      const remaining = limits.maxExtractedText - combined.length
-      if (pageText.length > remaining) {
-        combined += pageText.slice(0, Math.max(0, remaining))
+      const usableItems = content.items.filter((item) => item && typeof item.str === 'string' && item.str.trim())
+      const hasUsableText = usableItems.length > 0
+      // Page routing is based on whether a text layer exists. The higher
+      // document-level threshold below remains the legacy text-only guard.
+      pageKinds.push(hasUsableText ? 'text' : 'scanned')
+      const separator = combined && hasUsableText ? '\n' : ''
+      const remaining = Math.max(0, limits.maxExtractedText - combined.length)
+      if (hasUsableText && remaining <= separator.length) {
         truncated = true
-        break
+        continue
       }
-      combined += `${pageText}\n`
+      const availableTextCharacters = Math.max(0, remaining - separator.length)
+      const extractionViewport = page.getViewport({ scale: 1 })
+      const extractedPageText = geometryPageText(
+        content,
+        extractionViewport,
+        availableTextCharacters,
+        Math.floor(boundedVisualNumber(
+          limits.maxVisualTextSpans,
+          ATTACHMENT_VISUAL_HARD_LIMITS.maxVisualTextSpans,
+          1,
+          ATTACHMENT_VISUAL_HARD_LIMITS.maxVisualTextSpans
+        ))
+      )
+      if (extractedPageText) combined += `${separator}${extractedPageText}`
+      const sourceTextCharacters = usableItems.reduce(
+        (sum, item) => Math.min(availableTextCharacters + 1, sum + item.str.length),
+        0
+      )
+      if (sourceTextCharacters > availableTextCharacters) truncated = true
     }
+    await visualPromise
     const cleaned = cleanText(combined, limits.maxExtractedText)
-    if (cleaned.text.replace(/\s/g, '').length < 20) {
+    const pdfContentType = pageKinds.every((kind) => kind === 'text')
+      ? 'text'
+      : pageKinds.every((kind) => kind === 'scanned') ? 'scanned' : 'mixed'
+    if (cleaned.text.replace(/\s/g, '').length < 20 && !renderVisualPages && !allowTextlessPdf) {
       throw parserError('pdf_no_text', 'PDF 中没有可提取文本；扫描件和需要 OCR 的文件暂不支持')
     }
-    return {
+    const parsed = {
       text: cleaned.text,
       text_truncated: truncated || cleaned.truncated,
       records: [{ row_number: 1, values: { raw_text: cleaned.text } }],
-      metadata: { page_count: pdf.numPages }
+      metadata: {
+        page_count: pdf.numPages,
+        pdf_content_type: pdfContentType,
+        visual: renderVisualPages
+          ? visualErrorCode
+            ? { status: 'fallback', error_code: visualErrorCode, rendered_page_count: 0 }
+            : { status: 'ready', rendered_page_count: visualPages.length }
+          : { status: 'not_requested', rendered_page_count: 0 }
+      }
     }
+    if (visual) parsed.visual_page_transfers = visualPages
+    return parsed
   } catch (cause) {
     if (cause instanceof PasswordException || cause?.name === 'PasswordException') {
       throw parserError('encrypted_pdf_unsupported', '不支持加密或带密码的 PDF')
@@ -276,7 +727,12 @@ async function main() {
   const { format, limits } = workerData
   if (['docx', 'xlsx', 'xlsm'].includes(format)) verifyZipPayload(buffer, limits)
   let parsed
-  if (format === 'pdf') parsed = await parsePdf(buffer, limits)
+  if (format === 'pdf') {
+    parsed = await parsePdf(buffer, limits, {
+      renderVisualPages: workerData.renderVisualPages === true,
+      allowTextlessPdf: workerData.allowTextlessPdf === true
+    })
+  }
   else if (format === 'docx') parsed = await parseDocx(buffer, limits)
   else if (format === 'txt') parsed = parsePlainText(buffer, limits)
   else if (['xlsx', 'xlsm', 'xls', 'csv'].includes(format)) parsed = await parseSpreadsheet(buffer, format, limits)
@@ -294,7 +750,10 @@ async function main() {
 
 try {
   const result = await main()
-  parentPort.postMessage({ ok: true, result })
+  const transferList = Array.isArray(result.visual_page_transfers)
+    ? result.visual_page_transfers.map((page) => page.image_buffer).filter((buffer) => buffer instanceof ArrayBuffer)
+    : []
+  parentPort.postMessage({ ok: true, result }, transferList)
 } catch (error) {
   parentPort.postMessage({
     ok: false,

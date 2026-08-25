@@ -6,6 +6,10 @@
 
 ### Added
 
+- schema V12 `candidate_hire_information`：为 `candidates` 加法增加可空 `hire_position`，建立职位文本索引，并保留 V11 的 `hire_status`/`hire_date` 迁移；重复启动不重复登记或重建候选人。
+- 入职信息 V12：档案、详情、通用/北森导入和 CSV/XLSX 导出贯通 `hire_position`、`hire_status`、`hire_date`；日期非空且有效状态为空时补精确值 `不确定`，三项全空时详情不渲染入职信息区块。
+- 北森职位语义：`入职职位` 只记录入职事实，`入职雇佣关系` 保留在来源快照；`最后职位类投递的职位id` 才用于招聘职位关系，必要时按候选人和最后投递时间匹配既有职位，未命中时使用稳定来源键创建草稿职位。专用表头存在时单行空值不回退普通 `职位编号`；只有整份工作簿没有该表头时才兼容回退。
+
 - schema V11 `candidate_hire_status_and_date`：为 `candidates` 加法增加可空 `hire_status` 与 `hire_date`，建立状态/日期索引；迁移幂等且不重建或覆盖既有候选人。
 - 候选人入职信息全链路：API CRUD、通用/北森导入、CSV/XLSX 导出和档案编辑/详情显示均支持 `hire_status` 与 `hire_date`；日期规范为 `YYYY-MM-DD`，允许未来日期。
 - 北森入职数据清理边界：对提供的 7 个 BIFF8 `.xls` 逐文件生成 `_已整理.xlsx`，仅保留状态非空且不为精确文本“空”的行；源文件不覆盖。
@@ -58,6 +62,7 @@
 
 ### Changed
 
+- 北森日期增量导入遵循非空覆盖、空值不清除；只传日期的 PATCH 不覆盖已有明确入职状态。缺少精确“入职状态”表头但有有效“入职日期”的来源行以 `不确定` 进入预览，不把“入职雇佣关系”静默转换为状态。
 - 入职状态不强制固定枚举，保留最长 200 个字符的来源文本；入职日期为空时不删除已有值。新字段与求职偏好 `candidate_preferences.employment_status`、兼容阶段 `candidates.stage` 保持语义隔离。
 - Agent 会话发送从单个长 HTTP 生命周期改为短同步窗口 + SQLite 持久任务；`client_request_id` 重放返回原任务，不重复检索或模型调用，旧 `/agent/query` 也通过同一队列兼容
 - Agent 对话将“进入队列 → 分析问题 → 查询数据 → 整理证据 → 生成回答”展示在当前轮次下方；提交兼容等待窗口为 100 秒，任务状态读取保持单次 20 秒超时并自动重连，前端不设 30 秒总恢复上限，直到任务进入终态或用户取消/离开会话。重连复用相同 `client_request_id`，不重复执行任务；服务端 90 秒整体 deadline 与各阶段超时不变
@@ -105,6 +110,7 @@
 
 ### Verified
 
+- 2026-08-24 V12 正式 HTTP 导入：维护服务已验证绑定 `data/recruitment.db` 且后台写入暂停；`北森候选人入职信息导入样本-100人.xlsx`（SHA-256 `7D92DB6C37B892F3237E490E5424CC367CE14C9CAAE3F3584FB3083AD0A6C741`）预览为 `profile=beisen_talent`、100/100/0、`existing_duplicates=100`，并以 `最后职位类投递的职位id` 映射职位。提交结果为 `imported/updated/failed/skipped/candidate=0/100/0/0/100`、`positions_created/matched=0/32`、`links_created=0`、`pools_created=0`、`application_count=0`；前 20 条预览的入职职位/日期/`不确定` 状态及人才库、来源预览均通过。用户豁免提交后的 22GB 全库摘要、逐行字段查询、`integrity_check`/外键后检和恢复演练，未将其标记为完成；脱敏证据见 `docs/evidence/v12-hire-information-formal-import-20260824.json`。
 - V9 五文件聚焦门禁 39/39、当前业务搜索/异步任务/正式迁移安全三文件定向 30/30、完整 `npm test` 169/169（0 fail/cancel/skip）、TypeScript、1,852 modules 生产构建（JS 599.27 kB）、22 个 `server/*.js` 加 `server/index.mjs`/正式迁移脚本语法检查和低级别依赖审计（0 vulnerabilities）通过
 - V9 100,000/120,000 位匿名文件型 SQLite 容量、四任务并发/取消/partial/重启恢复、修复后只读 postcheck 和 1440x900/390x844 浏览器门禁通过；100k/120k 是验收规模与余量证据，不是人数硬上限，也不替代正式生产数据分布或多人吞吐验证
 - V9 正式 V8→V9 三件套备份、恢复副本和加法迁移已完成；schema `[1..8] -> [1..9]`，保护计数、checkpoint、coverage、FTS 元数据摘要、完整性和外键结果在恢复副本/正式库前后完全一致。新 PID `22904` 仅监听 `127.0.0.1:4173`，health、Agent status 和根页面 200，`async_tasks=true`；迁移后的 health-only 正式验收未执行候选人搜索、模型问答、截图、负载或业务写入，脱敏证据见 `docs/evidence/v9-formal-deployment.json`
@@ -180,6 +186,7 @@
 
 ### Planned
 
+- V12 的正式 HTTP 预览与提交已完成；22GB 全库摘要、100 行字段逐项后检、`integrity_check`/外键后检和恢复演练经用户明确豁免，仍不是已完成验收项。
 - 重新导出每份都带精确 `应聘者ID` 的正式北森分批文件，在隔离数据库执行 dry-run；现有前两份 `.xls` 因缺少该字段不能自动跨文件合并
 - 使用正式北森文件完成前端导入 dry-run 与人工复核；当前自动化只使用匿名合成工作簿和匿名 BIFF8 样本，未把真实候选人数据提交到数据库
 - 为重复文件增加内容指纹或逐字段无变化检测；当前重放虽不重复创建主记录或关系，仍会刷新候选人更新时间、导入批次并追加更新活动

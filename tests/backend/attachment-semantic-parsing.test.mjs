@@ -215,6 +215,60 @@ test('multiline scalar fields stop before a numbered section heading prefix', as
   assert.ok(suggestion)
   assert.equal(suggestion.value, '重视质量与可验证交付')
   assert.equal(text.includes(suggestion.evidence), true)
+  assert.equal(
+    preview.records[0].sections.some((section) => section.section_type === 'self_summary'),
+    false,
+    'self_summary must remain a scalar suggestion instead of becoming a resume section'
+  )
+})
+
+test('legacy model summary sections stay scalar-only at the service boundary', async () => {
+  const text = [
+    '邮箱：legacy-summary@example.test',
+    '自我评价：可核对的摘要证据'
+  ].join('\n')
+  const suggestionProvider = async ({ records }) => ({
+    records: [{
+      record_id: records[0].record_id,
+      suggestions: [],
+      sections: [
+        {
+          section_type: 'self_summary',
+          title: '自我评价',
+          content: '可核对的摘要证据',
+          confidence: 'high',
+          evidence: '自我评价：可核对的摘要证据',
+          default_selected: true
+        },
+        {
+          section_type: 'resume_summary',
+          title: '个人概述',
+          content: '可核对的摘要证据',
+          confidence: 'high',
+          evidence: '自我评价：可核对的摘要证据',
+          default_selected: true
+        },
+        {
+          section_type: 'other',
+          title: '简介',
+          content: '可核对的摘要证据',
+          structured_data: { semantic_type: 'self_summary' },
+          confidence: 'high',
+          evidence: '自我评价：可核对的摘要证据',
+          default_selected: true
+        }
+      ]
+    }]
+  })
+  const { service } = fixture(textParser(text), { suggestionProvider })
+  const preview = await readyPreview(service)
+  const sections = preview.records[0].sections
+
+  assert.equal(sections.some((section) => (
+    ['self_summary', 'resume_summary'].includes(String(section.section_type).toLowerCase())
+      || section.structured_data?.semantic_type === 'self_summary'
+  )), false)
+  assert.equal(preview.records[0].suggestions.some((item) => item.field === 'self_summary'), true)
 })
 
 test('Chinese OCR spacing joins singleton characters while preserving word spaces', async () => {
@@ -253,24 +307,24 @@ test('noise cleanup preserves a long business ID under an explicit identifier la
 
 test('model values stop before the physical start of a numbered Markdown heading', async () => {
   const text = [
-    '目标职位原文',
+    '所在地原文',
     '### 2. Education: Bachelor'
   ].join('\n')
   const suggestionProvider = async ({ records }) => ({
     records: [{
       record_id: records[0].record_id,
       suggestions: [{
-        field: 'current_title',
+        field: 'location',
         value: text,
         confidence: 'high',
-        evidence: '目标职位原文',
+        evidence: '所在地原文',
         default_selected: true
       }],
       sections: [{
         section_type: 'project',
         content: text,
         confidence: 'high',
-        evidence: '目标职位原文',
+        evidence: '所在地原文',
         default_selected: true
       }]
     }]
@@ -279,10 +333,60 @@ test('model values stop before the physical start of a numbered Markdown heading
   const preview = await readyPreview(service)
   const record = preview.records[0]
 
-  assert.equal(record.suggestions.find((item) => item.field === 'current_title')?.value, '目标职位原文')
+  assert.equal(record.suggestions.find((item) => item.field === 'location')?.value, '所在地原文')
   assert.deepEqual(record.sections.map((section) => section.section_type), ['project'])
-  assert.equal(record.sections[0].content, '目标职位原文')
+  assert.equal(record.sections[0].content, '所在地原文')
   assert.doesNotMatch(record.sections[0].content, /###\s*2\./)
+})
+
+test('model scalar suggestions require evidence containing the proposed value', async () => {
+  const text = [
+    '姓名：匿名候选人',
+    '邮箱：evidence-binding@example.test',
+    '项目经历',
+    '真实项目证据'
+  ].join('\n')
+  const suggestionProvider = async ({ records }) => ({
+    records: [{
+      record_id: records[0].record_id,
+      suggestions: [{
+        field: 'current_company',
+        value: 'Fabricated Company',
+        confidence: 'high',
+        evidence: '真实项目证据'
+      }],
+      sections: []
+    }]
+  })
+  const { service } = fixture(textParser(text), { suggestionProvider })
+  const preview = await readyPreview(service)
+
+  assert.equal(preview.records[0].suggestions.some((item) => item.field === 'current_company'), false)
+})
+
+test('model text suggestions cannot turn a historical role into the current company', async () => {
+  const evidence = 'Historical Company | Historical Analyst | 2020年1月-2022年12月'
+  const text = [
+    '邮箱：historical-role@example.test',
+    '工作经历',
+    evidence
+  ].join('\n')
+  const suggestionProvider = async ({ records }) => ({
+    records: [{
+      record_id: records[0].record_id,
+      suggestions: [{
+        field: 'current_company',
+        value: 'Historical Company',
+        confidence: 'high',
+        evidence
+      }],
+      sections: []
+    }]
+  })
+  const { service } = fixture(textParser(text), { suggestionProvider })
+  const preview = await readyPreview(service)
+
+  assert.equal(preview.records[0].suggestions.some((item) => item.field === 'current_company'), false)
 })
 
 test('spreadsheet resume columns create canonical sections in physical-column order', async () => {
@@ -316,7 +420,7 @@ test('combined skills and certificates headings create a canonical skill section
     '技能证书',
     'SQL、Excel、Python；数据分析专业证书。',
     '实习经历',
-    '青禾咨询 数据分析实习生 2024.02-2024.07'
+    '青禾咨询 匿名分析实习生 2024.02-2024.07'
   ].join('\n')
   const { service } = fixture(textParser(text))
   const preview = await readyPreview(service)
@@ -368,6 +472,25 @@ test('duplicate physical identity columns block automatic matching and contact s
   assert.equal(record.identity.phone, '')
   assert.equal(record.suggestions.some((suggestion) => suggestion.field === 'email'), false)
   assert.equal(record.suggestions.some((suggestion) => suggestion.field === 'phone'), false)
+})
+
+test('multiple inline phones and emails remain ambiguous instead of selecting the first contact', async () => {
+  const text = [
+    '姓名：多联系方式候选人',
+    '手机：13800000011 / 13900000022',
+    '邮箱：first@example.test；second@example.test',
+    '项目经历：匿名项目交付'
+  ].join('\n')
+  const { service } = fixture(textParser(text))
+  const preview = await readyPreview(service)
+  const record = preview.records[0]
+
+  assert.equal(record.match.status, 'multiple_matches')
+  assert.equal(record.identity.phone, '')
+  assert.equal(record.identity.email, '')
+  assert.equal(record.identity_candidates, undefined)
+  assert.equal(record.suggestions.some((item) => item.field === 'phone'), false)
+  assert.equal(record.suggestions.some((item) => item.field === 'email'), false)
 })
 
 test('confirmation persists only canonical profile types and keeps self summary scalar-only', async () => {

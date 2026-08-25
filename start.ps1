@@ -14,7 +14,29 @@ if ($null -ne $blockingMaintenanceSentinel) {
     throw "Database maintenance is active. The launcher will not install, build, or start the application."
 }
 
-$agentVariableNames = @("AGENT_BASE_URL", "AGENT_API_KEY", "AGENT_MODEL")
+$agentVariableNames = @(
+    "AGENT_BASE_URL",
+    "AGENT_API_KEY",
+    "AGENT_MODEL",
+    "ATTACHMENT_TEXT_SCHEMA_MODE",
+    "ATTACHMENT_TEXT_TIMEOUT_MS",
+    "ATTACHMENT_TEXT_MAX_RESPONSE_BYTES",
+    "ATTACHMENT_VISUAL_CAPABILITY",
+    "ATTACHMENT_VISUAL_SCHEMA_MODE",
+    "ATTACHMENT_VISUAL_BASE_URL",
+    "ATTACHMENT_VISUAL_ALLOWED_HOSTS",
+    "ATTACHMENT_VISUAL_TRUSTED_PRIVATE_HOSTS",
+    "ATTACHMENT_VISUAL_API_KEY",
+    "ATTACHMENT_VISUAL_MODEL",
+    "ATTACHMENT_VISUAL_TIMEOUT_MS",
+    "ATTACHMENT_VISUAL_MAX_PAGES",
+    "ATTACHMENT_VISUAL_MAX_PAGE_PIXELS",
+    "ATTACHMENT_VISUAL_MAX_PAGE_BYTES",
+    "ATTACHMENT_VISUAL_MAX_TOTAL_IMAGE_BYTES",
+    "ATTACHMENT_VISUAL_MAX_TEXT_CHARACTERS",
+    "ATTACHMENT_VISUAL_MAX_RECORDS",
+    "ATTACHMENT_VISUAL_MAX_RESPONSE_BYTES"
+)
 foreach ($name in $agentVariableNames) {
     $processValue = [Environment]::GetEnvironmentVariable($name, "Process")
     if ([string]::IsNullOrWhiteSpace($processValue)) {

@@ -389,6 +389,8 @@ export class CandidateImportTaskService {
     this.resourceLimits = options.resourceLimits ?? {}
     this.maxConcurrent = Math.max(1, Number(options.maxConcurrent ?? 1))
     this.removeUpload = options.removeUpload ?? removeFile
+    this.recoverOnStartup = options.recoverOnStartup !== false
+    this.enablePreviewCleanupTimer = options.enablePreviewCleanupTimer !== false
     this.queue = []
     this.queuedIds = new Set()
     this.runtimes = new Map()
@@ -399,11 +401,13 @@ export class CandidateImportTaskService {
     this.running = 0
     this.closing = false
     createTables(this.db)
-    this.recover()
-    this.cleanupTimer = setInterval(() => {
-      void this.purgeExpiredPreviews().catch(() => undefined)
-    }, Math.max(10_000, Number(options.previewCleanupIntervalMs ?? 60_000)))
-    this.cleanupTimer.unref?.()
+    if (this.recoverOnStartup) this.recover()
+    this.cleanupTimer = this.enablePreviewCleanupTimer
+      ? setInterval(() => {
+          void this.purgeExpiredPreviews().catch(() => undefined)
+        }, Math.max(10_000, Number(options.previewCleanupIntervalMs ?? 60_000)))
+      : null
+    this.cleanupTimer?.unref?.()
   }
 
   row(id) {

@@ -95,6 +95,64 @@ function workbookEntries(overrides = []) {
   ]
 }
 
+function prefixedSpreadsheetEntries() {
+  return spreadsheetEntries()
+}
+
+const SPREADSHEETML_NAMESPACE = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
+const DOCUMENT_RELATIONSHIPS_NAMESPACE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+const PACKAGE_RELATIONSHIPS_NAMESPACE = 'http://schemas.openxmlformats.org/package/2006/relationships'
+const WORKSHEET_RELATIONSHIP_TYPE = `${DOCUMENT_RELATIONSHIPS_NAMESPACE}/worksheet`
+
+function anonymousWorksheetXml({ prefix = 'x', header = '匿名表头', value = '匿名值' } = {}) {
+  return `<?xml version="1.0" encoding="utf-8"?><${prefix}:worksheet xmlns:${prefix}="${SPREADSHEETML_NAMESPACE}"><${prefix}:sheetData><${prefix}:row r="1"><${prefix}:c r="A1" t="str"><${prefix}:v>${header}</${prefix}:v></${prefix}:c></${prefix}:row><${prefix}:row r="2"><${prefix}:c r="A2" t="str"><${prefix}:v>${value}</${prefix}:v></${prefix}:c></${prefix}:row></${prefix}:sheetData></${prefix}:worksheet>`
+}
+
+function spreadsheetEntries({
+  workbookPrefix = 'x',
+  worksheetPrefix = workbookPrefix,
+  workbookXml,
+  relationshipsXml,
+  worksheetXml,
+  relationshipTarget = '/xl/worksheets/sheet1.xml',
+  relationshipTargetMode,
+  worksheetMethod
+} = {}) {
+  const workbookName = `${workbookPrefix}:workbook`
+  const sheetsName = `${workbookPrefix}:sheets`
+  const sheetName = `${workbookPrefix}:sheet`
+  const worksheetName = `${worksheetPrefix}:worksheet`
+  const sheetDataName = `${worksheetPrefix}:sheetData`
+  const rowName = `${worksheetPrefix}:row`
+  const cellName = `${worksheetPrefix}:c`
+  const valueName = `${worksheetPrefix}:v`
+  const targetMode = relationshipTargetMode ? ` TargetMode="${relationshipTargetMode}"` : ''
+
+  return [
+    {
+      name: '[Content_Types].xml',
+      data: '<?xml version="1.0" encoding="utf-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>'
+    },
+    {
+      name: '_rels/.rels',
+      data: '<?xml version="1.0" encoding="utf-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="/xl/workbook.xml" Id="RootWorkbook"/></Relationships>'
+    },
+    {
+      name: 'xl/workbook.xml',
+      data: workbookXml ?? `<?xml version="1.0" encoding="utf-8"?><${workbookName} xmlns:${workbookPrefix}="${SPREADSHEETML_NAMESPACE}" xmlns:r="${DOCUMENT_RELATIONSHIPS_NAMESPACE}"><${sheetsName}><${sheetName} name="应聘者申请数据" sheetId="1" r:id="SheetRelation"/></${sheetsName}></${workbookName}>`
+    },
+    {
+      name: 'xl/_rels/workbook.xml.rels',
+      data: relationshipsXml ?? `<?xml version="1.0" encoding="utf-8"?><Relationships xmlns="${PACKAGE_RELATIONSHIPS_NAMESPACE}"><Relationship Type="${WORKSHEET_RELATIONSHIP_TYPE}" Target="${relationshipTarget}" Id="SheetRelation"${targetMode}/></Relationships>`
+    },
+    {
+      name: 'xl/worksheets/sheet1.xml',
+      method: worksheetMethod,
+      data: worksheetXml ?? `<?xml version="1.0" encoding="utf-8"?><${worksheetName} xmlns:${worksheetPrefix}="${SPREADSHEETML_NAMESPACE}"><${sheetDataName}><${rowName} r="1"><${cellName} r="A1" t="str"><${valueName}>姓名</${valueName}></${cellName}><${cellName} r="B1" t="str"><${valueName}>应聘者ID</${valueName}></${cellName}><${cellName} r="C1" t="str"><${valueName}>入职职位</${valueName}></${cellName}></${rowName}><${rowName} r="2"><${cellName} r="A2" t="str"><${valueName}>匿名候选人</${valueName}></${cellName}><${cellName} r="B2" t="str"><${valueName}>anonymous-prefixed-1</${valueName}></${cellName}><${cellName} r="C2" t="str"><${valueName}>平台工程师</${valueName}></${cellName}></${rowName}></${sheetDataName}></${worksheetName}>`
+    }
+  ]
+}
+
 function temporaryImport(name, content, mimetype) {
   const directory = mkdtempSync(join(tmpdir(), 'candidate-import-security-'))
   cleanups.push(() => rmSync(directory, { recursive: true, force: true }))
@@ -180,6 +238,215 @@ test('candidate XLSX validation verifies CRC32 and rejects unsupported ZIP featu
   await rejectsWithCode(
     () => readCandidateImportFile(xlsxFile(zip64Entries)),
     'import_zip64_unsupported'
+  )
+})
+
+test('candidate XLSX import accepts namespace-prefixed SpreadsheetML elements', async () => {
+  const parsed = await readCandidateImportFile(xlsxFile(prefixedSpreadsheetEntries()))
+
+  assert.equal(parsed.sheetName, '应聘者申请数据')
+  assert.deepEqual(parsed.headers, ['姓名', '应聘者ID', '入职职位'])
+  assert.equal(parsed.rows.length, 1)
+  assert.deepEqual(parsed.rows[0].values, {
+    姓名: '匿名候选人',
+    应聘者ID: 'anonymous-prefixed-1',
+    入职职位: '平台工程师'
+  })
+})
+
+test('candidate XLSX import resolves workbook and worksheet prefixes independently', async () => {
+  const parsed = await readCandidateImportFile(xlsxFile(spreadsheetEntries({
+    workbookPrefix: 'x',
+    worksheetPrefix: 'y'
+  })))
+
+  assert.equal(parsed.sheetName, '应聘者申请数据')
+  assert.equal(parsed.rows.length, 1)
+})
+
+test('candidate XLSX import rejects a worksheet prefix rebound to a non-SpreadsheetML namespace', async () => {
+  const worksheetXml = `<?xml version="1.0" encoding="utf-8"?><y:worksheet xmlns:y="${SPREADSHEETML_NAMESPACE}"><y:sheetData><y:row xmlns:y="urn:not-spreadsheetml" r="1"><y:c r="A1" t="str"><y:v>姓名</y:v></y:c></y:row><y:row xmlns:y="urn:not-spreadsheetml" r="2"><y:c r="A2" t="str"><y:v>匿名候选人</y:v></y:c></y:row></y:sheetData></y:worksheet>`
+  await rejectsWithCode(
+    () => readCandidateImportFile(xlsxFile(spreadsheetEntries({ workbookPrefix: 'y', worksheetXml }))),
+    'import_xlsx_invalid'
+  )
+})
+
+test('candidate XLSX import ignores commented workbook sheet pseudo-elements', async () => {
+  const workbookXml = `<?xml version="1.0" encoding="utf-8"?><x:workbook xmlns:x="${SPREADSHEETML_NAMESPACE}" xmlns:r="${DOCUMENT_RELATIONSHIPS_NAMESPACE}"><x:sheets><!-- <x:sheet name="注释伪工作表" sheetId="99" r:id="SheetRelation"/> --><x:sheet name="应聘者申请数据" sheetId="1" r:id="SheetRelation"/></x:sheets></x:workbook>`
+  const parsed = await readCandidateImportFile(xlsxFile(spreadsheetEntries({ workbookXml })))
+
+  assert.equal(parsed.sheetName, '应聘者申请数据')
+})
+
+test('candidate XLSX import rejects malformed workbook and relationship XML', async () => {
+  const malformedWorkbook = `<?xml version="1.0" encoding="utf-8"?><x:workbook xmlns:x="${SPREADSHEETML_NAMESPACE}" xmlns:r="${DOCUMENT_RELATIONSHIPS_NAMESPACE}"><x:sheets><x:sheet name="应聘者申请数据" sheetId="1" r:id="SheetRelation"/></x:sheets>`
+  await rejectsWithCode(
+    () => readCandidateImportFile(xlsxFile(spreadsheetEntries({ workbookXml: malformedWorkbook }))),
+    'import_xlsx_invalid'
+  )
+
+  const malformedRelationships = `<?xml version="1.0" encoding="utf-8"?><Relationships xmlns="${PACKAGE_RELATIONSHIPS_NAMESPACE}"><Relationship Type="${WORKSHEET_RELATIONSHIP_TYPE}" Target="worksheets/sheet1.xml" Id="SheetRelation"/>`
+  await rejectsWithCode(
+    () => readCandidateImportFile(xlsxFile(spreadsheetEntries({ relationshipsXml: malformedRelationships }))),
+    'import_xlsx_invalid'
+  )
+})
+
+test('candidate XLSX import validates workbook and relationship root namespaces', async () => {
+  const wrongWorkbookNamespace = `<?xml version="1.0" encoding="utf-8"?><x:workbook xmlns:x="urn:not-spreadsheetml" xmlns:r="${DOCUMENT_RELATIONSHIPS_NAMESPACE}"><x:sheets><x:sheet name="应聘者申请数据" sheetId="1" r:id="SheetRelation"/></x:sheets></x:workbook>`
+  await rejectsWithCode(
+    () => readCandidateImportFile(xlsxFile(spreadsheetEntries({ workbookXml: wrongWorkbookNamespace }))),
+    'import_xlsx_invalid'
+  )
+
+  const wrongRelationshipsNamespace = `<?xml version="1.0" encoding="utf-8"?><p:Relationships xmlns:p="urn:not-package-relationships"><Relationship Type="${WORKSHEET_RELATIONSHIP_TYPE}" Target="worksheets/sheet1.xml" Id="SheetRelation"/></p:Relationships>`
+  await rejectsWithCode(
+    () => readCandidateImportFile(xlsxFile(spreadsheetEntries({ relationshipsXml: wrongRelationshipsNamespace }))),
+    'import_xlsx_invalid'
+  )
+})
+
+test('candidate XLSX import requires sheet relationship attributes', async () => {
+  const workbookWithoutRelationshipId = `<?xml version="1.0" encoding="utf-8"?><x:workbook xmlns:x="${SPREADSHEETML_NAMESPACE}" xmlns:r="${DOCUMENT_RELATIONSHIPS_NAMESPACE}"><x:sheets><x:sheet name="应聘者申请数据" sheetId="1"/></x:sheets></x:workbook>`
+  await rejectsWithCode(
+    () => readCandidateImportFile(xlsxFile(spreadsheetEntries({ workbookXml: workbookWithoutRelationshipId }))),
+    'import_xlsx_invalid'
+  )
+
+  const workbookWithWrongRelationshipNamespace = `<?xml version="1.0" encoding="utf-8"?><x:workbook xmlns:x="${SPREADSHEETML_NAMESPACE}" xmlns:z="urn:not-document-relationships"><x:sheets><x:sheet name="应聘者申请数据" sheetId="1" z:id="SheetRelation"/></x:sheets></x:workbook>`
+  await rejectsWithCode(
+    () => readCandidateImportFile(xlsxFile(spreadsheetEntries({ workbookXml: workbookWithWrongRelationshipNamespace }))),
+    'import_xlsx_invalid'
+  )
+
+  const relationshipWithoutTarget = `<?xml version="1.0" encoding="utf-8"?><Relationships xmlns="${PACKAGE_RELATIONSHIPS_NAMESPACE}"><Relationship Type="${WORKSHEET_RELATIONSHIP_TYPE}" Id="SheetRelation"/></Relationships>`
+  await rejectsWithCode(
+    () => readCandidateImportFile(xlsxFile(spreadsheetEntries({ relationshipsXml: relationshipWithoutTarget }))),
+    'import_xlsx_invalid'
+  )
+})
+
+test('candidate XLSX import resolves internal OPC relationship targets from the workbook part', async () => {
+  const parsed = await readCandidateImportFile(xlsxFile(spreadsheetEntries({
+    relationshipTarget: '/xl/worksheets/../worksheets/sheet1.xml',
+    relationshipTargetMode: 'Internal'
+  })))
+
+  assert.equal(parsed.sheetName, '应聘者申请数据')
+  assert.equal(parsed.rows.length, 1)
+})
+
+test('candidate XLSX import rejects external, ambiguous, and package-escaping relationship targets', async () => {
+  const invalidTargets = [
+    { relationshipTarget: 'https://example.test/sheet1.xml', relationshipTargetMode: 'External' },
+    { relationshipTarget: '//example.test/xl/worksheets/sheet1.xml' },
+    { relationshipTarget: 'worksheets/sheet1.xml?download=1' },
+    { relationshipTarget: 'worksheets/sheet1.xml#fragment' },
+    { relationshipTarget: '../../outside.xml' }
+  ]
+
+  for (const options of invalidTargets) {
+    await rejectsWithCode(
+      () => readCandidateImportFile(xlsxFile(spreadsheetEntries(options))),
+      'import_xlsx_invalid'
+    )
+  }
+})
+
+test('candidate XLSX import normalizes a prefixed worksheet QName across parser chunks', async () => {
+  const worksheetPrefix = `y${'a'.repeat(70_000)}`
+  const parsed = await readCandidateImportFile(xlsxFile(spreadsheetEntries({
+    workbookPrefix: 'x',
+    worksheetPrefix,
+    worksheetMethod: 0
+  })))
+
+  assert.equal(parsed.sheetName, '应聘者申请数据')
+  assert.equal(parsed.rows.length, 1)
+})
+
+test('candidate XLSX import ignores an unreferenced worksheet that appears first in the ZIP', async () => {
+  const entries = spreadsheetEntries({ relationshipTarget: 'worksheets/sheet2.xml' })
+  entries[4] = {
+    name: 'xl/worksheets/sheet1.xml',
+    data: anonymousWorksheetXml({ header: '未引用表头', value: '未引用值' })
+  }
+  entries.push({
+    name: 'xl/worksheets/sheet2.xml',
+    data: anonymousWorksheetXml({ header: '引用表头', value: '引用值' })
+  })
+
+  const parsed = await readCandidateImportFile(xlsxFile(entries))
+
+  assert.deepEqual(parsed.headers, ['引用表头'])
+  assert.equal(parsed.rows.length, 1)
+})
+
+test('candidate XLSX import reads the exact non-default worksheet part named by the relationship', async () => {
+  const entries = spreadsheetEntries({ relationshipTarget: 'worksheets/candidates.xml' })
+  entries[4] = {
+    name: 'xl/worksheets/sheet1.xml',
+    data: anonymousWorksheetXml({ header: '未引用默认表头', value: '未引用默认值' })
+  }
+  entries.push({
+    name: 'xl/worksheets/candidates.xml',
+    data: anonymousWorksheetXml({ header: '自定义部件表头', value: '自定义部件值' })
+  })
+
+  const parsed = await readCandidateImportFile(xlsxFile(entries))
+
+  assert.deepEqual(parsed.headers, ['自定义部件表头'])
+  assert.equal(parsed.sheetName, '应聘者申请数据')
+})
+
+test('candidate XLSX import rejects a worksheet relationship whose exact target part is missing', async () => {
+  const entries = spreadsheetEntries({ relationshipTarget: 'worksheets/missing.xml' })
+  await rejectsWithCode(
+    () => readCandidateImportFile(xlsxFile(entries)),
+    'import_xlsx_invalid'
+  )
+})
+
+test('candidate XLSX import rejects two worksheet relationships that normalize to one target', async () => {
+  const workbookXml = `<?xml version="1.0" encoding="utf-8"?><x:workbook xmlns:x="${SPREADSHEETML_NAMESPACE}" xmlns:r="${DOCUMENT_RELATIONSHIPS_NAMESPACE}"><x:sheets><x:sheet name="匿名工作表一" sheetId="1" r:id="SheetRelation1"/><x:sheet name="匿名工作表二" sheetId="2" r:id="SheetRelation2"/></x:sheets></x:workbook>`
+  const relationshipsXml = `<?xml version="1.0" encoding="utf-8"?><Relationships xmlns="${PACKAGE_RELATIONSHIPS_NAMESPACE}"><Relationship Type="${WORKSHEET_RELATIONSHIP_TYPE}" Target="worksheets/sheet1.xml" Id="SheetRelation1"/><Relationship Type="${WORKSHEET_RELATIONSHIP_TYPE}" Target="/xl/worksheets/./sheet1.xml" Id="SheetRelation2"/></Relationships>`
+  await rejectsWithCode(
+    () => readCandidateImportFile(xlsxFile(spreadsheetEntries({ workbookXml, relationshipsXml }))),
+    'import_xlsx_invalid'
+  )
+})
+
+test('candidate XLSX import does not approximate a missing worksheet target filename', async () => {
+  const entries = spreadsheetEntries()
+  entries[4] = {
+    name: 'xl/worksheets/sheet1.xml.bak',
+    data: anonymousWorksheetXml({ header: '近似文件表头', value: '近似文件值' })
+  }
+  entries.push({
+    name: 'xl/worksheets/sheet10.xml',
+    data: anonymousWorksheetXml({ header: '其他工作表头', value: '其他工作表值' })
+  })
+
+  await rejectsWithCode(
+    () => readCandidateImportFile(xlsxFile(entries)),
+    'import_xlsx_invalid'
+  )
+})
+
+test('candidate XLSX import rejects SpreadsheetML sheets smuggled through a foreign wrapper', async () => {
+  const workbookXml = `<?xml version="1.0" encoding="utf-8"?><x:workbook xmlns:x="${SPREADSHEETML_NAMESPACE}" xmlns:r="${DOCUMENT_RELATIONSHIPS_NAMESPACE}" xmlns:f="urn:foreign"><f:wrapper><y:sheets xmlns:y="${SPREADSHEETML_NAMESPACE}"><y:sheet name="应聘者申请数据" sheetId="1" r:id="SheetRelation"/></y:sheets></f:wrapper></x:workbook>`
+  await rejectsWithCode(
+    () => readCandidateImportFile(xlsxFile(spreadsheetEntries({ workbookXml }))),
+    'import_xlsx_invalid'
+  )
+})
+
+test('candidate XLSX import rejects sheets smuggled through a locally rebound default namespace', async () => {
+  const workbookXml = `<?xml version="1.0" encoding="utf-8"?><workbook xmlns="${SPREADSHEETML_NAMESPACE}" xmlns:r="${DOCUMENT_RELATIONSHIPS_NAMESPACE}"><wrapper xmlns="urn:foreign"><sheets xmlns="${SPREADSHEETML_NAMESPACE}"><sheet name="应聘者申请数据" sheetId="1" r:id="SheetRelation"/></sheets></wrapper></workbook>`
+  await rejectsWithCode(
+    () => readCandidateImportFile(xlsxFile(spreadsheetEntries({ workbookXml }))),
+    'import_xlsx_invalid'
   )
 })
 

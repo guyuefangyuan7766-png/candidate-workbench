@@ -40,8 +40,9 @@ function canonicalProfileSectionType(value: unknown): string {
   return CANONICAL_PROFILE_SECTION_TYPES.has(canonical) ? canonical : "other";
 }
 
-function isSelfSummarySection(section: AttachmentPreviewRecord["sections"][number]): boolean {
-  if (String(section.section_type ?? "").trim().toLowerCase() === "self_summary") return true;
+export function isAttachmentSelfSummarySection(section: AttachmentPreviewRecord["sections"][number]): boolean {
+  const sectionType = String(section.section_type ?? "").trim().toLowerCase();
+  if (sectionType === "self_summary" || sectionType === "resume_summary") return true;
   const structured = section.structured_data;
   return Boolean(
     structured
@@ -50,9 +51,21 @@ function isSelfSummarySection(section: AttachmentPreviewRecord["sections"][numbe
   );
 }
 
+function sectionHasEvidence(section: AttachmentPreviewRecord["sections"][number]): boolean {
+  if (typeof section.evidence === "string" && section.evidence.trim()) return true;
+  return Array.isArray(section.evidence_refs) && section.evidence_refs.some((reference) => (
+    typeof reference?.text === "string" && reference.text.trim().length > 0
+  ));
+}
+
 export function attachmentProfileSectionDrafts(record: AttachmentPreviewRecord): CandidateProfileSectionDraft[] {
   return record.sections
-    .filter((section) => section.default_selected && !isSelfSummarySection(section))
+    .filter((section) => section.default_selected
+      && !isAttachmentSelfSummarySection(section)
+      && section.confidence !== "low"
+      && section.evidence_status !== "unverified"
+      && section.conflict === undefined
+      && sectionHasEvidence(section))
     .map((section, index) => ({
       section_type: canonicalProfileSectionType(section.section_type),
       title: String(section.title ?? "").trim(),
@@ -67,9 +80,34 @@ export function attachmentSuggestionValue(record: AttachmentPreviewRecord, field
   return record.suggestions.find((item) => item.field === field)?.value;
 }
 
+export function attachmentSafeSuggestionValue(record: AttachmentPreviewRecord, field: string): unknown {
+  const suggestion = record.suggestions.find((item) => item.field === field);
+  if (!suggestion
+    || suggestion.default_selected !== true
+    || suggestion.confidence === "low"
+    || suggestion.evidence_status === "unverified"
+    || suggestion.conflict !== undefined
+    || !attachmentSuggestionHasEvidence(suggestion)) return undefined;
+  return suggestion.value;
+}
+
 export function attachmentSuggestionText(record: AttachmentPreviewRecord, field: string): string {
   const value = attachmentSuggestionValue(record, field);
   return typeof value === "string" || typeof value === "number" ? String(value).trim() : "";
+}
+
+function attachmentSafeSuggestionText(record: AttachmentPreviewRecord, field: string): string {
+  const value = attachmentSafeSuggestionValue(record, field);
+  return typeof value === "string" || typeof value === "number" ? String(value).trim() : "";
+}
+
+export function attachmentSuggestionHasEvidence(item: { evidence?: unknown; evidence_refs?: unknown }): boolean {
+  if (typeof item.evidence === "string" && item.evidence.trim()) return true;
+  return Array.isArray(item.evidence_refs) && item.evidence_refs.some((reference) => (
+    Boolean(reference)
+    && typeof (reference as { text?: unknown }).text === "string"
+    && Boolean((reference as { text: string }).text.trim())
+  ));
 }
 
 export function parsedAttachmentCandidateName(record: AttachmentPreviewRecord): string {
@@ -77,51 +115,51 @@ export function parsedAttachmentCandidateName(record: AttachmentPreviewRecord): 
 }
 
 export function candidateDraftFromAttachmentRecord(record: AttachmentPreviewRecord): CandidateDraft {
-  const tags = attachmentSuggestionValue(record, "tags");
-  const desiredTitlesValue = attachmentSuggestionValue(record, "desired_titles");
+  const tags = attachmentSafeSuggestionValue(record, "tags");
+  const desiredTitlesValue = attachmentSafeSuggestionValue(record, "desired_titles");
   const desiredTitles = (Array.isArray(desiredTitlesValue) ? desiredTitlesValue : [desiredTitlesValue])
     .map((value) => String(value ?? "").trim())
     .filter(Boolean)
     .slice(0, 20);
-  const desiredLocationsValue = attachmentSuggestionValue(record, "desired_locations");
+  const desiredLocationsValue = attachmentSafeSuggestionValue(record, "desired_locations");
   const desiredLocations = (Array.isArray(desiredLocationsValue) ? desiredLocationsValue : [desiredLocationsValue])
     .map((value) => String(value ?? "").trim())
     .filter(Boolean)
     .slice(0, 20);
-  const years = Number(attachmentSuggestionValue(record, "years_experience"));
-  const expectedSalary = attachmentSuggestionText(record, "expected_salary");
-  const employmentType = attachmentSuggestionText(record, "employment_type");
-  const availability = attachmentSuggestionText(record, "availability");
+  const years = Number(attachmentSafeSuggestionValue(record, "years_experience"));
+  const expectedSalary = attachmentSafeSuggestionText(record, "expected_salary");
+  const employmentType = attachmentSafeSuggestionText(record, "employment_type");
+  const availability = attachmentSafeSuggestionText(record, "availability");
 
   return {
     ...emptyDraft,
-    name: parsedAttachmentCandidateName(record),
-    phone: record.identity.phone || attachmentSuggestionText(record, "phone"),
-    email: record.identity.email || attachmentSuggestionText(record, "email"),
-    gender: attachmentSuggestionText(record, "gender"),
-    birth_date: attachmentSuggestionText(record, "birth_date") || null,
+    name: attachmentSafeSuggestionText(record, "name"),
+    phone: record.identity.phone,
+    email: record.identity.email,
+    gender: attachmentSafeSuggestionText(record, "gender"),
+    birth_date: attachmentSafeSuggestionText(record, "birth_date") || null,
     age: (() => {
-      const age = Number(attachmentSuggestionValue(record, "age"));
+      const age = Number(attachmentSafeSuggestionValue(record, "age"));
       return Number.isInteger(age) && age >= 0 && age <= 120 ? age : null;
     })(),
-    current_company: attachmentSuggestionText(record, "current_company"),
-    current_title: attachmentSuggestionText(record, "current_title"),
-    location: attachmentSuggestionText(record, "location"),
+    current_company: attachmentSafeSuggestionText(record, "current_company"),
+    current_title: attachmentSafeSuggestionText(record, "current_title"),
+    location: attachmentSafeSuggestionText(record, "location"),
     years_experience: Number.isFinite(years) && years >= 0 ? years : 0,
-    education: attachmentSuggestionText(record, "education"),
-    highest_school: attachmentSuggestionText(record, "highest_school"),
-    highest_major: attachmentSuggestionText(record, "highest_major"),
-    job_seeking_status: attachmentSuggestionText(record, "job_seeking_status"),
-    resume_updated_at: attachmentSuggestionText(record, "resume_updated_at") || null,
-    self_summary: attachmentSuggestionText(record, "self_summary"),
-    source: attachmentSuggestionText(record, "source") || emptyDraft.source,
-    owner: attachmentSuggestionText(record, "owner") || emptyDraft.owner,
+    education: attachmentSafeSuggestionText(record, "education"),
+    highest_school: attachmentSafeSuggestionText(record, "highest_school"),
+    highest_major: attachmentSafeSuggestionText(record, "highest_major"),
+    job_seeking_status: attachmentSafeSuggestionText(record, "job_seeking_status"),
+    resume_updated_at: attachmentSafeSuggestionText(record, "resume_updated_at") || null,
+    self_summary: attachmentSafeSuggestionText(record, "self_summary"),
+    source: attachmentSafeSuggestionText(record, "source") || emptyDraft.source,
+    owner: attachmentSafeSuggestionText(record, "owner") || emptyDraft.owner,
     tags: Array.isArray(tags) ? tags.map(String).filter(Boolean).slice(0, 8) : [],
     expected_salary: expectedSalary,
     preferences: {
       ...emptyDraft.preferences,
       desired_locations: desiredLocations,
-      employment_status: attachmentSuggestionText(record, "job_seeking_status"),
+      employment_status: attachmentSafeSuggestionText(record, "job_seeking_status"),
       desired_titles: desiredTitles,
       employment_type: employmentType,
       expected_salary: expectedSalary,
@@ -188,6 +226,9 @@ export function defaultAttachmentFieldsForCandidate(
       attachmentSuggestionChangesCandidate(candidate, suggestion.field, suggestion.value)
       && !hasCandidateValue(candidateFieldValue(candidate, suggestion.field))
       && suggestion.confidence !== "low"
+      && suggestion.conflict === undefined
+      && suggestion.evidence_status !== "unverified"
+      && attachmentSuggestionHasEvidence(suggestion)
     ))
     .map((suggestion) => suggestion.field));
 }

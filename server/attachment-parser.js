@@ -16,8 +16,115 @@ export const ATTACHMENT_LIMITS = Object.freeze({
   maxZipFilenameBytes: 4_096,
   maxZipCentralDirectoryBytes: 4 * 1024 * 1024,
   maxExtractedText: 2_000_000,
-  parseTimeoutMs: 60_000
+  parseTimeoutMs: 60_000,
+  // Visual pages are transient model input, never regular parser output.
+  maxVisualPdfPages: 12,
+  visualRenderScale: 1.5,
+  maxVisualPageWidth: 2_048,
+  maxVisualPageHeight: 2_048,
+  maxVisualPagePixels: 3_000_000,
+  maxVisualTotalPixels: 18_000_000,
+  maxVisualTotalRasterBytes: 64 * 1024 * 1024,
+  maxVisualPagePngBytes: 4 * 1024 * 1024,
+  maxVisualTotalPngBytes: 24 * 1024 * 1024,
+  maxVisualTextSpans: 5_000,
+  maxVisualPageTextCharacters: 8_000,
+  maxVisualTextSpanCharacters: 1_000,
+  visualRenderPageTimeoutMs: 8_000,
+  visualRenderTimeoutMs: 30_000
 })
+
+// These limits cover the deterministic PDF worker and its outer wall-clock
+// guard. Internal callers may lower them, but cannot expand the reviewed
+// parser envelope.
+export const ATTACHMENT_HARD_LIMITS = Object.freeze({
+  maxPdfPages: ATTACHMENT_LIMITS.maxPdfPages,
+  parseTimeoutMs: ATTACHMENT_LIMITS.parseTimeoutMs
+})
+
+// Visual rendering is an outbound-input boundary as well as a parser option.
+// Keep an immutable ceiling separate from the defaults so internal callers can
+// lower a budget for a constrained job, but cannot expand the reviewed memory,
+// image, page, or wall-clock envelope.
+export const ATTACHMENT_VISUAL_HARD_LIMITS = Object.freeze({
+  maxVisualPdfPages: 12,
+  visualRenderScale: 1.5,
+  maxVisualPageWidth: 2_048,
+  maxVisualPageHeight: 2_048,
+  maxVisualPagePixels: 3_000_000,
+  maxVisualTotalPixels: 18_000_000,
+  maxVisualTotalRasterBytes: 64 * 1024 * 1024,
+  maxVisualPagePngBytes: 4 * 1024 * 1024,
+  maxVisualTotalPngBytes: 24 * 1024 * 1024,
+  maxVisualTextSpans: 5_000,
+  maxVisualPageTextCharacters: 8_000,
+  maxVisualTextSpanCharacters: 1_000,
+  visualRenderPageTimeoutMs: 8_000,
+  visualRenderTimeoutMs: 30_000
+})
+
+const VISUAL_LIMIT_RULES = Object.freeze({
+  maxVisualPdfPages: { integer: true, minimum: 1 },
+  visualRenderScale: { integer: false, minimum: 0.1 },
+  maxVisualPageWidth: { integer: true, minimum: 1 },
+  maxVisualPageHeight: { integer: true, minimum: 1 },
+  maxVisualPagePixels: { integer: true, minimum: 1 },
+  maxVisualTotalPixels: { integer: true, minimum: 1 },
+  maxVisualTotalRasterBytes: { integer: true, minimum: 1 },
+  maxVisualPagePngBytes: { integer: true, minimum: 1 },
+  maxVisualTotalPngBytes: { integer: true, minimum: 1 },
+  maxVisualTextSpans: { integer: true, minimum: 1 },
+  maxVisualPageTextCharacters: { integer: true, minimum: 1 },
+  maxVisualTextSpanCharacters: { integer: true, minimum: 1 },
+  visualRenderPageTimeoutMs: { integer: true, minimum: 1 },
+  visualRenderTimeoutMs: { integer: true, minimum: 1 }
+})
+
+const GENERAL_LIMIT_RULES = Object.freeze({
+  maxPdfPages: { integer: true, minimum: 1 },
+  parseTimeoutMs: { integer: true, minimum: 1 }
+})
+
+function boundedAttachmentVisualLimit(value, fallback, maximum, { integer, minimum }) {
+  const number = Number(value)
+  if (!Number.isFinite(number) || number < minimum) return fallback
+  return Math.min(integer ? Math.floor(number) : number, maximum)
+}
+
+export function normalizeAttachmentLimits(limits = ATTACHMENT_LIMITS) {
+  const source = limits && typeof limits === 'object' ? limits : ATTACHMENT_LIMITS
+  const normalized = { ...ATTACHMENT_LIMITS, ...source }
+  for (const [key, rule] of Object.entries(GENERAL_LIMIT_RULES)) {
+    normalized[key] = boundedAttachmentVisualLimit(
+      source[key],
+      ATTACHMENT_LIMITS[key],
+      ATTACHMENT_HARD_LIMITS[key],
+      rule
+    )
+  }
+  for (const [key, rule] of Object.entries(VISUAL_LIMIT_RULES)) {
+    normalized[key] = boundedAttachmentVisualLimit(
+      source[key],
+      ATTACHMENT_LIMITS[key],
+      ATTACHMENT_VISUAL_HARD_LIMITS[key],
+      rule
+    )
+  }
+  return normalized
+}
+
+export function getRemainingVisualTimeoutMs(
+  pageTimeoutMs,
+  totalTimeoutMs,
+  startedAt,
+  currentTime = Date.now(),
+  pageStartedAt
+) {
+  return Math.max(0, Math.min(
+    pageStartedAt === undefined ? pageTimeoutMs : pageTimeoutMs - (currentTime - pageStartedAt),
+    totalTimeoutMs - (currentTime - startedAt)
+  ))
+}
 
 const FORMAT_MIME_TYPES = Object.freeze({
   pdf: new Set(['application/pdf', 'application/octet-stream']),
@@ -197,7 +304,11 @@ export function validateAttachmentFile(file, limits = ATTACHMENT_LIMITS) {
 }
 
 export function parseAttachment(file, validated, limits = ATTACHMENT_LIMITS, options = {}) {
+  const effectiveLimits = normalizeAttachmentLimits(limits)
   const signal = options?.signal
+  const testVisualStageDelays = process.env.NODE_TEST_CONTEXT
+    ? options?.testVisualStageDelays
+    : undefined
   if (signal?.aborted) {
     return Promise.reject(attachmentError(499, 'parse_aborted', '附件解析已取消'))
   }
@@ -222,7 +333,10 @@ export function parseAttachment(file, validated, limits = ATTACHMENT_LIMITS, opt
         workerData: {
           buffer: transferable,
           format: validated.format,
-          limits
+          limits: effectiveLimits,
+          renderVisualPages: options?.renderVisualPages === true,
+          allowTextlessPdf: options?.allowTextlessPdf === true,
+          testVisualStageDelays
         },
         transferList: [transferable],
         resourceLimits: {
@@ -254,21 +368,44 @@ export function parseAttachment(file, validated, limits = ATTACHMENT_LIMITS, opt
     timer = setTimeout(() => {
       worker.terminate().catch(() => {})
       finish(reject, attachmentError(504, 'parse_timeout', '附件解析超时，请重试；若持续失败，请简化或拆分文件'))
-    }, limits.parseTimeoutMs)
+    }, effectiveLimits.parseTimeoutMs)
     timer.unref()
 
     worker.once('message', (message) => {
+      // Deadline races can leave an uncancellable native encode promise pending.
+      // The result is complete, so end the isolated worker instead of retaining it.
+      worker.terminate().catch(() => {})
       if (message?.ok) {
         const result = message.result
         const avatarTransfers = Array.isArray(result?.avatar_transfers) ? result.avatar_transfers : []
+        const visualPageTransfers = Array.isArray(result?.visual_page_transfers) ? result.visual_page_transfers : []
         if (result && typeof result === 'object') {
           delete result.avatar_transfers
+          delete result.visual_page_transfers
           Object.defineProperty(result, 'avatar_transfers', {
             configurable: false,
             enumerable: false,
             writable: false,
             value: avatarTransfers
           })
+          if (options?.renderVisualPages === true) {
+            const visualPages = visualPageTransfers.map((page) => ({
+              page_number: page.page_number,
+              width: page.width,
+              height: page.height,
+              pixel_count: page.pixel_count,
+              mime_type: 'image/png',
+              image: new Uint8Array(page.image_buffer),
+              text: page.text,
+              text_spans: Array.isArray(page.text_spans) ? page.text_spans : []
+            }))
+            Object.defineProperty(result, 'visual_pages', {
+              configurable: false,
+              enumerable: false,
+              writable: false,
+              value: visualPages
+            })
+          }
         }
         finish(resolve, result)
       }

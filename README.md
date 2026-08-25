@@ -21,12 +21,14 @@
 
 ### 2026-08-21 入职信息字段
 
-- 候选人档案新增 `hire_status`（入职状态）和 `hire_date`（入职日期）；两字段可在档案编辑区维护，并在详情、CSV/XLSX 导出中显示。
-- 数据库通过幂等 schema V11 增加两列和查询索引；升级不会重建、清空或自动改写既有候选人。`hire_date` 统一保存为 `YYYY-MM-DD`，允许未来日期，也允许状态有值但日期为空。
+- 候选人档案新增 `hire_status`（入职状态）、`hire_date`（入职日期）和 `hire_position`（入职职位）；三字段可在档案编辑区维护，并在详情、CSV/XLSX 导出中显示。
+- 数据库通过幂等 schema V11/V12 增加三列和查询索引；升级不会重建、清空或自动改写既有候选人。`hire_date` 统一保存为 `YYYY-MM-DD`，允许未来日期；日期非空而状态为空时写入精确值 `不确定`。
 - `hire_status` 保留来源系统的非空文本（最多 200 个字符），不强制枚举。它不替代 `candidate_preferences.employment_status`（求职偏好），也不把旧 `candidates.stage` 自动转换为入职状态。
-- 北森和通用表格导入识别入职字段；同一候选人增量导入时空日期不会清除已有日期。批量清理脚本只保留入职状态非空且不等于精确文本“空”的源行，原始 `.xls` 文件保持不变。
+- `hire_position` 保留来源职位文本并去除首尾空白（最多 300 个字符）。北森的 `入职雇佣关系` 只保留在来源快照，不当作 `hire_status`；`入职职位` 是入职事实，不代替招聘职位。
+- 北森和通用表格导入识别入职字段；同一候选人增量导入时空值不会清除已有入职字段，且只传日期的 PATCH 不会覆盖已有明确状态。北森字段 `最后职位类投递的职位id` 用于招聘职位关系（必要时按候选人和投递时间匹配历史职位），不能用 `入职职位` 猜测关系；整份工作簿存在该专用表头时，单行空值不回退普通 `职位编号`，仅整表缺该表头才允许兼容回退。
+- 批量清理脚本只保留入职状态非空且不等于精确文本“空”的源行，原始 `.xls` 文件保持不变；若源文件只有入职日期，导入预览会显示 `不确定`，不会把 `入职雇佣关系` 静默转换为状态。
 
-本轮开发线仍标记为 `Unreleased`；schema 版本为 `V11`。迁移、接口、字段映射、清理文件和验证命令见 [CHANGELOG.md](CHANGELOG.md)、[docs/DATA_MODEL.md](docs/DATA_MODEL.md)、[docs/API.md](docs/API.md)、[docs/FIELD_MAPPING.md](docs/FIELD_MAPPING.md)、[docs/IMPORT_GUIDE.md](docs/IMPORT_GUIDE.md) 和 [docs/TESTING.md](docs/TESTING.md)。
+本轮开发线仍标记为 `Unreleased`；schema 版本为 `V12`。V12 代码和 100 人 `:memory:` 隔离导入已验证（该证据仍为 `formal_database_commit=false`）。2026-08-24 已对正式 `data/recruitment.db` 绑定的维护服务完成同一 100 人文件的 HTTP 预览与提交：100/100/0 预览、100 条更新、0 新增/失败/跳过。用户明确豁免提交后的 22GB 全库摘要、100 行逐项查询、完整性/外键后检与恢复演练；不得将 HTTP 结果表述为这些后检已完成。迁移、接口、字段映射、清理文件和验证命令见 [CHANGELOG.md](CHANGELOG.md)、[docs/DATA_MODEL.md](docs/DATA_MODEL.md)、[docs/API.md](docs/API.md)、[docs/FIELD_MAPPING.md](docs/FIELD_MAPPING.md)、[docs/IMPORT_GUIDE.md](docs/IMPORT_GUIDE.md) 和 [docs/TESTING.md](docs/TESTING.md)。
 
 去重只使用标准化后的邮箱、手机号或 `source_system + source_record_id`。系统不会仅凭姓名自动合并候选人，身份键指向不同记录时会拒绝自动更新。
 
@@ -77,7 +79,7 @@ $env:AGENT_MODEL = "your-model"
 
 默认数据库位于 `data/recruitment.db`，其中同时保存候选人、人才库、职位、关系、档案分区、求职偏好、来源历史、评估、授权、备注、活动和导入批次。停止应用后复制整个 `data` 目录即可完成一致性备份；恢复前先备份当前目录，再用备份文件替换。
 
-不要把真实候选人数据、`.env`、数据库文件或导出文件提交到 Git。项目已默认忽略 `data/`、`.env` 和测试输出目录。
+通常不要把真实候选人数据、`.env`、数据库文件或导出文件提交到 Git。为满足本次明确交付要求，7 份 `_已整理.xlsx` 暂作为受控本地导入准备文件保留；它们不是源码、备份或测试夹具，进入共享仓库前应按组织策略移出版本控制并单独保管。项目已默认忽略 `data/`、`.env` 和测试输出目录。
 
 ## 验证
 

@@ -977,6 +977,7 @@ function normalizeCandidate(candidate: Candidate): Candidate {
     highest_school: candidate.highest_school ?? "",
     highest_major: candidate.highest_major ?? "",
     job_seeking_status: candidate.job_seeking_status ?? "",
+    hire_position: candidate.hire_position ?? "",
     hire_status: candidate.hire_status ?? "",
     hire_date: candidate.hire_date ?? null,
     resume_updated_at: candidate.resume_updated_at ?? null,

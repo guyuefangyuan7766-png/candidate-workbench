@@ -1,0 +1,69 @@
+{
+  "evidence_type": "isolated_import_verification",
+  "recorded_at": "2026-08-21",
+  "scope": "V12 hire information and Beisen position relation semantics",
+  "source": {
+    "format": "BIFF8 XLS",
+    "basename": "自定义excel7-20caac42-246c-402c-a583-45e991ec30b3.xls",
+    "sha256": "AF4DDA9E74AB08F43F1D73A67FC132147419986601C0357CEEEB5D838EA2113C",
+    "sheet_count": 1,
+    "sheet_name": "应聘者申请数据",
+    "column_count": 191,
+    "row_count": 10000,
+    "rows_with_hire_date": 135,
+    "status_header_present": false,
+    "hire_position_header_present": true,
+    "hire_employment_relation_header_present": true
+  },
+  "sample": {
+    "format": "UTF-8 CSV",
+    "purpose": "isolated 100-row import verification",
+    "sha256": "635A658A03839857CD313AF8BEB0E999A4EEED223F74AED1200A17A6DAABA4B6",
+    "selected_rows": 100,
+    "rows_with_hire_date": 100,
+    "rows_with_explicit_hire_status": 0,
+    "rows_with_last_position_delivery_key": 36,
+    "rows_with_application_id": 0
+  },
+  "preview": {
+    "profile": "beisen_talent",
+    "total_rows": 100,
+    "valid_rows": 100,
+    "invalid_rows": 0,
+    "position_link_count": 36,
+    "preview_row_limit": 20
+  },
+  "commit": {
+    "database": ":memory:",
+    "imported_rows": 100,
+    "updated_rows": 0,
+    "failed_rows": 0,
+    "candidate_count": 100,
+    "positions_created": 31,
+    "links_created": 36
+  },
+  "postcheck": {
+    "candidate_count": 100,
+    "hire_fields_complete": 100,
+    "candidates_with_talent_pool": 100,
+    "candidates_with_candidate_source_record": 100,
+    "candidate_positions": 36,
+    "candidate_position_sources": 0,
+    "raw_payload_with_hire_position_and_employment_relation": 100,
+    "integrity_check": "ok",
+    "foreign_key_violations": 0
+  },
+  "interpretation": {
+    "date_only_status_fallback": "不确定",
+    "hire_employment_relation_projection": "raw_payload_only",
+    "hire_position_projection": "candidate.hire_position",
+    "last_position_delivery_key_projection": "candidate_positions",
+    "formal_database_commit": false
+  },
+  "command": "node .tmp-real-sample-isolated.mjs",
+  "notes": [
+    "The verification used an in-memory SQLite database and did not write data/recruitment.db.",
+    "The 100-row CSV was generated from source rows with a non-empty hire date and no current validation failures.",
+    "No names, contact values, raw payloads, preview tokens, or candidate identifiers are recorded here."
+  ]
+}

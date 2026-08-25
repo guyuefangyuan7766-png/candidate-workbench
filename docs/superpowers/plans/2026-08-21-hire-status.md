@@ -18,7 +18,7 @@
 - V11 迁移必须幂等，不能重建、清空或覆盖既有候选人数据。
 - UI 继续使用现有分区式表单、可见标签和响应式网格，不新增筛选器或流程功能。
 - 原始 7 个 `.xls` 不得修改；输出目录为 `outputs/2026-08-21-hire-status-cleaned/`，每个源文件只生成一个 `_已整理.xlsx` 副本。
-- 文档必须同步版本记录、迭代日志、数据模型、API、字段映射、导入指南、测试说明和 README。
+- 文档必须同步版本记录、迭代日志、产品规格、UI 规范、数据模型、API、字段映射、导入指南、测试说明、运维、路线图、决策记录、文档索引和 README。
 
 ---
 
@@ -233,18 +233,31 @@ Completion evidence: the forced real-fixture workbook suite passed 8/8 with no s
 **Files:**
 - Modify only files required by prior tasks.
 
-- [ ] **Step 1: Run the focused backend and UI tests**
+- [x] **Step 1: Run the focused backend and UI tests**
 
-Run: `node --test tests/backend/hire-status-v11.test.mjs tests/backend/hire-status-workbooks.test.mjs tests/backend/candidate-demographics-ui.test.mjs tests/backend/xls-import.test.mjs`
+Run in PowerShell:
 
-- [ ] **Step 2: Run the full test suite and production build**
+```powershell
+$env:HIRE_STATUS_WORKBOOKS_REQUIRED = '1'
+node --test tests/backend/hire-status-v11.test.mjs tests/backend/hire-status-workbooks.test.mjs tests/backend/candidate-demographics-ui.test.mjs tests/backend/xls-import.test.mjs
+```
+
+Evidence: the focused UI, hire-status, and import suites passed 23/23; the forced real-fixture workbook suite passed 8/8 with 0 skips. Full-suite, build, diff, and worktree evidence is recorded below.
+
+- [x] **Step 2: Run the full test suite and production build**
 
 Run: `npm test`; `npm run build`
 
-- [ ] **Step 3: Review the final diff and worktree**
+Evidence: in a clean subprocess with ambient `ATTACHMENT_VISUAL_*` and `AGENT_*` variables removed, `npm test` reported 532 tests, 531 pass, 0 fail, 1 skip; `npm run build` exited 0 and transformed 1,858 modules (only the existing chunk-size warning remains).
+
+- [x] **Step 3: Review the final diff and worktree**
 
 Run: `git diff --check`; `git status --short`; verify unrelated pre-existing changes remain untouched and output files are not staged accidentally.
 
-- [ ] **Step 4: Report exact output paths, retained counts, tests, and documentation updates**
+Evidence: `git diff --check` exited 0 with no output; the final worktree audit preserved the user's unrelated attachment changes and kept the requested workbooks in `outputs/2026-08-21-hire-status-cleaned/` without modifying the source `.xls` files.
+
+- [x] **Step 4: Report exact output paths, retained counts, tests, and documentation updates**
 
 Use absolute file citations for every generated workbook and state any residual limitation, especially that original `.xls` files were preserved.
+
+Evidence: seven absolute `_已整理.xlsx` paths, 1,390 retained rows, 61,471 removed rows, four retained rows with empty hire dates, unchanged source hashes, and the README/CHANGELOG/product/UI/iteration/data-model/API/mapping/import/testing/operations/roadmap/decision/index documents are recorded in the handoff.

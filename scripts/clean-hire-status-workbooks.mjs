@@ -389,7 +389,7 @@ async function main() {
     reproduction: {
       command: 'node scripts/clean-hire-status-workbooks.mjs',
       required_test_command:
-        'HIRE_STATUS_WORKBOOKS_REQUIRED=1 node --test tests/backend/hire-status-workbooks.test.mjs',
+        "$env:HIRE_STATUS_WORKBOOKS_REQUIRED = '1'; node --test tests/backend/hire-status-workbooks.test.mjs",
       cli_options: [
         '--source-dir',
         '--output-dir',
