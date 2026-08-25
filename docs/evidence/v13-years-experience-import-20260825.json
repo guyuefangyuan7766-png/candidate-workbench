@@ -142,10 +142,23 @@
     "v13_migration_additive_and_idempotent": true,
     "attachment_and_ui_raw_text_contracts_passed": true
   },
-  "broader_regression_contract": {
-    "scope": "full_suite_passing_tests",
-    "beisen_existing_candidate_phone_and_email_conflicts_remain_blocking": true,
-    "sample_observation_claimed": false
+  "identity_conflict_regression": {
+    "scope": "named_api_test",
+    "command": "node --test --test-name-pattern=\"Beisen incremental imports require names for new IDs and reject contact conflicts for existing IDs\" tests/backend/api.test.mjs",
+    "test_name": "Beisen incremental imports require names for new IDs and reject contact conflicts for existing IDs",
+    "exit_code": 0,
+    "tests": 1,
+    "passed": 1,
+    "failed": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "coverage": {
+      "existing_candidate_email_conflict_blocks_preview_and_commit": true,
+      "existing_candidate_phone_conflict_blocks_preview_and_commit": true,
+      "commit_time_identity_conflict_race_remains_blocking": true
+    },
+    "workbook_sample_observation_claimed": false
   },
   "privacy": {
     "candidate_level_rows_persisted": false,
