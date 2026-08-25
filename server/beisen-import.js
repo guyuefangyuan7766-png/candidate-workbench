@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { findDuplicate, insertCandidate, patchCandidate } from './candidates.js'
 import { now, withTransaction } from './database.js'
-import { sanitizeCandidateInput } from './validation.js'
+import { formatYearsExperience, sanitizeCandidateInput } from './validation.js'
 
 const SOURCE_SYSTEM = 'beisen'
 const IMPORT_FAILURE_DETAIL_LIMIT = 100
@@ -189,7 +189,12 @@ function mergeNonEmptyPayload(existing, incoming) {
 }
 
 function mergeCandidateValues(target, incoming) {
+  if (hasNonEmptyValue(incoming?.years_experience_raw)) {
+    target.years_experience_raw = incoming.years_experience_raw
+    target.years_experience = incoming.years_experience ?? null
+  }
   for (const [field, value] of Object.entries(incoming ?? {})) {
+    if (field === 'years_experience' || field === 'years_experience_raw') continue
     if (!hasNonEmptyValue(value)) continue
     if (field === 'hire_status' && value === '不确定' && hasNonEmptyValue(target.hire_status) && target.hire_status !== '不确定') continue
     if (field === 'tags') {
@@ -572,7 +577,7 @@ function candidateFromValues(values, validStages) {
     gender: fieldValue(values, 'gender', 40),
     birth_date: fieldValue(values, 'birth_date', 80),
     age: fieldValue(values, 'age', 20),
-    years_experience: fieldValue(values, 'years_experience', 80),
+    years_experience: fieldValue(values, 'years_experience', 1000),
     education: fieldValue(values, 'education', 200),
     highest_school: fieldValue(values, 'highest_school', 300),
     highest_major: fieldValue(values, 'highest_major', 300),
@@ -1023,7 +1028,14 @@ export function prepareBeisenPreview({ db, rows, headers, filename, sheetName, v
       const { photo_url: photoUrl, ...candidate } = row.candidate
       return {
         ...row,
-        candidate: { ...candidate, has_photo: Boolean(photoUrl) },
+        candidate: {
+          ...candidate,
+          years_experience_display: formatYearsExperience({
+            raw: candidate.years_experience_raw,
+            numeric: candidate.years_experience
+          }),
+          has_photo: Boolean(photoUrl)
+        },
         position_resolution: publicImportPositionResolution(row.position_resolution)
       }
     }),
@@ -1032,9 +1044,15 @@ export function prepareBeisenPreview({ db, rows, headers, filename, sheetName, v
 }
 
 function patchFromCandidate(candidate, batchId) {
-  return Object.fromEntries(Object.entries({ ...candidate, import_batch_id: batchId }).filter(([field, value]) => (
-    field !== 'stage' && value != null && value !== '' && (!Array.isArray(value) || value.length)
+  const patch = Object.fromEntries(Object.entries({ ...candidate, import_batch_id: batchId }).filter(([field, value]) => (
+    field !== 'stage' && field !== 'years_experience' && field !== 'years_experience_raw' &&
+      value != null && value !== '' && (!Array.isArray(value) || value.length)
   )))
+  if (hasNonEmptyValue(candidate.years_experience_raw)) {
+    patch.years_experience_raw = candidate.years_experience_raw
+    patch.years_experience = candidate.years_experience ?? null
+  }
+  return patch
 }
 
 function upsertCandidateSource(db, candidateId, recordId, recordType, sourceName, rawPayload, timestamp) {

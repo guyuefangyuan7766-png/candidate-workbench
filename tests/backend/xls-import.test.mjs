@@ -42,7 +42,7 @@ test('legacy BIFF8 .xls files reach the normal preview pipeline', async () => {
       }),
       'anonymous-candidates.xls'
     )
-    form.append('mapping', JSON.stringify({ name: 'Emitente' }))
+    form.append('mapping', JSON.stringify({ name: 'Emitente', years_experience: 'Taxa' }))
 
     const response = await fetch(`${url}/api/import/preview`, { method: 'POST', body: form })
     const body = await responseJson(response)
@@ -52,6 +52,10 @@ test('legacy BIFF8 .xls files reach the normal preview pipeline', async () => {
     assert.deepEqual(body.headers, ['Emitente', 'Taxa', 'Data'])
     assert.equal(body.summary.total_rows, 3)
     assert.equal(body.summary.valid_rows, 3)
+    assert.equal(body.rows[0].candidate.years_experience_raw, '1.1')
+    assert.equal(body.rows[0].candidate.years_experience, 1.1)
+    assert.equal(body.rows[2].candidate.years_experience_raw, '-5')
+    assert.equal(body.rows[2].candidate.years_experience, null)
   })
 })
 
@@ -129,6 +133,65 @@ test('Beisen import maps 入职状态 and 入职日期 for an existing source ID
     const updatedDetail = await responseJson(await fetch(`${url}/api/candidates/${candidate.id}?include_sensitive=true`))
     assert.equal(updatedDetail.hire_status, '待入职')
     assert.equal(updatedDetail.hire_date, '2026-08-20', 'empty update date must not erase the existing date')
+  })
+})
+
+test('Beisen work years preserve the raw/numeric pair and ignore empty incremental cells', async () => {
+  await withApp(async (url) => {
+    const createWorkbook = async (rows) => {
+      const workbook = new ExcelJS.Workbook()
+      const sheet = workbook.addWorksheet('北森人才')
+      sheet.addRow(['应聘者ID', '姓名', '工作年限'])
+      for (const row of rows) sheet.addRow(row)
+      return Buffer.from(await workbook.xlsx.writeBuffer())
+    }
+    const previewWorkbook = async (rows, filename) => {
+      const form = new FormData()
+      form.append('file', new Blob([await createWorkbook(rows)], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      }), filename)
+      return responseJson(await fetch(`${url}/api/import/preview`, { method: 'POST', body: form }))
+    }
+    const commitPreview = async (preview) => responseJson(await fetch(`${url}/api/import/commit`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ preview_token: preview.preview_token })
+    }))
+
+    const initial = await previewWorkbook([['BEISEN-WORK-YEARS-1', '北森工作年限', '3年6个月']], 'beisen-work-years-initial.xlsx')
+    assert.equal(initial.summary.valid_rows, 1)
+    assert.equal(initial.rows[0].candidate.years_experience_raw, '3年6个月')
+    assert.equal(initial.rows[0].candidate.years_experience, 3.5)
+    assert.equal(initial.rows[0].candidate.years_experience_display, '3年6个月')
+    assert.equal(initial.rows[0].errors.some((error) => error.field === 'years_experience'), false)
+    assert.equal((await commitPreview(initial)).imported_rows, 1)
+
+    const emptyIncremental = await previewWorkbook([['BEISEN-WORK-YEARS-1', '', '']], 'beisen-work-years-empty.xlsx')
+    assert.equal(emptyIncremental.summary.valid_rows, 1)
+    assert.equal((await commitPreview(emptyIncremental)).updated_rows, 1)
+    const candidates = await responseJson(await fetch(`${url}/api/candidates`))
+    const candidate = candidates.items.find((item) => item.name === '北森工作年限')
+    const afterEmpty = await responseJson(await fetch(`${url}/api/candidates/${candidate.id}`))
+    assert.equal(afterEmpty.years_experience_raw, '3年6个月')
+    assert.equal(afterEmpty.years_experience, 3.5)
+
+    const unparseable = await previewWorkbook([['BEISEN-WORK-YEARS-1', '', '经验不详']], 'beisen-work-years-unparseable.xlsx')
+    assert.equal(unparseable.summary.valid_rows, 1)
+    assert.equal(unparseable.rows[0].candidate.years_experience_raw, '经验不详')
+    assert.equal(unparseable.rows[0].candidate.years_experience, null)
+    assert.equal(unparseable.rows[0].candidate.years_experience_display, '经验不详')
+    assert.equal(unparseable.rows[0].errors.some((error) => error.field === 'years_experience'), false)
+    assert.equal((await commitPreview(unparseable)).updated_rows, 1)
+    const afterUnparseable = await responseJson(await fetch(`${url}/api/candidates/${candidate.id}`))
+    assert.equal(afterUnparseable.years_experience_raw, '经验不详')
+    assert.equal(afterUnparseable.years_experience, null)
+    assert.equal(afterUnparseable.years_experience_display, '经验不详')
+
+    const longSource = '待核实'.repeat(400)
+    const bounded = await previewWorkbook([['BEISEN-WORK-YEARS-2', '北森工作年限上限', longSource]], 'beisen-work-years-bounded.xlsx')
+    assert.equal(bounded.summary.valid_rows, 1)
+    assert.equal(bounded.rows[0].candidate.years_experience_raw.length, 1000)
+    assert.equal(bounded.rows[0].errors.some((error) => error.field === 'years_experience'), false)
   })
 })
 

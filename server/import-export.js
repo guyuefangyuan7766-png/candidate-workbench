@@ -9,7 +9,7 @@ import { EXPORT_FIELDS, FIELD_LABELS } from './constants.js'
 import { findDuplicate, insertCandidate, patchCandidate } from './candidates.js'
 import { addActivity, now, withTransaction } from './database.js'
 import { readCandidateImportFile } from './import-file.js'
-import { buildHeaderMapping, mapImportedPosition, mapImportedRow, sanitizeCandidateInput } from './validation.js'
+import { buildHeaderMapping, formatYearsExperience, mapImportedPosition, mapImportedRow, sanitizeCandidateInput } from './validation.js'
 import {
   commitBeisenImport,
   createImportPositionResolver,
@@ -596,6 +596,13 @@ export async function createImportPreview({
     position_preview: positionPreview,
     rows: preparedRows.slice(0, 20).map((row) => ({
       ...row,
+      candidate: {
+        ...row.candidate,
+        years_experience_display: formatYearsExperience({
+          raw: row.candidate.years_experience_raw,
+          numeric: row.candidate.years_experience
+        })
+      },
       position_resolution: publicPositionResolution(row.position_resolution)
     })),
     preview_row_limit: 20,
@@ -614,6 +621,10 @@ function importUpdatePatch(candidate, mappedFields, defaults) {
     if (field === 'import_batch_id' || field === 'name') continue
     const value = candidate[field]
     if (value != null && value !== '' && (!Array.isArray(value) || value.length > 0)) patch[field] = value
+  }
+  if (allowed.has('years_experience') && candidate.years_experience_raw) {
+    patch.years_experience_raw = candidate.years_experience_raw
+    patch.years_experience = candidate.years_experience ?? null
   }
   return patch
 }
@@ -946,7 +957,14 @@ export async function exportCandidates(candidates, format = 'xlsx') {
     width: field === 'tags' ? 28 : Math.max(14, Math.min(30, (FIELD_LABELS[field] ?? field).length + 6))
   }))
   for (const candidate of candidates) {
-    const row = { ...candidate, tags: (candidate.tags ?? []).join('，') }
+    const row = {
+      ...candidate,
+      years_experience: formatYearsExperience({
+        raw: candidate.years_experience_raw,
+        numeric: candidate.years_experience
+      }),
+      tags: (candidate.tags ?? []).join('，')
+    }
     if (format === 'csv') {
       for (const field of EXPORT_FIELDS) row[field] = neutralizeCsvFormula(row[field])
     }

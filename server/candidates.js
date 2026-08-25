@@ -10,7 +10,7 @@ import {
   withTransaction
 } from './database.js'
 import { attachPositionsToCandidates, listPositions } from './positions.js'
-import { normalizeGender } from './validation.js'
+import { formatYearsExperience, normalizeGender, normalizeYearsExperience } from './validation.js'
 
 const candidateStatementCache = new WeakMap()
 
@@ -195,6 +195,33 @@ function toDatabaseValue(field, value) {
   return value ?? null
 }
 
+function normalizedYearsNumeric(value) {
+  if (value == null) return null
+  const numeric = typeof value === 'number' ? value : Number(String(value).trim())
+  return Number.isFinite(numeric) && numeric >= 0 ? numeric : null
+}
+
+function workYearsPair(candidate) {
+  const hasRaw = Object.prototype.hasOwnProperty.call(candidate, 'years_experience_raw')
+  const hasNumeric = Object.prototype.hasOwnProperty.call(candidate, 'years_experience') &&
+    candidate.years_experience !== undefined
+  if (!hasRaw && !hasNumeric) return null
+
+  if (hasRaw) {
+    const normalized = normalizeYearsExperience(candidate.years_experience_raw)
+    return {
+      years_experience_raw: normalized.raw,
+      years_experience: hasNumeric ? normalizedYearsNumeric(candidate.years_experience) : normalized.numeric
+    }
+  }
+
+  const yearsExperience = normalizedYearsNumeric(candidate.years_experience)
+  return {
+    years_experience: yearsExperience,
+    years_experience_raw: formatYearsExperience({ raw: '', numeric: yearsExperience })
+  }
+}
+
 export function insertCandidate(db, candidate, {
   activityType = 'candidate_created',
   activityMetadata = {},
@@ -202,13 +229,15 @@ export function insertCandidate(db, candidate, {
 } = {}) {
   const id = candidate.id ?? randomUUID()
   const timestamp = now()
+  const years = workYearsPair(candidate)
   const record = {
     ...Object.fromEntries(CANDIDATE_FIELDS.map((field) => [field, null])),
     ...candidate,
+    ...years,
     id,
     stage: candidate.stage ?? '新候选人',
     tags: candidate.tags ?? [],
-    years_experience_raw: candidate.years_experience_raw == null ? '' : String(candidate.years_experience_raw),
+    years_experience_raw: years?.years_experience_raw ?? '',
     created_at: candidate.created_at ?? timestamp,
     updated_at: candidate.updated_at ?? timestamp,
     archived_at: candidate.archived_at ?? null
@@ -259,11 +288,13 @@ export function patchCandidate(db, id, patch, {
   activityMetadata = {},
   hydrate = true
 } = {}) {
-  const fields = CANDIDATE_FIELDS.filter((field) => Object.prototype.hasOwnProperty.call(patch, field))
+  const years = workYearsPair(patch)
+  const normalizedPatch = years ? { ...patch, ...years } : patch
+  const fields = CANDIDATE_FIELDS.filter((field) => Object.prototype.hasOwnProperty.call(normalizedPatch, field))
   if (fields.length === 0) return hydrate ? getCandidate(db, id) : { id, updated_at: null }
 
   const timestamp = now()
-  const values = fields.map((field) => toDatabaseValue(field, patch[field]))
+  const values = fields.map((field) => toDatabaseValue(field, normalizedPatch[field]))
   values.push(timestamp, id)
 
   candidateUpdateStatement(db, fields).run(...values)

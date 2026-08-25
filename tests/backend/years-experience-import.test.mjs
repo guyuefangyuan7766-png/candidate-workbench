@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
 import { openDatabase, serializeCandidate } from '../../server/database.js'
+import { insertCandidate, patchCandidate } from '../../server/candidates.js'
 import {
   normalizeYearsExperience,
   formatYearsExperience,
@@ -148,6 +149,21 @@ test('phone and email format errors still fail after work years tolerance', () =
   assert.ok(rejected.errors.some((entry) => entry.field === 'phone'))
   assert.ok(rejected.errors.some((entry) => entry.field === 'email'))
   assert.ok(!rejected.errors.some((entry) => entry.field === 'years_experience'))
+})
+
+test('persistence derives a complete pair for legacy numeric and raw-only callers', () => {
+  const db = openDatabase(':memory:', { synchronizeSearch: false })
+  try {
+    const legacyNumeric = insertCandidate(db, { name: 'Legacy Numeric', years_experience: 3.5 })
+    assert.equal(legacyNumeric.years_experience, 3.5)
+    assert.equal(legacyNumeric.years_experience_raw, '3.5')
+
+    const rawOnly = patchCandidate(db, legacyNumeric.id, { years_experience_raw: '3年6个月' })
+    assert.equal(rawOnly.years_experience, 3.5)
+    assert.equal(rawOnly.years_experience_raw, '3年6个月')
+  } finally {
+    db.close()
+  }
 })
 
 test('V13 migration adds years_experience_raw and backfills numeric rows', () => {

@@ -662,6 +662,69 @@ test('CSV preview and commit maps Chinese headers, normalizes identities, and ex
   assert.equal(xlsxBuffer.subarray(0, 2).toString(), 'PK')
 })
 
+test('work years persist through CRUD, generic imports, and export', async () => {
+  const { url } = await startApp()
+  const created = await requestJson(`${url}/api/candidates`, {
+    method: 'POST',
+    body: { name: 'Work Years CRUD', years_experience: '3年6个月' }
+  })
+  assert.equal(created.response.status, 201)
+  assert.equal(created.body.years_experience_raw, '3年6个月')
+  assert.equal(created.body.years_experience, 3.5)
+  assert.equal(created.body.years_experience_display, '3年6个月')
+
+  const unparseable = await requestJson(`${url}/api/candidates/${created.body.id}`, {
+    method: 'PATCH',
+    body: { years_experience: '经验不详' }
+  })
+  assert.equal(unparseable.response.status, 200)
+  assert.equal(unparseable.body.years_experience_raw, '经验不详')
+  assert.equal(unparseable.body.years_experience, null)
+  assert.equal(unparseable.body.years_experience_display, '经验不详')
+
+  const firstImport = new FormData()
+  firstImport.append('file', new Blob([
+    'name,source system,source record id,years experience\nGeneric Work Years,generic_import,generic-work-years-1,3年6个月\n'
+  ], { type: 'text/csv' }), 'generic-work-years-first.csv')
+  const firstPreview = await requestJson(`${url}/api/import/preview`, { method: 'POST', body: firstImport })
+  assert.equal(firstPreview.response.status, 200)
+  assert.equal(firstPreview.body.rows[0].candidate.years_experience_raw, '3年6个月')
+  assert.equal(firstPreview.body.rows[0].candidate.years_experience, 3.5)
+  assert.equal(firstPreview.body.rows[0].candidate.years_experience_display, '3年6个月')
+  assert.equal(firstPreview.body.rows[0].errors.some((error) => error.field === 'years_experience'), false)
+  const firstCommit = await requestJson(`${url}/api/import/commit`, {
+    method: 'POST',
+    body: { preview_token: firstPreview.body.preview_token }
+  })
+  assert.equal(firstCommit.body.imported_rows, 1)
+
+  const updateImport = new FormData()
+  updateImport.append('file', new Blob([
+    'name,source system,source record id,years experience\nGeneric Work Years,generic_import,generic-work-years-1,经验不详\n'
+  ], { type: 'text/csv' }), 'generic-work-years-update.csv')
+  const updatePreview = await requestJson(`${url}/api/import/preview`, { method: 'POST', body: updateImport })
+  assert.equal(updatePreview.response.status, 200)
+  assert.equal(updatePreview.body.rows[0].candidate.years_experience_raw, '经验不详')
+  assert.equal(updatePreview.body.rows[0].candidate.years_experience, null)
+  assert.equal(updatePreview.body.rows[0].candidate.years_experience_display, '经验不详')
+  assert.equal(updatePreview.body.rows[0].errors.some((error) => error.field === 'years_experience'), false)
+  const updateCommit = await requestJson(`${url}/api/import/commit`, {
+    method: 'POST',
+    body: { preview_token: updatePreview.body.preview_token, on_duplicate: 'update' }
+  })
+  assert.equal(updateCommit.body.updated_rows, 1)
+
+  const imported = await requestJson(`${url}/api/candidates?search=${encodeURIComponent('Generic Work Years')}`)
+  const importedDetail = await requestJson(`${url}/api/candidates/${imported.body.items[0].id}`)
+  assert.equal(importedDetail.body.years_experience_raw, '经验不详')
+  assert.equal(importedDetail.body.years_experience, null)
+  assert.equal(importedDetail.body.years_experience_display, '经验不详')
+
+  const exported = await (await fetch(`${url}/api/candidates/export?format=csv&search=${encodeURIComponent('Generic Work Years')}`)).text()
+  assert.match(exported, /工作年限/)
+  assert.match(exported, /经验不详/)
+})
+
 test('invalid import rows do not reserve identity keys from later valid rows', async () => {
   const { url } = await startApp()
   const form = new FormData()
@@ -1064,7 +1127,7 @@ test('talent migration is idempotent and preserves legacy candidate rows', () =>
     })
     assert.deepEqual(
       db.prepare('SELECT version FROM schema_migrations ORDER BY version').all().map((row) => row.version),
-      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
     )
     for (const table of [
       'talent_pools',
