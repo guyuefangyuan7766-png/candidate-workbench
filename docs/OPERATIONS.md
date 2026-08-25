@@ -275,6 +275,7 @@ node --input-type=module -e "import { openDatabase } from './server/database.js'
 10 durable_attachment_import_batches
 11 candidate_hire_status_and_date
 12 candidate_hire_information
+13 candidate_years_experience_raw
 ```
 
 验证完成后将副本标记为测试产物，不能把它误当作正式数据库或长期备份。
@@ -453,6 +454,8 @@ Copy-Item -LiteralPath $restoreSource -Destination ".\data" -Recurse
 10. 验证候选人、人才库、职位、导入预览、删除预览、附件、附件批次、全业务 FTS5、会话 API、Agent 只读状态及 `hire_position`/`hire_status`/`hire_date` CRUD、V13 `years_experience`/`years_experience_raw`/`years_experience_display` 的导入导出和条件展示；北森预览还须核对人才库、来源记录和 `最后职位类投递的职位id` 关系计数。V13 还必须完成 Task 7 的最多 100 条只读样本预览并记录脱敏聚合证据。需要清理北森文件时，另运行 10.8 的七份工作簿专项。
 
 若升级失败，停止新版本，恢复上一版代码和升级前同一时间点数据库文件集。不要只回退代码继续使用 V6 数据库；当前没有 down migration。
+
+V13 工作年限是该通用规则的明确例外：常规回退只回退应用代码，同时保留现有数据库、`years_experience_raw` 列及其已保存的来源原文。不要把恢复 V13 前文件集作为 V13 的常规回退，也不要为此删除列或原文数据；任何破坏性列/数据移除都必须先完成独立可恢复备份、获得批准，并在离线维护中执行。其他迁移仍按各自运行手册决定是否需要恢复升级前文件集。
 
 ## 13. Agent 运维
 
