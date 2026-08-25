@@ -557,6 +557,12 @@ test('attachment work-year suggestions preserve raw text with their evidence and
   assert.ok(fallback)
   assert.equal(fallback.value, '3年')
   assert.equal(fallback.evidence, '3年工作经验')
+
+  const compoundFallbackPreview = await readyPreview(fixture(textParser('候选人拥有3年6个月工作经验，负责产品交付。')).service)
+  const compoundFallback = compoundFallbackPreview.records[0].suggestions.find((item) => item.field === 'years_experience')
+  assert.ok(compoundFallback)
+  assert.equal(compoundFallback.value, '3年6个月')
+  assert.equal(compoundFallback.evidence, '3年6个月工作经验')
 })
 
 test('attachment confirmation persists the raw work-years text with its numeric projection', async () => {
@@ -590,5 +596,41 @@ test('attachment confirmation persists the raw work-years text with its numeric 
   `).get(candidate.id) }, {
     years_experience: 3.5,
     years_experience_raw: '3年6个月'
+  })
+})
+
+test('attachment confirmation clears stale numeric work years for unknown raw text', async () => {
+  const text = [
+    '邮箱：work-years-unknown@example.test',
+    '工作年限：应届'
+  ].join('\n')
+  const { db, service } = fixture(textParser(text))
+  const candidate = insertCandidate(db, {
+    id: 'work-years-unknown',
+    name: 'Work Years Unknown',
+    email: 'work-years-unknown@example.test',
+    years_experience: 4,
+    years_experience_raw: '4年'
+  })
+  const preview = await readyPreview(service)
+  const record = preview.records[0]
+  const result = service.confirmPreview(preview.preview_id, {
+    preview_token: preview.preview_token,
+    records: [{
+      record_id: record.record_id,
+      candidate_id: candidate.id,
+      expected_updated_at: record.match.candidate.updated_at,
+      selected_fields: ['years_experience'],
+      selected_sections: [],
+      merge_mode: 'merge'
+    }]
+  })
+
+  assert.deepEqual(result.records[0].changed_fields, ['years_experience', 'years_experience_raw'])
+  assert.deepEqual({ ...db.prepare(`
+    SELECT years_experience, years_experience_raw FROM candidates WHERE id = ?
+  `).get(candidate.id) }, {
+    years_experience: null,
+    years_experience_raw: '应届'
   })
 })

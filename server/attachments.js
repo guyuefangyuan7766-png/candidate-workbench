@@ -1387,7 +1387,7 @@ function textCandidateValues(text, identity, labeledData = extractLabeledCandida
     email: identity.email
   }
   if (!nonEmpty(values.years_experience)) {
-    const years = String(text).match(/((?:\d+(?:\.\d+)?)\s*(?:年|years?)\s*(?:以上)?)(?:工作经验|从业经验|开发经验|工作|从业|开发|经验|experience)/i)
+    const years = String(text).match(/((?:\d+(?:\.\d+)?)\s*(?:年|years?)(?:\s*\d+\s*(?:个月|月))?\s*(?:以上)?)(?:工作经验|从业经验|开发经验|工作|从业|开发|经验|experience)/i)
     if (years) {
       values.years_experience = years[1]
       if (!labeledData.evidence.years_experience) labeledData.evidence.years_experience = years[0]
@@ -2405,7 +2405,8 @@ function updateCandidateFields(db, candidate, record, selectedFields, attachment
   const currentExpectedSalary = currentPreferences?.expected_salary ?? current.expected_salary ?? null
   const patch = {}
   for (const [field, suggested] of Object.entries(sanitized)) {
-    if (!ALLOWED_UPDATE_FIELDS.has(field) || !nonEmpty(suggested)) continue
+    const workYearsPairField = field === 'years_experience' || field === 'years_experience_raw'
+    if (!ALLOWED_UPDATE_FIELDS.has(field) || (!nonEmpty(suggested) && !workYearsPairField)) continue
     patch[field] = field === 'tags'
       ? mergeTags(current.tags, suggested)
       : suggested
