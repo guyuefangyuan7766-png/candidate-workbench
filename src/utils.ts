@@ -24,6 +24,19 @@ export function candidateHireStatusText(value: unknown): string {
   return String(value ?? "").trim();
 }
 
+export function candidateYearsExperienceText(
+  candidate: Pick<Partial<Candidate>, "years_experience" | "years_experience_raw" | "years_experience_display">,
+): string {
+  const display = String(candidate.years_experience_display ?? "").trim();
+  if (display) return display;
+  const raw = String(candidate.years_experience_raw ?? "").trim();
+  if (raw) return raw;
+  const numeric = candidate.years_experience;
+  return numeric !== null && numeric !== undefined && Number.isFinite(Number(numeric))
+    ? String(numeric)
+    : "";
+}
+
 export function hasHireInformation(candidate: Pick<Candidate, "hire_status" | "hire_date" | "hire_position">): boolean {
   return Boolean(
     String(candidate.hire_status ?? "").trim()

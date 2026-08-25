@@ -711,6 +711,7 @@ export function migrateV12Database(db) {
 }
 
 export function migrateV13Database(db) {
+  ensureColumn(db, 'candidates', 'years_experience', 'REAL')
   ensureColumn(db, 'candidates', 'years_experience_raw', "TEXT NOT NULL DEFAULT ''")
   const rows = db.prepare(`
     SELECT id, years_experience

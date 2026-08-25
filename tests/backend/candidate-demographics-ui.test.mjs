@@ -86,12 +86,14 @@ test('candidate form and drawer expose hire fields and preserve legacy response 
   assert.equal(hasHireInformation({ hire_status: '', hire_date: null, hire_position: '工程师' }), true)
 })
 
-test('candidate work years preserves raw text while keeping numeric projections nullable', () => {
+test('candidate work years preserves raw text while keeping numeric projections nullable', async () => {
   const typesSource = readFileSync(new URL('../../src/types.ts', import.meta.url), 'utf8')
   const apiSource = readFileSync(new URL('../../src/api.ts', import.meta.url), 'utf8')
   const formSource = readFileSync(new URL('../../src/components/CandidateForm.tsx', import.meta.url), 'utf8')
   const drawerSource = readFileSync(new URL('../../src/components/CandidateDrawer.tsx', import.meta.url), 'utf8')
   const boardSource = readFileSync(new URL('../../src/components/PipelineBoard.tsx', import.meta.url), 'utf8')
+  const importSource = readFileSync(new URL('../../src/components/ImportWizard.tsx', import.meta.url), 'utf8')
+  const candidateUtils = await import('../../src/utils.ts')
 
   assert.match(typesSource, /years_experience: number \| null/)
   assert.match(typesSource, /years_experience_raw: string/)
@@ -111,4 +113,24 @@ test('candidate work years preserves raw text while keeping numeric projections 
   assert.match(drawerSource, /candidate\?\.years_experience_display \|\| candidate\?\.years_experience_raw \|\| \(candidate\?\.years_experience !== null && candidate\?\.years_experience !== undefined \? `\$\{candidate\.years_experience\} 年` : ""\)/)
   assert.match(boardSource, /candidate\.years_experience_display \|\| candidate\.years_experience_raw \|\| \(candidate\.years_experience !== null && candidate\.years_experience !== undefined \? `\$\{candidate\.years_experience\}年` : ""\)/)
   assert.match(boardSource, /<span>\{yearsExperience\}<\/span>/)
+
+  assert.equal(typeof candidateUtils.candidateYearsExperienceText, 'function')
+  assert.equal(candidateUtils.candidateYearsExperienceText?.({
+    years_experience: null,
+    years_experience_raw: '经验不详',
+    years_experience_display: '经验不详'
+  }), '经验不详')
+  assert.equal(candidateUtils.candidateYearsExperienceText?.({
+    years_experience: 0,
+    years_experience_raw: '0',
+    years_experience_display: '0'
+  }), '0')
+  assert.equal(candidateUtils.candidateYearsExperienceText?.({
+    years_experience: null,
+    years_experience_raw: '',
+    years_experience_display: ''
+  }), '')
+  assert.match(importSource, /previewFields\.map\(\(field\) => <td key=\{field\}>\{field === "years_experience" \? candidateYearsExperienceText\(row\.candidate\) : displayValue\(row\.candidate\[field\]\)\}<\/td>\)/)
+  assert.match(importSource, /<th>工作年限<\/th>/)
+  assert.match(importSource, /<td>\{candidateYearsExperienceText\(row\.candidate\)\}<\/td>/)
 })

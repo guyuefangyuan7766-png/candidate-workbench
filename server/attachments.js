@@ -162,6 +162,7 @@ const FIELD_LIMITS = Object.freeze({
   current_company: 300,
   current_title: 300,
   location: 200,
+  years_experience: 1_000,
   education: 200,
   highest_school: 300,
   highest_major: 300,

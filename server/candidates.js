@@ -211,7 +211,7 @@ function workYearsPair(candidate) {
     const normalized = normalizeYearsExperience(candidate.years_experience_raw)
     return {
       years_experience_raw: normalized.raw,
-      years_experience: hasNumeric ? normalizedYearsNumeric(candidate.years_experience) : normalized.numeric
+      years_experience: normalized.numeric
     }
   }
 

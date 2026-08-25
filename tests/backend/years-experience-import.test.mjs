@@ -4,6 +4,7 @@ import { DatabaseSync } from 'node:sqlite'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { spawnSync } from 'node:child_process'
 
 import { openDatabase, serializeCandidate } from '../../server/database.js'
 import { insertCandidate, patchCandidate } from '../../server/candidates.js'
@@ -166,6 +167,28 @@ test('persistence derives a complete pair for legacy numeric and raw-only caller
   }
 })
 
+test('persistence derives the numeric projection from raw text when callers supply a mismatched pair', () => {
+  const db = openDatabase(':memory:', { synchronizeSearch: false })
+  try {
+    const unknown = insertCandidate(db, {
+      name: 'Mismatched Unknown',
+      years_experience: 9,
+      years_experience_raw: '经验不详'
+    })
+    assert.equal(unknown.years_experience_raw, '经验不详')
+    assert.equal(unknown.years_experience, null)
+
+    const parsed = patchCandidate(db, unknown.id, {
+      years_experience: 99,
+      years_experience_raw: '3年6个月'
+    })
+    assert.equal(parsed.years_experience_raw, '3年6个月')
+    assert.equal(parsed.years_experience, 3.5)
+  } finally {
+    db.close()
+  }
+})
+
 test('V13 migration adds years_experience_raw and backfills numeric rows', () => {
   const directory = mkdtempSync(join(tmpdir(), 'candidate-workbench-v13-'))
   const databasePath = join(directory, 'v13.db')
@@ -268,6 +291,86 @@ test('V13 migration is idempotent on a fresh database', () => {
     const reopen = openDatabase(databasePath, { synchronizeSearch: false })
     assert.equal(reopen.prepare('SELECT COUNT(*) AS count FROM schema_migrations WHERE version = 13').get().count, 1)
     reopen.close()
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('V13 migration tolerates a custom candidates table without the legacy numeric column', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'candidate-workbench-v13-custom-'))
+  const databasePath = join(directory, 'custom.db')
+
+  try {
+    const custom = new DatabaseSync(databasePath)
+    custom.exec(`
+      CREATE TABLE candidates (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        phone TEXT,
+        email TEXT,
+        photo_url TEXT,
+        current_company TEXT,
+        current_title TEXT,
+        location TEXT,
+        gender TEXT,
+        birth_date TEXT,
+        age INTEGER,
+        education TEXT,
+        hire_position TEXT,
+        hire_status TEXT,
+        hire_date TEXT,
+        source TEXT,
+        stage TEXT NOT NULL DEFAULT '新候选人',
+        owner TEXT,
+        tags TEXT NOT NULL DEFAULT '[]',
+        expected_salary TEXT,
+        source_system TEXT,
+        source_record_id TEXT,
+        import_batch_id TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        archived_at TEXT,
+        highest_school TEXT,
+        highest_major TEXT,
+        job_seeking_status TEXT,
+        resume_updated_at TEXT,
+        self_summary TEXT
+      );
+      INSERT INTO candidates(id, name, created_at, updated_at)
+      VALUES ('custom-candidate', 'Custom Candidate', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z');
+    `)
+    custom.close()
+
+    const openCustomDatabase = () => spawnSync(process.execPath, [
+      '--input-type=module',
+      '-e',
+      `import { openDatabase } from './server/database.js'; const db = openDatabase(${JSON.stringify(databasePath)}, { synchronizeSearch: false }); db.close()`
+    ], {
+      cwd: new URL('../..', import.meta.url),
+      encoding: 'utf8'
+    })
+
+    const firstOpen = openCustomDatabase()
+    assert.equal(firstOpen.status, 0, firstOpen.stderr)
+
+    const inspected = new DatabaseSync(databasePath)
+    const columns = inspected.prepare('PRAGMA table_info(candidates)').all()
+    const rawColumn = columns
+      .find((column) => column.name === 'years_experience_raw')
+    assert.ok(columns.some((column) => column.name === 'years_experience'))
+    assert.ok(rawColumn)
+    assert.equal(rawColumn.notnull, 1)
+    assert.equal(rawColumn.dflt_value, "''")
+    assert.equal(inspected.prepare('SELECT years_experience_raw FROM candidates WHERE id = ?').get('custom-candidate').years_experience_raw, '')
+    assert.equal(inspected.prepare('SELECT COUNT(*) AS count FROM schema_migrations WHERE version = 13').get().count, 1)
+    inspected.close()
+
+    const secondOpen = openCustomDatabase()
+    assert.equal(secondOpen.status, 0, secondOpen.stderr)
+    const reopened = new DatabaseSync(databasePath)
+    assert.equal(reopened.prepare('SELECT COUNT(*) AS count FROM candidates WHERE id = ?').get('custom-candidate').count, 1)
+    assert.equal(reopened.prepare('SELECT COUNT(*) AS count FROM schema_migrations WHERE version = 13').get().count, 1)
+    reopened.close()
   } finally {
     rmSync(directory, { recursive: true, force: true })
   }

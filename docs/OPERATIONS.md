@@ -407,13 +407,13 @@ V12 另使用新的 BIFF8 `.xls` 完成脱敏 100 人隔离验收：原表 191 �
 
 该隔离证据明确记录 `formal_database_commit=false`，不能替代正式事实。2026-08-24 已验证维护服务绑定正式 `data/recruitment.db` 且后台写入暂停，并对 `北森候选人入职信息导入样本-100人.xlsx`（SHA-256 `7D92DB6C37B892F3237E490E5424CC367CE14C9CAAE3F3584FB3083AD0A6C741`）完成 HTTP 预览与用户确认提交：`profile=beisen_talent`、100/100/0、`existing_duplicates=100`；职位映射为 `最后职位类投递的职位id`，create/match/link/conflict 为 0/32/36/0；提交为 0 导入、100 更新、0 失败/跳过、100 候选人，`positions_created/matched=0/32`、`links_created=0`、`pools_created=0`、`application_count=0`。前 20 条预览的入职职位/日期/`不确定` 状态及人才库、来源预览已核对。用户明确豁免提交后的 22GB 全库摘要、100 行逐项字段查询、完整性/外键后检和恢复演练；不得将本段写成 V12 schema postcheck、字段逐行后检或恢复成功。脱敏 HTTP 证据见 [v12-hire-information-formal-import-20260824.json](evidence/v12-hire-information-formal-import-20260824.json)。
 
-### 10.9 V13 工作年限迁移运行手册（待 Task 7）
+### 10.9 V13 工作年限迁移运行手册（Task 7 已完成）
 
 V13 的唯一迁移记录是 `(13, 'candidate_years_experience_raw')`。它以加法方式确保 `candidates.years_experience_raw TEXT NOT NULL DEFAULT ''` 存在，并且只回填原文为空、`years_experience` 数值非空的旧行；非空原文不覆盖，数值 `NULL` 不回填为 `0`。迁移必须在 V12 后执行，允许重复启动且不重建候选人表。
 
 运行顺序：停止服务；记录代码和实际数据库路径；备份同一时点 `.db`、`-wal`、`-shm`；在可丢弃副本执行 V12→V13 并核对列、迁移账本、候选人数、非空原文不覆盖、数值旧行回填和 `PRAGMA integrity_check`/`PRAGMA foreign_key_check`；再运行 V13 专项与全量测试；最后才在受控维护窗口启动正式实例。不得手工插入迁移账本或重建 `candidates`。
 
-V13 回滚是回滚应用代码并保留新增列，避免破坏已经保存的来源原文。若确有删除列的需要，只能在另行创建并验证可恢复备份、获得批准后进行离线维护；本运行手册不授权删除列。当前尚未执行 V13 正式部署、正式库迁移或样本验收。生产完成仍以 Task 7 记录指定工作簿最多 100 条只读预览的脱敏聚合证据为门槛，不得以历史 V12 导入记录替代。
+V13 回滚是回滚应用代码并保留新增列，避免破坏已经保存的来源原文。若确有删除列的需要，只能在另行创建并验证可恢复备份、获得批准后进行离线维护；本运行手册不授权删除列。Task 7 已完成指定工作簿最多 100 条只读预览，脱敏聚合记录见 [v13-years-experience-import-20260825.json](evidence/v13-years-experience-import-20260825.json)。当前尚未执行 V13 正式部署或正式库迁移；只读样本证据不授权或替代这两项生产操作。
 
 ## 11. 恢复
 
@@ -451,7 +451,7 @@ Copy-Item -LiteralPath $restoreSource -Destination ".\data" -Recurse
 7. 运行 `npm test`。
 8. 运行 `npm run build`。
 9. 启动应用，检查健康接口、schema 版本和关键数量。
-10. 验证候选人、人才库、职位、导入预览、删除预览、附件、附件批次、全业务 FTS5、会话 API、Agent 只读状态及 `hire_position`/`hire_status`/`hire_date` CRUD、V13 `years_experience`/`years_experience_raw`/`years_experience_display` 的导入导出和条件展示；北森预览还须核对人才库、来源记录和 `最后职位类投递的职位id` 关系计数。V13 还必须完成 Task 7 的最多 100 条只读样本预览并记录脱敏聚合证据。需要清理北森文件时，另运行 10.8 的七份工作簿专项。
+10. 验证候选人、人才库、职位、导入预览、删除预览、附件、附件批次、全业务 FTS5、会话 API、Agent 只读状态及 `hire_position`/`hire_status`/`hire_date` CRUD、V13 `years_experience`/`years_experience_raw`/`years_experience_display` 的导入导出和条件展示；北森预览还须核对人才库、来源记录和 `最后职位类投递的职位id` 关系计数。V13 Task 7 只读样本预览已完成，发布前须核对其脱敏聚合证据；正式部署和正式库迁移仍按本手册另行执行。需要清理北森文件时，另运行 10.8 的七份工作簿专项。
 
 若升级失败，停止新版本，恢复上一版代码和升级前同一时间点数据库文件集。不要只回退代码继续使用 V6 数据库；当前没有 down migration。
 

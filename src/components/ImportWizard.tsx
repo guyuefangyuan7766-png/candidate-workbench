@@ -14,6 +14,7 @@ import {
 } from "../api";
 import type { Candidate, ImportResult } from "../types";
 import { shouldAutoRecoverImportTask } from "../import-task-state";
+import { candidateYearsExperienceText } from "../utils";
 
 interface ImportWizardProps {
   onClose: () => void;
@@ -708,13 +709,14 @@ export function ImportWizard({ onClose, onImported }: ImportWizardProps) {
                 <table className="preview-table">
                   {isBeisenPreview ? (
                     <>
-                      <thead><tr><th>状态</th><th>应聘者 ID</th><th>姓名</th><th>申请 ID（可选）</th><th>职位编号 / 名称（可选）</th></tr></thead>
+                      <thead><tr><th>状态</th><th>应聘者 ID</th><th>姓名</th><th>工作年限</th><th>申请 ID（可选）</th><th>职位编号 / 名称（可选）</th></tr></thead>
                       <tbody>
                         {preview.rows.map((row) => (
                           <tr key={row.row_number}>
                             <td title={row.errors.map((error) => error.message).join("；")}>{row.errors.length ? "无效" : row.duplicate ? "重复" : "可导入"}</td>
                             <td>{displayValue(row.candidate_source_id)}</td>
                             <td>{displayValue(row.candidate.name)}</td>
+                            <td>{candidateYearsExperienceText(row.candidate)}</td>
                             <td>{displayValue(row.source_application_id)}</td>
                             <PositionResolutionCell row={row} showExternalCode />
                           </tr>
@@ -728,7 +730,7 @@ export function ImportWizard({ onClose, onImported }: ImportWizardProps) {
                         {preview.rows.map((row) => (
                           <tr key={row.row_number}>
                             <td title={row.errors.map((error) => error.message).join("；")}>{row.errors.length ? "无效" : row.duplicate ? "重复" : "可导入"}</td>
-                            {previewFields.map((field) => <td key={field}>{displayValue(row.candidate[field])}</td>)}
+                            {previewFields.map((field) => <td key={field}>{field === "years_experience" ? candidateYearsExperienceText(row.candidate) : displayValue(row.candidate[field])}</td>)}
                             {preview.position_preview && <PositionResolutionCell row={row} />}
                           </tr>
                         ))}

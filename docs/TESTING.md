@@ -68,7 +68,7 @@ node --check server/app.js
 node --check server/index.mjs
 ```
 
-### V13 工作年限专项门禁（待 Task 7 执行）
+### V13 工作年限专项门禁（Task 7 已执行）
 
 ```powershell
 node --test tests/backend/years-experience-import.test.mjs tests/backend/xls-import.test.mjs tests/backend/attachment-semantic-parsing.test.mjs tests/backend/attachment-candidate-prefill.test.mjs tests/backend/candidate-demographics-ui.test.mjs
@@ -78,7 +78,7 @@ npm run build
 git diff --check
 ```
 
-专项测试覆盖原文保留、可空数值投影、明确 `0`、未知文本、空值、V12→V13 加法迁移与幂等、通用/北森导入、附件确认、API/UI 展示和 CSV/XLSX 导出。工作年限格式不能单独产生行错误；电话/邮箱错误或身份冲突仍须可见。生产完成不以这些自动化命令断言，必须由 Task 7 对指定工作簿完成最多 100 条只读预览，并保存不含个人信息的聚合证据后才可记录。
+专项测试覆盖原文保留、可空数值投影、明确 `0`、未知文本、空值、V12→V13 加法迁移与幂等、通用/北森导入、附件确认、API/UI 展示和 CSV/XLSX 导出。工作年限格式不能单独产生行错误；电话/邮箱错误或身份冲突仍须可见。Task 7 已完成指定工作簿最多 100 条只读预览，脱敏聚合记录见 [v13-years-experience-import-20260825.json](evidence/v13-years-experience-import-20260825.json)。该证据不表示 V13 已正式部署或迁移正式库；两项生产操作尚未执行。
 
 2026-08-21 Task 4/5 focused fresh 结果：`node --test tests/backend/hire-status-v11.test.mjs` 为 5/5 通过，`node --test tests/backend/candidate-demographics-ui.test.mjs` 为 3/3 通过，`node --test tests/backend/xls-import.test.mjs` 为 7/7 通过；在 PowerShell 中设置 `$env:HIRE_STATUS_WORKBOOKS_REQUIRED = '1'` 后运行 `node --test tests/backend/hire-status-workbooks.test.mjs` 为 8/8 通过、0 跳过。后者覆盖七份工作簿逐文件表头、行数、日期/ID 对齐、公式错误、渲染结果和五类硬链接 alias 回归。本轮 focused 门禁合计 23/23。
 

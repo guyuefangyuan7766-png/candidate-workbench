@@ -565,6 +565,18 @@ test('attachment work-year suggestions preserve raw text with their evidence and
   assert.equal(compoundFallback.evidence, '3年6个月工作经验')
 })
 
+test('attachment work-year suggestions retain source text up to the shared 1000-character limit', async () => {
+  const raw = `经验${'未详'.repeat(300)}`
+  assert.ok(raw.length > 300 && raw.length < 1000)
+  const text = `工作年限：${raw}`
+  const preview = await readyPreview(fixture(textParser(text)).service)
+  const suggestion = preview.records[0].suggestions.find((item) => item.field === 'years_experience')
+
+  assert.ok(suggestion)
+  assert.equal(suggestion.value, raw)
+  assert.equal(suggestion.evidence, text)
+})
+
 test('attachment confirmation persists the raw work-years text with its numeric projection', async () => {
   const text = [
     '邮箱：work-years-confirm@example.test',

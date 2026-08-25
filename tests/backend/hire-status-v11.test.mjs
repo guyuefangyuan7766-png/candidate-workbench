@@ -673,6 +673,7 @@ test('public documentation describes the hire fields and migration', () => {
     'docs/ROADMAP.md',
     'docs/DECISIONS.md',
     'docs/README.md',
+    'docs/OPERATIONS.md',
     'docs/UI_DESIGN.md',
     'docs/PRODUCT_SPEC.md'
   ]
@@ -698,6 +699,12 @@ test('public documentation describes the hire fields and migration', () => {
   assert.match(documents['docs/DECISIONS.md'], /ADR-037.*入职信息/s)
   assert.match(documents['docs/README.md'], /V11.*候选人入职信息/)
   assert.match(documents['docs/README.md'], /V12.*hire_position/)
+  for (const path of ['README.md', 'docs/README.md', 'docs/DATA_MODEL.md', 'docs/TESTING.md', 'docs/OPERATIONS.md']) {
+    assert.match(documents[path], /v13-years-experience-import-20260825\.json/, `${path} must link the Task 7 evidence`)
+    assert.match(documents[path], /Task 7[^。\n]*(?:已完成|已执行|完成验证)|(?:已完成|已执行|完成验证)[^。\n]*Task 7/, `${path} must state Task 7 is complete`)
+    assert.match(documents[path], /(?:尚未|未)[^。\n]*(?:正式部署|正式库迁移)|(?:正式部署|正式库迁移)[^。\n]*(?:尚未|未)/, `${path} must preserve the undeployed status`)
+    assert.doesNotMatch(documents[path], /(?:等待|待|还必须|仍须)[^。\n]*Task 7|Task 7[^。\n]*(?:等待|待执行|还必须|仍须)/, `${path} must not describe Task 7 as pending`)
+  }
   assert.match(documents['docs/UI_DESIGN.md'], /入职信息[\s\S]*hire_status[\s\S]*hire_date/)
   assert.match(documents['docs/PRODUCT_SPEC.md'], /候选人入职信息[\s\S]*hire_status[\s\S]*hire_date/)
   assert.match(Object.values(documents).join('\n'), /不确定/)
