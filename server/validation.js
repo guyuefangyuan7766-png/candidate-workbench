@@ -195,12 +195,114 @@ function normalizeTags(value) {
   return [...new Set(values.map((tag) => cleanString(tag, 80)).filter(Boolean))].slice(0, 50)
 }
 
-function normalizeYears(value) {
-  if (value == null || value === '') return null
-  const match = String(value).match(/\d+(?:\.\d+)?/)
-  if (!match) return null
-  const years = Number(match[0])
-  return Number.isFinite(years) && years >= 0 && years <= 80 ? years : null
+const YEARS_EXPERIENCE_RAW_LIMIT = 1000
+
+const CHINESE_DIGITS = new Map([
+  ['零', 0], ['一', 1], ['二', 2], ['两', 2], ['三', 3], ['四', 4],
+  ['五', 5], ['六', 6], ['七', 7], ['八', 8], ['九', 9]
+])
+
+function chineseNumberValue(text) {
+  if (!text) return null
+  if (CHINESE_DIGITS.has(text)) return CHINESE_DIGITS.get(text)
+  if (text === '十') return 10
+  const tenIndex = text.indexOf('十')
+  if (tenIndex === -1) return null
+  if (text.length < 2 || text.length > 3) return null
+  const before = text.slice(0, tenIndex)
+  const after = text.slice(tenIndex + 1)
+  const tens = before ? CHINESE_DIGITS.get(before) : 1
+  const ones = after ? CHINESE_DIGITS.get(after) : 0
+  if (tens == null || ones == null) return null
+  return tens * 10 + ones
+}
+
+function finiteNumberToken(text) {
+  if (/^\d{1,4}(?:\.\d{1,4})?$/.test(text)) {
+    const value = Number(text)
+    return Number.isFinite(value) && value >= 0 ? value : null
+  }
+  const chinese = chineseNumberValue(text)
+  return chinese != null && chinese >= 0 ? chinese : null
+}
+
+function parseUnambiguousYears(raw) {
+  const text = String(raw ?? '').normalize('NFKC').trim()
+  if (!text) return null
+  if (text === '半年') return 0.5
+
+  let match = text.match(/^(\d{1,4}(?:\.\d{1,4})?)$/)
+  if (match) {
+    const value = Number(match[1])
+    return Number.isFinite(value) && value >= 0 ? value : null
+  }
+
+  match = text.match(/^(\d{1,4}(?:\.\d{1,4})?)\s*(years?|yrs?)\.?$/i)
+  if (match) {
+    const value = Number(match[1])
+    return Number.isFinite(value) && value >= 0 ? value : null
+  }
+
+  match = text.match(/^(\d{1,4}(?:\.\d{1,4})?)\s*年(?:\s*(\d{1,4})\s*个?月)?$/)
+  if (match) {
+    const years = Number(match[1])
+    if (!Number.isFinite(years) || years < 0) return null
+    if (match[2] == null) return years
+    const months = Number(match[2])
+    if (!Number.isInteger(months) || months < 0) return null
+    return roundYears(years + months / 12)
+  }
+
+  match = text.match(/^(\S+?)年(?:\s*(\S+?)个?月)?(半)?$/)
+  if (match) {
+    if (match[2] != null && match[3] != null) return null
+    const base = finiteNumberToken(match[1])
+    if (base == null) return null
+    if (match[3] != null) return base + 0.5
+    if (match[2] == null) return base
+    const months = finiteNumberToken(match[2])
+    if (months == null || !Number.isInteger(months) || months < 0) return null
+    return roundYears(base + months / 12)
+  }
+
+  match = text.match(/^(\d{1,4})\s*个?月$/)
+  if (match) {
+    const months = Number(match[1])
+    if (!Number.isInteger(months) || months < 0) return null
+    return roundYears(months / 12)
+  }
+
+  match = text.match(/^(\S+?)个?月$/)
+  if (match) {
+    const months = chineseNumberValue(match[1])
+    if (months == null) return null
+    return roundYears(months / 12)
+  }
+
+  return null
+}
+
+function roundYears(value) {
+  return Math.round(value * 100) / 100
+}
+
+export function normalizeYearsExperience(value) {
+  if (value == null) return { raw: '', numeric: null, provided: false }
+  const cleaned = String(value)
+    .replace(/[\u0000-\u001f\u007f-\u009f]/g, '')
+    .trim()
+    .slice(0, YEARS_EXPERIENCE_RAW_LIMIT)
+  if (!cleaned) return { raw: '', numeric: null, provided: false }
+  return { raw: cleaned, numeric: parseUnambiguousYears(cleaned), provided: true }
+}
+
+export function formatYearsExperience({ raw, numeric } = {}) {
+  const text = typeof raw === 'string' ? raw.trim() : ''
+  if (text) return text
+  if (typeof numeric === 'number' && Number.isFinite(numeric) && numeric >= 0) {
+    return Number.isInteger(numeric) ? String(numeric) : String(Number(numeric.toFixed(4)))
+  }
+  return ''
 }
 
 const GENDER_ALIASES = new Map([
@@ -344,10 +446,9 @@ export function sanitizeCandidateInput(input, {
   }
 
   if (!partial || has('years_experience')) {
-    value.years_experience = normalizeYears(input?.years_experience)
-    if (input?.years_experience != null && input.years_experience !== '' && value.years_experience == null) {
-      errors.push({ field: 'years_experience', message: '工作年限必须是 0 至 80 之间的数字' })
-    }
+    const yearsExperience = normalizeYearsExperience(input?.years_experience)
+    value.years_experience = yearsExperience.numeric
+    value.years_experience_raw = yearsExperience.raw
   }
 
   if (!partial || has('gender')) {

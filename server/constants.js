@@ -19,6 +19,7 @@ export const CANDIDATE_FIELDS = [
   'birth_date',
   'age',
   'years_experience',
+  'years_experience_raw',
   'education',
   'highest_school',
   'highest_major',
@@ -40,7 +41,7 @@ export const CANDIDATE_FIELDS = [
 
 export const EXPORT_FIELDS = [
   'id',
-  ...CANDIDATE_FIELDS.filter((field) => field !== 'photo_url'),
+  ...CANDIDATE_FIELDS.filter((field) => field !== 'photo_url' && field !== 'years_experience_raw'),
   'created_at',
   'updated_at',
   'archived_at'
@@ -59,6 +60,7 @@ export const FIELD_LABELS = {
   birth_date: '出生日期',
   age: '年龄',
   years_experience: '工作年限',
+  years_experience_raw: '工作年限（原文）',
   education: '学历',
   highest_school: '最高学历学校',
   highest_major: '最高学历专业',

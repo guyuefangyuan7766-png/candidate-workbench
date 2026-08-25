@@ -21,7 +21,7 @@ function candidateStatements(db) {
     insert: db.prepare(`
       INSERT INTO candidates(
         id, name, phone, email, photo_url, current_company, current_title, location,
-        gender, birth_date, age, years_experience, education, highest_school, highest_major,
+        gender, birth_date, age, years_experience, years_experience_raw, education, highest_school, highest_major,
         job_seeking_status, hire_position, hire_status, hire_date, resume_updated_at, self_summary, source, stage, owner, tags,
         expected_salary, source_system, source_record_id, import_batch_id,
         created_at, updated_at, archived_at
@@ -29,7 +29,7 @@ function candidateStatements(db) {
         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-        ?, ?
+        ?, ?, ?
       )
     `),
     updates: new Map()
@@ -208,6 +208,7 @@ export function insertCandidate(db, candidate, {
     id,
     stage: candidate.stage ?? '新候选人',
     tags: candidate.tags ?? [],
+    years_experience_raw: candidate.years_experience_raw == null ? '' : String(candidate.years_experience_raw),
     created_at: candidate.created_at ?? timestamp,
     updated_at: candidate.updated_at ?? timestamp,
     archived_at: candidate.archived_at ?? null
@@ -226,6 +227,7 @@ export function insertCandidate(db, candidate, {
     record.birth_date,
     record.age,
     record.years_experience,
+    record.years_experience_raw,
     record.education,
     record.highest_school,
     record.highest_major,

@@ -1,6 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { DatabaseSync } from 'node:sqlite'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 
+import { openDatabase, serializeCandidate } from '../../server/database.js'
 import {
   normalizeYearsExperience,
   formatYearsExperience,
@@ -143,4 +148,111 @@ test('phone and email format errors still fail after work years tolerance', () =
   assert.ok(rejected.errors.some((entry) => entry.field === 'phone'))
   assert.ok(rejected.errors.some((entry) => entry.field === 'email'))
   assert.ok(!rejected.errors.some((entry) => entry.field === 'years_experience'))
+})
+
+test('V13 migration adds years_experience_raw and backfills numeric rows', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'candidate-workbench-v13-'))
+  const databasePath = join(directory, 'v13.db')
+
+  try {
+    const legacy = new DatabaseSync(databasePath)
+    legacy.exec(`
+      CREATE TABLE stages (
+        value TEXT PRIMARY KEY,
+        label TEXT NOT NULL,
+        color TEXT NOT NULL,
+        position INTEGER NOT NULL,
+        is_terminal INTEGER NOT NULL DEFAULT 0
+      );
+      INSERT INTO stages(value, label, color, position) VALUES ('新候选人', '新候选人', '#64748b', 10);
+      CREATE TABLE candidates (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        phone TEXT,
+        email TEXT,
+        photo_url TEXT,
+        current_company TEXT,
+        current_title TEXT,
+        location TEXT,
+        gender TEXT,
+        birth_date TEXT,
+        age INTEGER,
+        years_experience REAL,
+        education TEXT,
+        hire_status TEXT,
+        hire_date TEXT,
+        source TEXT,
+        stage TEXT NOT NULL DEFAULT '新候选人',
+        owner TEXT,
+        tags TEXT NOT NULL DEFAULT '[]',
+        expected_salary TEXT,
+        source_system TEXT,
+        source_record_id TEXT,
+        import_batch_id TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        archived_at TEXT,
+        FOREIGN KEY(stage) REFERENCES stages(value)
+      );
+      CREATE TABLE schema_migrations (
+        version INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        applied_at TEXT NOT NULL
+      );
+      INSERT INTO candidates(id, name, years_experience, created_at, updated_at)
+        VALUES ('v13-numeric', 'Numeric', 3.5, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z');
+      INSERT INTO candidates(id, name, years_experience, created_at, updated_at)
+        VALUES ('v13-null', 'Null', NULL, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z');
+      INSERT INTO candidates(id, name, years_experience, created_at, updated_at)
+        VALUES ('v13-zero', 'Zero', 0, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z');
+    `)
+    legacy.close()
+
+    const db = openDatabase(databasePath, { synchronizeSearch: false })
+    const columns = new Set(db.prepare('PRAGMA table_info(candidates)').all().map((column) => column.name))
+    assert.ok(columns.has('years_experience_raw'))
+    assert.equal(db.prepare('SELECT name FROM schema_migrations WHERE version = 13').get().name, 'candidate_years_experience_raw')
+
+    const numeric = db.prepare('SELECT years_experience, years_experience_raw FROM candidates WHERE id = ?').get('v13-numeric')
+    assert.equal(numeric.years_experience, 3.5)
+    assert.equal(numeric.years_experience_raw, '3.5')
+
+    const nullRow = db.prepare('SELECT years_experience, years_experience_raw FROM candidates WHERE id = ?').get('v13-null')
+    assert.equal(nullRow.years_experience, null)
+    assert.equal(nullRow.years_experience_raw, '')
+
+    const zero = db.prepare('SELECT years_experience, years_experience_raw FROM candidates WHERE id = ?').get('v13-zero')
+    assert.equal(zero.years_experience, 0)
+    assert.equal(zero.years_experience_raw, '0')
+
+    const serialized = serializeCandidate(db.prepare('SELECT * FROM candidates WHERE id = ?').get('v13-numeric'))
+    assert.equal(serialized.years_experience_display, '3.5')
+
+    db.close()
+
+    const reopen = openDatabase(databasePath, { synchronizeSearch: false })
+    assert.equal(reopen.prepare('SELECT COUNT(*) AS count FROM schema_migrations WHERE version = 13').get().count, 1)
+    reopen.close()
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('V13 migration is idempotent on a fresh database', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'candidate-workbench-v13-fresh-'))
+
+  try {
+    const databasePath = join(directory, 'fresh.db')
+    const db = openDatabase(databasePath, { synchronizeSearch: false })
+    const columns = new Set(db.prepare('PRAGMA table_info(candidates)').all().map((column) => column.name))
+    assert.ok(columns.has('years_experience_raw'))
+    assert.equal(db.prepare('SELECT name FROM schema_migrations WHERE version = 13').get().name, 'candidate_years_experience_raw')
+    db.close()
+
+    const reopen = openDatabase(databasePath, { synchronizeSearch: false })
+    assert.equal(reopen.prepare('SELECT COUNT(*) AS count FROM schema_migrations WHERE version = 13').get().count, 1)
+    reopen.close()
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
 })

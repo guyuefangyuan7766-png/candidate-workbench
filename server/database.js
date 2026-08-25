@@ -5,7 +5,7 @@ import { DatabaseSync } from 'node:sqlite'
 import { DEFAULT_STAGES } from './constants.js'
 import { migrateAttachmentBatchDatabase } from './attachment-batches.js'
 import { migrateBusinessSearch, synchronizeBusinessSearch } from './business-search.js'
-import { normalizeAge, normalizeBirthDate, normalizeGender, normalizePhotoUrl } from './validation.js'
+import { normalizeAge, normalizeBirthDate, normalizeGender, normalizePhotoUrl, formatYearsExperience } from './validation.js'
 
 export const DEFAULT_DATABASE_PATH = resolve(process.cwd(), 'data', 'recruitment.db')
 
@@ -710,6 +710,35 @@ export function migrateV12Database(db) {
   `).run(now())
 }
 
+export function migrateV13Database(db) {
+  ensureColumn(db, 'candidates', 'years_experience_raw', "TEXT NOT NULL DEFAULT ''")
+  const rows = db.prepare(`
+    SELECT id, years_experience
+    FROM candidates
+    WHERE years_experience_raw = ''
+      AND years_experience IS NOT NULL
+  `).all()
+  if (rows.length > 0) {
+    const backfill = db.prepare(`
+      UPDATE candidates
+      SET years_experience_raw = ?
+      WHERE id = ?
+        AND years_experience_raw = ''
+    `)
+    for (const row of rows) {
+      backfill.run(
+        formatYearsExperience({ raw: '', numeric: row.years_experience == null ? null : Number(row.years_experience) }),
+        row.id
+      )
+    }
+  }
+  db.prepare(`
+    INSERT INTO schema_migrations(version, name, applied_at)
+    VALUES (13, 'candidate_years_experience_raw', ?)
+    ON CONFLICT(version) DO UPDATE SET name = excluded.name
+  `).run(now())
+}
+
 function migrateTalentDatabase(db) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -945,6 +974,7 @@ function migrateTalentDatabase(db) {
     migrateV10Database(db)
     migrateV11Database(db)
     migrateV12Database(db)
+    migrateV13Database(db)
     db.exec('COMMIT')
     return { v8PreviouslyApplied, v9Applied: true, v10Applied: true }
   } catch (error) {
@@ -958,11 +988,17 @@ function migrateTalentDatabase(db) {
 
 export function serializeCandidate(row) {
   if (!row) return null
+  const yearsExperience = row.years_experience == null || !Number.isFinite(Number(row.years_experience))
+    ? null
+    : Number(row.years_experience)
+  const yearsExperienceRaw = row.years_experience_raw == null ? '' : String(row.years_experience_raw)
   return {
     ...row,
     has_photo: Boolean(row.photo_url),
     age: row.age == null ? null : Number(row.age),
-    years_experience: row.years_experience == null ? null : Number(row.years_experience),
+    years_experience: yearsExperience,
+    years_experience_raw: yearsExperienceRaw,
+    years_experience_display: formatYearsExperience({ raw: yearsExperienceRaw, numeric: yearsExperience }),
     tags: parseJson(row.tags, [])
   }
 }
@@ -1028,6 +1064,7 @@ export function openDatabase(databasePath = configuredDatabasePath(), { synchron
       birth_date TEXT,
       age INTEGER,
       years_experience REAL,
+      years_experience_raw TEXT NOT NULL DEFAULT '',
       education TEXT,
       hire_position TEXT,
       hire_status TEXT,
