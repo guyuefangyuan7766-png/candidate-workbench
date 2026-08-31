@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-28T07:39:22.018Z",
+  "operation": "contact_value_correction_retry",
+  "formal_database_commit": true,
+  "service": {
+    "base_url": "http://127.0.0.1:4174",
+    "health_endpoint": "/api/health",
+    "status": "ok"
+  },
+  "input": {
+    "file": "output/candidate-import-contact-values-ready-20260828.csv",
+    "rows": 39,
+    "sha256": "5a3d2cfb911cf5937635a533f9953cfdc87862030671ab1aaa8a28d5ae96a478"
+  },
+  "preview": {
+    "task_id": "2f28793a-2a42-4fee-b7c5-d4370e5db044",
+    "status": "preview_ready",
+    "total_rows": 39,
+    "valid_rows": 39,
+    "invalid_rows": 0,
+    "existing_duplicates": 39,
+    "missing_identity_rows": 0,
+    "missing_candidate_id_rows": 0
+  },
+  "commit": {
+    "task_id": "dfd975e0-2812-45de-9eb1-bc83b8becd67",
+    "status": "completed",
+    "total_rows": 39,
+    "imported_rows": 0,
+    "updated_rows": 39,
+    "skipped_rows": 0,
+    "failed_rows": 0,
+    "candidate_count": 39,
+    "application_count": 0,
+    "position_count": 6,
+    "positions_created": 0,
+    "positions_matched": 6,
+    "links_created": 0,
+    "pools_created": 0
+  },
+  "corrections": {
+    "wechat_values_moved": 17,
+    "emails_corrected": 5,
+    "phone_values_corrected": 1,
+    "invalid_values_left_empty": true
+  },
+  "database_verification": {
+    "candidate_rows_in_batch": 39,
+    "distinct_source_ids": 39,
+    "source_records_in_batch": 39,
+    "candidate_phone_nonempty": 21,
+    "candidate_email_nonempty": 6,
+    "wechat_values_in_source_records": 17,
+    "corrected_email_values_in_source_records": 5,
+    "corrected_phone_values_in_source_records": 1,
+    "blank_names": 0
+  },
+  "unresolved": {
+    "rows": 1,
+    "file": "output/candidate-import-contact-values-unresolved-20260828.csv",
+    "sha256": "bf560719a7596886e3f2b3e646a29d1a753e3d7552c7addc15316ad894fe13ae",
+    "reason": "修正手机号与其他候选人冲突"
+  },
+  "privacy": {
+    "candidate_level_rows_in_artifact": false,
+    "preview_token_included": false
+  }
+}

@@ -78,7 +78,7 @@ npm run build
 git diff --check
 ```
 
-专项测试覆盖原文保留、可空数值投影、明确 `0`、未知文本、空值、V12→V13 加法迁移与幂等、通用/北森导入、附件确认、API/UI 展示和 CSV/XLSX 导出。工作年限格式不能单独产生行错误；电话/邮箱错误或身份冲突仍须可见。Task 7 已完成指定工作簿最多 100 条只读预览，脱敏聚合记录见 [v13-years-experience-import-20260825.json](evidence/v13-years-experience-import-20260825.json)。该证据不表示 V13 已正式部署或迁移正式库；两项生产操作尚未执行。
+专项测试覆盖原文保留、可空数值投影、明确 `0`、未知文本、空值、V12→V13 加法迁移与幂等、通用/北森导入、附件确认、API/UI 展示和 CSV/XLSX 导出。工作年限格式不能单独产生行错误；电话/邮箱错误或身份冲突仍须可见。Task 7 已完成指定工作簿最多 100 条历史只读预览，脱敏聚合记录见 [v13-years-experience-import-20260825.json](evidence/v13-years-experience-import-20260825.json)。正式库已应用 V13；该历史证据不替代本轮正式批量导入证据。
 
 2026-08-21 Task 4/5 focused fresh 结果：`node --test tests/backend/hire-status-v11.test.mjs` 为 5/5 通过，`node --test tests/backend/candidate-demographics-ui.test.mjs` 为 3/3 通过，`node --test tests/backend/xls-import.test.mjs` 为 7/7 通过；在 PowerShell 中设置 `$env:HIRE_STATUS_WORKBOOKS_REQUIRED = '1'` 后运行 `node --test tests/backend/hire-status-workbooks.test.mjs` 为 8/8 通过、0 跳过。后者覆盖七份工作簿逐文件表头、行数、日期/ID 对齐、公式错误、渲染结果和五类硬链接 alias 回归。本轮 focused 门禁合计 23/23。
 
@@ -737,3 +737,10 @@ git diff --check
 - 真实匿名视觉探针只在内存生成带随机验证码的合成 PNG，并在子进程中临时批准当前端点的精确 hostname 以验证例外路径，未写回用户环境。请求实际发送，内部断言确认包含 PNG `image_url`、`stream:false`、无 `tools`/`tool_choice`；HTTP 未收到状态码，结果为 `status=fallback`、`schema_mode=strict`、`error_code=visual_unavailable`、`retryable=true`、结构化记录 `0`，分类为 `DNS/network`。未输出 URL、凭据、完整请求、PNG 或原始响应。
 - 由于真实探针未成功，按前置条件未运行真实视觉浏览器验收；匿名替身服务和隔离浏览器验收仍只能作为既有协议测试，不能替代合规 HTTPS/image-input 网关的真实可达性验收。
 - 收尾检查确认本轮 Node 服务已停止、今天生成的 Playwright 快照为 `0`、本轮匿名 SQLite/附件临时根目录已删除，正式 `data/recruitment.db`、`-shm`、`-wal` 的大小和修改时间未变化；用户级 `ATTACHMENT_VISUAL_TRUSTED_PRIVATE_HOSTS` 保持未配置。
+
+### 2026-08-27 正式导入后门禁
+
+- 既有 B/V13 专项记录为 60/60 通过；本次收尾导入/XLS/V13 聚焦复跑为 35/35 通过。
+- 收尾时完整复跑 `npm test` 观察到 591 项中 578 通过、6 失败、7 跳过；其中 2 个 Agent 时序用例单独复跑通过，另 1 个 Agent 附件取消用例仍失败，属于与本次导入无关的既有时序问题。稳定失败还包括既有 V11 旧文档断言和 2 个 V12 维护测试（工作区缺少 `.tmp-v12-paused-server.mjs`），不是本次导入断言。
+- `npx tsc --noEmit`、`npm run build`、`git diff --check`：均通过。
+- B 组正式导入证据：`evidence/beisen-candidate-import-b-20260827.json`；完整性检查按报告如实标记为未运行。

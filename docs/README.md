@@ -1,6 +1,6 @@
 # 项目文档索引
 
-本文档集对应招聘工作台 `0.1.x` 个人版及当前 `Unreleased` V13 工作年限宽容迭代。当前代码基线为 schema V13：`years_experience` 是可空数值投影，`years_experience_raw` 是 `TEXT NOT NULL DEFAULT ''` 的来源原文，`years_experience_display` 为计算展示文本。明确 `0`、未知文本和真实空值必须分别显示为 `0`、原文和空白；导入格式本身不拒绝行，电话/邮箱冲突仍阻断。Task 7 已完成最多 100 条只读样本预览验证，脱敏证据见 [v13-years-experience-import-20260825.json](evidence/v13-years-experience-import-20260825.json)；V13 尚未正式部署或迁移正式库。历史 V11 候选人入职信息迭代引入 `hire_status`（入职状态）和 `hire_date`（入职日期）；V12 增加 `hire_position`（入职职位），日期有值而状态为空时使用精确文本 `不确定`，三项全空时详情隐藏入职信息区块。V12 历史正式 HTTP 记录不构成 V13 完成证据。代码行为是事实来源，文档与实现不一致时，应先修正文档或通过技术决策记录明确变更。
+本文档集对应招聘工作台 `0.1.x` 个人版及当前 `Unreleased` V13 工作年限宽容迭代。当前代码基线为 schema V13：`years_experience` 是可空数值投影，`years_experience_raw` 是 `TEXT NOT NULL DEFAULT ''` 的来源原文，`years_experience_display` 为计算展示文本。明确 `0`、未知文本和真实空值必须分别显示为 `0`、原文和空白；导入格式本身不拒绝行，电话/邮箱冲突仍阻断。Task 7 已完成最多 100 条历史只读样本预览，脱敏证据见 [v13-years-experience-import-20260825.json](evidence/v13-years-experience-import-20260825.json)；正式库已完成 V13 加法迁移，schema 为 V1-V13。历史 V11 候选人入职信息迭代引入 `hire_status`（入职状态）和 `hire_date`（入职日期）；V12 增加 `hire_position`（入职职位），日期有值而状态为空时使用精确文本 `不确定`，三项全空时详情隐藏入职信息区块。V12 历史正式 HTTP 记录不构成本轮批量导入证据。代码行为是事实来源，文档与实现不一致时，应先修正文档或通过技术决策记录明确变更。
 
 | 文档 | 主要用途 |
 | --- | --- |
@@ -27,7 +27,7 @@
 | [evidence/v12-hire-information-formal-import-20260824.json](evidence/v12-hire-information-formal-import-20260824.json) | 正式 HTTP 100 人预览/提交的脱敏聚合证据；不含全库后检或恢复结论 |
 | [superpowers/specs/2026-08-25-years-experience-tolerant-import-design.md](superpowers/specs/2026-08-25-years-experience-tolerant-import-design.md) | V13 工作年限原文保留、数值投影和兼容迁移设计 |
 | [superpowers/plans/2026-08-25-years-experience-tolerant-import.md](superpowers/plans/2026-08-25-years-experience-tolerant-import.md) | V13 实施、测试与最多 100 条只读验证计划 |
-| [evidence/v13-years-experience-import-20260825.json](evidence/v13-years-experience-import-20260825.json) | V13 Task 7 已完成的只读工作簿预览脱敏聚合证据；不代表正式部署或正式库迁移 |
+| [evidence/v13-years-experience-import-20260825.json](evidence/v13-years-experience-import-20260825.json) | V13 Task 7 的历史只读工作簿预览脱敏聚合证据；不代表本轮正式批量导入结果 |
 | [../SECURITY.md](../SECURITY.md) | 安全假设、数据保护要求和漏洞处理 |
 | [../CHANGELOG.md](../CHANGELOG.md) | 面向版本的新增、变更、修复和限制 |
 | [../CONTRIBUTING.md](../CONTRIBUTING.md) | 开发、测试、数据安全和文档维护规范 |
@@ -44,3 +44,7 @@
 接入模型网关前：必须先阅读 `AGENT_SECURITY`、`PRIVACY` 和根目录 `SECURITY`。
 
 准备升级为部门多人版前：先阅读 `ROADMAP` 中的多人版准入条件。当前代码没有认证、RBAC、HTTPS 或租户隔离，不能直接承担该场景。
+
+## 2026-08-27 导入收尾
+
+真实北森批量导入已按 A 组优先、B 组双空过滤和分片顺序完成。B 组 62,861 行中保留 1,390 行，正式提交 1,390 更新、0 失败；收尾报告和脱敏证据位于 `output/candidate-import-final-report-20260827.md` 与 `docs/evidence/beisen-candidate-import-b-20260827.json`。服务按任务生命周期管理预览 token，报告/证据不复制 token 或候选人级值。

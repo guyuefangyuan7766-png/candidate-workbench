@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-28T06:57:20.484Z",
+  "operation": "birth_date_failure_retry",
+  "formal_database_commit": true,
+  "service": {
+    "base_url": "http://127.0.0.1:4174",
+    "health_endpoint": "/api/health",
+    "status": "ok",
+    "task_id": "06a67911-4f00-4776-8675-c90b54736f10"
+  },
+  "input": {
+    "file": "output/birth-date-failures-corrected-20260828.csv",
+    "rows": 196,
+    "bytes": 1343496,
+    "sha256": "870128a0ce730d7d90e92f2fcb1e101cbd32b3f0abc3c98c8df0e380395d32c7",
+    "correction": "出生日期清空；保留其他字段和年龄"
+  },
+  "preview": {
+    "task_id": "350a42b9-347f-4ad6-9413-b850b1399888",
+    "status": "preview_ready",
+    "profile": "beisen_talent",
+    "total_rows": 196,
+    "valid_rows": 196,
+    "invalid_rows": 0,
+    "existing_duplicates": 196,
+    "missing_identity_rows": 0
+  },
+  "commit": {
+    "status": "completed",
+    "total_rows": 196,
+    "imported_rows": 0,
+    "updated_rows": 196,
+    "skipped_rows": 0,
+    "failed_rows": 0,
+    "candidate_count": 196,
+    "application_count": 0,
+    "position_count": 39,
+    "positions_created": 0,
+    "positions_matched": 39,
+    "links_created": 1,
+    "pools_created": 0
+  },
+  "database_verification": {
+    "batch_candidate_count": 196,
+    "distinct_source_ids": 196,
+    "blank_names": 0,
+    "birth_date_empty": 196,
+    "birth_date_nonempty": 0,
+    "source_system": "beisen"
+  },
+  "failures": {
+    "failed_rows": 0,
+    "reason_counts": {}
+  },
+  "privacy": {
+    "candidate_level_rows_in_artifact": false,
+    "preview_token_included": false
+  }
+}

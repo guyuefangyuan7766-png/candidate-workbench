@@ -674,3 +674,7 @@ V12 的公共字段名固定为 `hire_position`、`hire_status` 与 `hire_date`�
 - 1A、2A、3A、4A、5C、敏感字段全保留、7A 和 8A 均有明确落点。
 - F3#115 已明确映射到 `photo_url`，并记录 `has_photo` 投影、头像端点、导出排除和跨批次非空更新规则。
 - 实现完成后，本文的逻辑目标与 `DATA_MODEL.md`、`API.md`、`IMPORT_GUIDE.md` 和 `AGENT_SECURITY.md` 一致。
+
+## 2026-08-27 B 组字段落点
+
+B 组精确表头为 `入职状态`、`入职日期`、`应聘者ID`。状态-only 行保留，日期-only 行按项目规则补状态（本批日期-only 为 0）；状态和日期同时为空的行不进入正式处理。正式结果和字段核验见 `../output/candidate-import-b-final-report-20260827.md`。

@@ -6,6 +6,8 @@
 
 ### Added
 
+- 2026-08-27 正式完成候选人批量导入收尾：A 组 18 个分片、B 组 7 个分片按预览确认门禁提交；B 组双空过滤后 1,390 行全部更新、0 失败，并保存脱敏证据与失败行表。
+
 - schema V13 `candidate_years_experience_raw`：为 `candidates` 加法增加 `years_experience_raw TEXT NOT NULL DEFAULT ''`；`years_experience` 保留为可空数值投影，候选人响应新增计算字段 `years_experience_display`。迁移只为原文为空且数值非空的旧行回填规范数字文本，不把缺失值写成 `0`，重复启动只登记一次。
 - 工作年限宽容链路：通用/北森导入、附件预填充、API 和界面保留工作年限原文；格式不明确的非空文本不单独使行失败，明确 `0`、未知文本和空值分别保留为 `0`、原文和空白。CSV/XLSX 的既有“工作年限”列优先导出原文，手机/邮箱身份冲突仍独立阻断。
 

@@ -413,7 +413,7 @@ V13 的唯一迁移记录是 `(13, 'candidate_years_experience_raw')`。它以�
 
 运行顺序：停止服务；记录代码和实际数据库路径；备份同一时点 `.db`、`-wal`、`-shm`；在可丢弃副本执行 V12→V13 并核对列、迁移账本、候选人数、非空原文不覆盖、数值旧行回填和 `PRAGMA integrity_check`/`PRAGMA foreign_key_check`；再运行 V13 专项与全量测试；最后才在受控维护窗口启动正式实例。不得手工插入迁移账本或重建 `candidates`。
 
-V13 回滚是回滚应用代码并保留新增列，避免破坏已经保存的来源原文。若确有删除列的需要，只能在另行创建并验证可恢复备份、获得批准后进行离线维护；本运行手册不授权删除列。Task 7 已完成指定工作簿最多 100 条只读预览，脱敏聚合记录见 [v13-years-experience-import-20260825.json](evidence/v13-years-experience-import-20260825.json)。当前尚未执行 V13 正式部署或正式库迁移；只读样本证据不授权或替代这两项生产操作。
+V13 回滚是回滚应用代码并保留新增列，避免破坏已经保存的来源原文。若确有删除列的需要，只能在另行创建并验证可恢复备份、获得批准后进行离线维护；本运行手册不授权删除列。Task 7 已完成指定工作簿最多 100 条历史只读预览，脱敏聚合记录见 [v13-years-experience-import-20260825.json](evidence/v13-years-experience-import-20260825.json)。正式库当前已完成 V13 加法迁移；该历史样本证据不替代本轮正式批量导入证据。
 
 ## 11. 恢复
 
@@ -451,7 +451,7 @@ Copy-Item -LiteralPath $restoreSource -Destination ".\data" -Recurse
 7. 运行 `npm test`。
 8. 运行 `npm run build`。
 9. 启动应用，检查健康接口、schema 版本和关键数量。
-10. 验证候选人、人才库、职位、导入预览、删除预览、附件、附件批次、全业务 FTS5、会话 API、Agent 只读状态及 `hire_position`/`hire_status`/`hire_date` CRUD、V13 `years_experience`/`years_experience_raw`/`years_experience_display` 的导入导出和条件展示；北森预览还须核对人才库、来源记录和 `最后职位类投递的职位id` 关系计数。V13 Task 7 只读样本预览已完成，发布前须核对其脱敏聚合证据；正式部署和正式库迁移仍按本手册另行执行。需要清理北森文件时，另运行 10.8 的七份工作簿专项。
+10. 验证候选人、人才库、职位、导入预览、删除预览、附件、附件批次、全业务 FTS5、会话 API、Agent 只读状态及 `hire_position`/`hire_status`/`hire_date` CRUD、V13 `years_experience`/`years_experience_raw`/`years_experience_display` 的导入导出和条件展示；北森预览还须核对人才库、来源记录和 `最后职位类投递的职位id` 关系计数。V13 Task 7 只读样本预览已完成，正式库已完成 V13 迁移；本轮正式批量导入证据另行记录。需要清理北森文件时，另运行 10.8 的七份工作簿专项。
 
 若升级失败，停止新版本，恢复上一版代码和升级前同一时间点数据库文件集。不要只回退代码继续使用 V6 数据库；当前没有 down migration。
 
@@ -564,3 +564,7 @@ V9 匿名基准和浏览器结论不能替代真实北森文件、正式数据�
 - 监控、告警、日志留存、物理删除和合规响应。
 
 不能把个人版仅通过改 `HOST` 或放到一台公共电脑上当作部门版。
+
+## 2026-08-27 候选人批量导入收尾
+
+A 组 18 个分片和 B 组 7 个分片均已完成正式提交；B 组 1,390 行全部更新且无失败。服务 `max_commit_ms` 保持 3,600,000 ms（1 小时），A 第 18 片通过同一任务恢复，未重启服务。源文件哈希、schema V1-V13 和外键检查已核对；完整 `PRAGMA integrity_check` 未运行，搜索索引后台仍可能处于 `indexing`。证据与报告：`docs/evidence/beisen-candidate-import-b-20260827.json`、`output/candidate-import-final-report-20260827.md`。

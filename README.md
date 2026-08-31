@@ -24,7 +24,7 @@
 - `years_experience` 现在是可空数值投影，新增 `years_experience_raw` 保存非空来源原文，响应用 `years_experience_display` 提供展示文本。明确的 `0` 保持为 `0`；`经验不详`、范围或带修饰的文本保留原文且数值为 `null`；没有来源值时原文为空、数值为 `null`、展示为空白，不显示字面量 `null`。
 - 通用/北森导入和附件预填充不再因工作年限格式单独拒绝行；新的非空来源值成对更新原文和数值投影，增量导入的空单元格不清除旧值。电话、邮箱及其他身份冲突仍按原有规则阻断。
 - 档案、列表和导入预览优先显示原文，CSV/XLSX 既有“工作年限”列优先导出原文；数值排序/筛选仅使用安全数值投影。`/resume-search` 的 `min_years`、`max_years` 仍保留 API 文档所述的兼容查询输入限制，这不是存储或导入上限。
-- schema V13 是加法且幂等的迁移 `(13, 'candidate_years_experience_raw')`。Task 7 已完成最多 100 条的只读样本预览验证，脱敏聚合记录见 [V13 工作年限导入证据](docs/evidence/v13-years-experience-import-20260825.json)；本开发线仍为 `Unreleased`，尚未正式部署或迁移正式库。
+- schema V13 是加法且幂等的迁移 `(13, 'candidate_years_experience_raw')`。Task 7 已完成最多 100 条的历史只读样本预览，脱敏聚合记录见 [V13 工作年限导入证据](docs/evidence/v13-years-experience-import-20260825.json)；本开发线仍为 `Unreleased`，正式库已于本轮前完成 V13 迁移并核对 schema V1-V13。
 
 ### 2026-08-21 入职信息字段
 
@@ -35,7 +35,7 @@
 - 北森和通用表格导入识别入职字段；同一候选人增量导入时空值不会清除已有入职字段，且只传日期的 PATCH 不会覆盖已有明确状态。北森字段 `最后职位类投递的职位id` 用于招聘职位关系（必要时按候选人和投递时间匹配历史职位），不能用 `入职职位` 猜测关系；整份工作簿存在该专用表头时，单行空值不回退普通 `职位编号`，仅整表缺该表头才允许兼容回退。
 - 批量清理脚本只保留入职状态非空且不等于精确文本“空”的源行，原始 `.xls` 文件保持不变；若源文件只有入职日期，导入预览会显示 `不确定`，不会把 `入职雇佣关系` 静默转换为状态。
 
-本轮开发线仍标记为 `Unreleased`；代码 schema 基线为 `V13`。V12 的历史正式 HTTP 导入记录保持不变；它不构成 V13 部署或正式库迁移。Task 7 只读样本验证已完成并记录脱敏聚合证据，但 V13 尚未正式部署或迁移正式库。迁移、接口、字段映射、清理文件和验证命令见 [CHANGELOG.md](CHANGELOG.md)、[docs/DATA_MODEL.md](docs/DATA_MODEL.md)、[docs/API.md](docs/API.md)、[docs/FIELD_MAPPING.md](docs/FIELD_MAPPING.md)、[docs/IMPORT_GUIDE.md](docs/IMPORT_GUIDE.md) 和 [docs/TESTING.md](docs/TESTING.md)。
+本轮开发线仍标记为 `Unreleased`；代码 schema 基线为 `V13`，正式库已完成 V13 加法迁移。V12 的历史正式 HTTP 导入记录保持不变；Task 7 只读样本证据是历史验收记录，不替代本轮正式批量导入证据。迁移、接口、字段映射、清理文件和验证命令见 [CHANGELOG.md](CHANGELOG.md)、[docs/DATA_MODEL.md](docs/DATA_MODEL.md)、[docs/API.md](docs/API.md)、[docs/FIELD_MAPPING.md](docs/FIELD_MAPPING.md)、[docs/IMPORT_GUIDE.md](docs/IMPORT_GUIDE.md) 和 [docs/TESTING.md](docs/TESTING.md)。
 
 去重只使用标准化后的邮箱、手机号或 `source_system + source_record_id`。系统不会仅凭姓名自动合并候选人，身份键指向不同记录时会拒绝自动更新。
 
@@ -123,3 +123,7 @@ npm audit
 ## 许可证
 
 项目代码采用 MIT License，第三方依赖遵循各自许可证。
+
+## 2026-08-27 正式批量导入记录
+
+A 组“人才库简历”18/18、B 组“应聘者数据”7/7 已按预览-确认-提交顺序完成正式导入。B 组实际结果为 1,390 行全部更新、0 导入/跳过/失败；详细汇总、失败表和脱敏证据见 `output/candidate-import-final-report-20260827.md`、`output/candidate-import-b-failed-rows-final-20260827.csv` 和 `docs/evidence/beisen-candidate-import-b-20260827.json`。原始文件只读，源文件哈希前后匹配。

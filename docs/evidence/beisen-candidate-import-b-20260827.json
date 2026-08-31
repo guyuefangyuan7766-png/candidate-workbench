@@ -1,0 +1,392 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-27T08:07:18.162Z",
+  "group": "applicant_data",
+  "formal_database_commit": true,
+  "service": {
+    "base_url": "http://127.0.0.1:4173",
+    "health_checked": true,
+    "status": "ok"
+  },
+  "schema_versions": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13
+  ],
+  "input": {
+    "original_rows": 62861,
+    "excluded_double_empty_rows": 61471,
+    "retained_rows": 1390,
+    "parts": 7,
+    "status_only_rows": 4,
+    "date_only_rows": 0,
+    "both_nonempty_rows": 1386,
+    "missing_id_rows": 0,
+    "invalid_date_rows": 0,
+    "unique_source_ids": 1344,
+    "duplicate_source_ids": 43,
+    "duplicate_extra_rows": 46,
+    "duplicate_conflict_counts": {
+      "same_values": 0,
+      "date_only": 18,
+      "status_only": 0,
+      "status_and_date": 25
+    },
+    "row_conservation": true
+  },
+  "part_file_checks": [
+    {
+      "part_index": 1,
+      "file": "自定义excel-2026-08-21 09_59_021_part001.csv",
+      "expected_rows": 182,
+      "actual_rows": 182,
+      "expected_bytes": 5953,
+      "actual_bytes": 5953,
+      "expected_sha256": "108FBBFCF24FD7F42EC9B630E158856D854D2E8743C7529C2F2025E5F808F1F0",
+      "actual_sha256": "108FBBFCF24FD7F42EC9B630E158856D854D2E8743C7529C2F2025E5F808F1F0",
+      "matches": true
+    },
+    {
+      "part_index": 2,
+      "file": "自定义excel-2026-08-21 10_00_002_part001.csv",
+      "expected_rows": 193,
+      "actual_rows": 193,
+      "expected_bytes": 6287,
+      "actual_bytes": 6287,
+      "expected_sha256": "EFDBBDA177222FDF2DD51FE9477D2E5D92933108230A5DFDD52DFE640F5AF64F",
+      "actual_sha256": "EFDBBDA177222FDF2DD51FE9477D2E5D92933108230A5DFDD52DFE640F5AF64F",
+      "matches": true
+    },
+    {
+      "part_index": 3,
+      "file": "自定义excel-2026-08-21 10_00_593_part001.csv",
+      "expected_rows": 243,
+      "actual_rows": 243,
+      "expected_bytes": 7925,
+      "actual_bytes": 7925,
+      "expected_sha256": "C676217995C10AB23B5773AAA25251C1DB3BBE2DF72854E71FC18D22E4DE1FF6",
+      "actual_sha256": "C676217995C10AB23B5773AAA25251C1DB3BBE2DF72854E71FC18D22E4DE1FF6",
+      "matches": true
+    },
+    {
+      "part_index": 4,
+      "file": "自定义excel-2026-08-21 10_01_574_part001.csv",
+      "expected_rows": 111,
+      "actual_rows": 111,
+      "expected_bytes": 3617,
+      "actual_bytes": 3617,
+      "expected_sha256": "F1F1FEFEEAD197CE8B259CC3446D4A897C8EDC74A4C04706EB72678063A73E65",
+      "actual_sha256": "F1F1FEFEEAD197CE8B259CC3446D4A897C8EDC74A4C04706EB72678063A73E65",
+      "matches": true
+    },
+    {
+      "part_index": 5,
+      "file": "自定义excel-2026-08-21 10_02_565_part001.csv",
+      "expected_rows": 180,
+      "actual_rows": 180,
+      "expected_bytes": 5895,
+      "actual_bytes": 5895,
+      "expected_sha256": "9A295261F80FB68F98515AE68364A2617BBA7C3B3E00EEA504E858D8CB07165C",
+      "actual_sha256": "9A295261F80FB68F98515AE68364A2617BBA7C3B3E00EEA504E858D8CB07165C",
+      "matches": true
+    },
+    {
+      "part_index": 6,
+      "file": "自定义excel-2026-08-21 10_03_576_part001.csv",
+      "expected_rows": 407,
+      "actual_rows": 407,
+      "expected_bytes": 13149,
+      "actual_bytes": 13149,
+      "expected_sha256": "2A09DB81A71C76BA88745296D8904DE1796C580AF3EA2D20B32F63B1C9978DED",
+      "actual_sha256": "2A09DB81A71C76BA88745296D8904DE1796C580AF3EA2D20B32F63B1C9978DED",
+      "matches": true
+    },
+    {
+      "part_index": 7,
+      "file": "自定义excel-2026-08-21 10_04_067_part001.csv",
+      "expected_rows": 74,
+      "actual_rows": 74,
+      "expected_bytes": 2403,
+      "actual_bytes": 2403,
+      "expected_sha256": "1278D6DCE4529AC27829B33192EA70EAB2BD26C619CC4BE50F440633423C39CD",
+      "actual_sha256": "1278D6DCE4529AC27829B33192EA70EAB2BD26C619CC4BE50F440633423C39CD",
+      "matches": true
+    }
+  ],
+  "preview_and_commit": {
+    "completed_parts": 7,
+    "total_parts": 7,
+    "task_status_counts": {
+      "preview:failed": 3,
+      "commit:completed": 7,
+      "preview:preview_ready": 4
+    },
+    "preview_expired_after_commit": 3,
+    "batch_count": 7,
+    "batch_totals": {
+      "total_rows": 1390,
+      "imported_rows": 0,
+      "updated_rows": 1390,
+      "skipped_rows": 0,
+      "failed_rows": 0
+    },
+    "row_conservation": true,
+    "batches": [
+      {
+        "id": "66b58349-3090-4ced-a810-0f4053ab7763",
+        "filename": "自定义excel-2026-08-21 09_59_021_part001.csv",
+        "total_rows": 182,
+        "imported_rows": 0,
+        "updated_rows": 182,
+        "skipped_rows": 0,
+        "failed_rows": 0,
+        "status": "completed"
+      },
+      {
+        "id": "ae677b9b-7e00-471d-8d5e-f5c9c7b04ecb",
+        "filename": "自定义excel-2026-08-21 10_00_002_part001.csv",
+        "total_rows": 193,
+        "imported_rows": 0,
+        "updated_rows": 193,
+        "skipped_rows": 0,
+        "failed_rows": 0,
+        "status": "completed"
+      },
+      {
+        "id": "c76e1eac-a6ca-4428-b390-be5ba5c3bb1b",
+        "filename": "自定义excel-2026-08-21 10_00_593_part001.csv",
+        "total_rows": 243,
+        "imported_rows": 0,
+        "updated_rows": 243,
+        "skipped_rows": 0,
+        "failed_rows": 0,
+        "status": "completed"
+      },
+      {
+        "id": "e4a4defa-5d9a-4493-996e-f12ba67d9831",
+        "filename": "自定义excel-2026-08-21 10_01_574_part001.csv",
+        "total_rows": 111,
+        "imported_rows": 0,
+        "updated_rows": 111,
+        "skipped_rows": 0,
+        "failed_rows": 0,
+        "status": "completed"
+      },
+      {
+        "id": "31343943-655d-4fb2-af3c-e35046c8de6c",
+        "filename": "自定义excel-2026-08-21 10_02_565_part001.csv",
+        "total_rows": 180,
+        "imported_rows": 0,
+        "updated_rows": 180,
+        "skipped_rows": 0,
+        "failed_rows": 0,
+        "status": "completed"
+      },
+      {
+        "id": "810fa4b8-b3ba-4482-871b-bea582ee3646",
+        "filename": "自定义excel-2026-08-21 10_03_576_part001.csv",
+        "total_rows": 407,
+        "imported_rows": 0,
+        "updated_rows": 407,
+        "skipped_rows": 0,
+        "failed_rows": 0,
+        "status": "completed"
+      },
+      {
+        "id": "6bcec304-9d12-4cb4-a0bf-3b16f5d2d832",
+        "filename": "自定义excel-2026-08-21 10_04_067_part001.csv",
+        "total_rows": 74,
+        "imported_rows": 0,
+        "updated_rows": 74,
+        "skipped_rows": 0,
+        "failed_rows": 0,
+        "status": "completed"
+      }
+    ]
+  },
+  "database_verification": {
+    "counts_before": {
+      "candidates": 140316,
+      "candidate_positions": 62745,
+      "candidate_talent_pools": 176965,
+      "candidate_source_records": 381772,
+      "candidate_position_sources": 62307,
+      "candidate_assessments": 62307,
+      "candidate_consents": 21996,
+      "import_batches": 57,
+      "candidate_import_tasks": 157
+    },
+    "counts_after": {
+      "candidates": 140316,
+      "positions": 1308,
+      "talent_pools": 40,
+      "candidate_positions": 62745,
+      "candidate_talent_pools": 176965,
+      "candidate_source_records": 381772,
+      "candidate_position_sources": 62307,
+      "candidate_assessments": 62307,
+      "candidate_consents": 21996,
+      "import_batches": 64,
+      "candidate_import_tasks": 171
+    },
+    "count_deltas": {
+      "candidates": 0,
+      "candidate_positions": 0,
+      "candidate_talent_pools": 0,
+      "candidate_source_records": 0,
+      "candidate_position_sources": 0,
+      "candidate_assessments": 0,
+      "candidate_consents": 0,
+      "import_batches": 7,
+      "candidate_import_tasks": 14
+    },
+    "count_deltas_unavailable_before": [
+      "positions",
+      "talent_pools"
+    ],
+    "business_write_counters": {
+      "positions_created": 0,
+      "positions_matched": 0,
+      "links_created": 0,
+      "pools_created": 0,
+      "application_count": 0
+    },
+    "business_write_window": {
+      "start": "2026-08-27T07:26:48.578Z",
+      "end": "2026-08-27T07:40:10.424Z",
+      "tables": {
+        "candidates": {
+          "created_in_window": 0,
+          "updated_in_window": 1344
+        },
+        "positions": {
+          "created_in_window": 0,
+          "updated_in_window": 0
+        },
+        "talent_pools": {
+          "created_in_window": 0,
+          "updated_in_window": 0
+        },
+        "candidate_positions": {
+          "created_in_window": 0
+        },
+        "candidate_talent_pools": {
+          "created_in_window": 0
+        },
+        "candidate_source_records": {
+          "created_in_window": 0,
+          "updated_in_window": 1344
+        }
+      }
+    },
+    "hire_counts_before": {
+      "hire_status_nonempty": 1284,
+      "hire_date_nonnull": 1284,
+      "hire_position_nonempty": 1291
+    },
+    "hire_counts_after": {
+      "hire_status_nonempty": 1350,
+      "hire_date_nonnull": 1348,
+      "hire_position_nonempty": 1291
+    },
+    "candidate_ids_found": 1344,
+    "missing_candidate_ids": 0,
+    "archived_candidate_ids": 0,
+    "duplicate_source_ids": 0,
+    "source_records_found": 1344,
+    "hire_status_mismatches": 0,
+    "hire_date_mismatches": 0,
+    "foreign_key_errors": 0,
+    "integrity_check": "not_run_due_to_database_size",
+    "search_index_checkpoint": {
+      "status": "indexing",
+      "queued_rows": 1444862,
+      "processed_rows": 1186900,
+      "document_count": 18048007,
+      "updated_at": "2026-08-27T08:06:08.587Z",
+      "error_code": null
+    },
+    "search_index_dirty_rows": 260394
+  },
+  "failures": {
+    "failure_rows": 0,
+    "reason_counts": {},
+    "failed_csv_rows": 0,
+    "output_csv": "candidate-import-b-failed-rows-final-20260827.csv"
+  },
+  "source_hash_checks": [
+    {
+      "file": "自定义excel-2026-08-21 09_59_021.xls",
+      "expected_bytes": 755712,
+      "actual_bytes": 755712,
+      "expected_sha256": "E0FE1070C5AA9449A29A31B6CF94AFA6F8AD2EEDBC57B297A1DF132F89E538EA",
+      "actual_sha256": "E0FE1070C5AA9449A29A31B6CF94AFA6F8AD2EEDBC57B297A1DF132F89E538EA",
+      "matches": true
+    },
+    {
+      "file": "自定义excel-2026-08-21 10_00_002.xls",
+      "expected_bytes": 757760,
+      "actual_bytes": 757760,
+      "expected_sha256": "D3DE12CDAB949D713CB6673E0B93CBBF61D8C7CD1E22CECAE9426D561E944754",
+      "actual_sha256": "D3DE12CDAB949D713CB6673E0B93CBBF61D8C7CD1E22CECAE9426D561E944754",
+      "matches": true
+    },
+    {
+      "file": "自定义excel-2026-08-21 10_00_593.xls",
+      "expected_bytes": 747520,
+      "actual_bytes": 747520,
+      "expected_sha256": "9F2390DF7621D9075DC114FA0297558BD91DD811A84FBB1E8B50E68AB454EBA2",
+      "actual_sha256": "9F2390DF7621D9075DC114FA0297558BD91DD811A84FBB1E8B50E68AB454EBA2",
+      "matches": true
+    },
+    {
+      "file": "自定义excel-2026-08-21 10_01_574.xls",
+      "expected_bytes": 769024,
+      "actual_bytes": 769024,
+      "expected_sha256": "23FD0BFE3ADD706D83F1B2B48C9EB4A431BEFF2A7F149DB7819E3B7A75ACAECE",
+      "actual_sha256": "23FD0BFE3ADD706D83F1B2B48C9EB4A431BEFF2A7F149DB7819E3B7A75ACAECE",
+      "matches": true
+    },
+    {
+      "file": "自定义excel-2026-08-21 10_02_565.xls",
+      "expected_bytes": 759808,
+      "actual_bytes": 759808,
+      "expected_sha256": "0F40EDE8350BACE1EB0C64855C5824CB6A2068C1641F83D638CAC19E27C95B12",
+      "actual_sha256": "0F40EDE8350BACE1EB0C64855C5824CB6A2068C1641F83D638CAC19E27C95B12",
+      "matches": true
+    },
+    {
+      "file": "自定义excel-2026-08-21 10_03_576.xls",
+      "expected_bytes": 765952,
+      "actual_bytes": 765952,
+      "expected_sha256": "E00F8FF54702B221D3C7D2739811A0D1E8D75D6E8A59AD36B75141989F2C9F15",
+      "actual_sha256": "E00F8FF54702B221D3C7D2739811A0D1E8D75D6E8A59AD36B75141989F2C9F15",
+      "matches": true
+    },
+    {
+      "file": "自定义excel-2026-08-21 10_04_067.xls",
+      "expected_bytes": 222720,
+      "actual_bytes": 222720,
+      "expected_sha256": "D24DFAE10DFD95DC59E873F39EE5140D858156182C49DEAA2F871DBD5D5A63C4",
+      "actual_sha256": "D24DFAE10DFD95DC59E873F39EE5140D858156182C49DEAA2F871DBD5D5A63C4",
+      "matches": true
+    }
+  ],
+  "privacy": {
+    "candidate_level_rows_persisted": false,
+    "sensitive_fields_persisted": false,
+    "raw_payload_persisted": false,
+    "preview_tokens_persisted": false,
+    "note": "These flags describe this evidence/output artifact only. The service may retain protected preview metadata, including tokens, in its task store; no token values are copied into this evidence or the failure CSV."
+  }
+}
