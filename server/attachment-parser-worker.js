@@ -89,15 +89,32 @@ function contentStreamText(content, maximum = Number.MAX_SAFE_INTEGER) {
 }
 
 function normalizedTextSpans(content, viewport, maximum, maxCharacters, maxTotalCharacters = Number.MAX_SAFE_INTEGER) {
-  const spans = []
+  const positioned = []
+  const fallback = []
   let retainedCharacters = 0
+  let retainedSpans = 0
   for (const [sourceOrder, item] of content.items.entries()) {
-    if (spans.length >= maximum || !item || typeof item.str !== 'string' || !item.str.trim()) continue
-    if (!Array.isArray(item.transform) || item.transform.length !== 6 || !Number.isFinite(item.width)) continue
+    if (!item || typeof item.str !== 'string' || !item.str.trim()) continue
+    if (retainedSpans >= maximum) break
+    const remainingCharacters = Math.max(0, maxTotalCharacters - retainedCharacters)
+    if (remainingCharacters === 0) break
+    const text = item.str.slice(0, Math.min(maxCharacters, remainingCharacters))
+    const span = {
+      text,
+      source_order: sourceOrder,
+      has_eol: item.hasEOL === true
+    }
+    retainedCharacters += text.length
+    retainedSpans += 1
+    if (!Array.isArray(item.transform) || item.transform.length !== 6 || !Number.isFinite(item.width)) {
+      fallback.push(span)
+      continue
+    }
     let transform
     try {
       transform = Util.transform(viewport.transform, item.transform)
     } catch {
+      fallback.push(span)
       continue
     }
     const x = transform[4]
@@ -105,17 +122,16 @@ function normalizedTextSpans(content, viewport, maximum, maxCharacters, maxTotal
     const width = Math.abs(item.width * viewport.scale)
     const height = Math.hypot(transform[2], transform[3])
     if (!Number.isFinite(x) || !Number.isFinite(baseline) || !Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+      fallback.push(span)
       continue
     }
     const y = baseline - height
-    if (x < 0 || y < 0 || x + width > viewport.width || y + height > viewport.height) continue
-    const remainingCharacters = Math.max(0, maxTotalCharacters - retainedCharacters)
-    if (remainingCharacters === 0) break
-    const text = item.str.slice(0, Math.min(maxCharacters, remainingCharacters))
-    retainedCharacters += text.length
-    spans.push({
-      text,
-      source_order: sourceOrder,
+    if (x < 0 || y < 0 || x + width > viewport.width || y + height > viewport.height) {
+      fallback.push(span)
+      continue
+    }
+    positioned.push({
+      ...span,
       bbox: {
         x: Math.round((x / viewport.width) * 10_000) / 10_000,
         y: Math.round((y / viewport.height) * 10_000) / 10_000,
@@ -124,7 +140,7 @@ function normalizedTextSpans(content, viewport, maximum, maxCharacters, maxTotal
       }
     })
   }
-  return spans
+  return { positioned, fallback }
 }
 
 function visualLineGroups(spans) {
@@ -136,10 +152,20 @@ function visualLineGroups(spans) {
   const lines = []
   for (const span of sorted) {
     const center = span.bbox.y + span.bbox.height / 2
-    const matching = lines.at(-1)
-    if (!matching || !(
-      Math.abs(center - matching.center) <= Math.max(0.002, span.bbox.height * 0.6, matching.height * 0.6)
-    )) {
+    let matching = null
+    for (let index = lines.length - 1; index >= 0; index -= 1) {
+      const line = lines[index]
+      const centerDistance = Math.abs(center - line.center)
+      const tolerance = Math.max(0.002, Math.min(span.bbox.height, line.height) * 0.6)
+      if (centerDistance <= tolerance) {
+        matching = line
+        break
+      }
+      // The input is sorted by center. Once the line is above the maximum
+      // possible tolerance, earlier lines cannot match this span either.
+      if (line.center < center - Math.max(0.002, span.bbox.height * 0.6)) break
+    }
+    if (!matching) {
       lines.push({ center, height: span.bbox.height, spans: [span] })
       continue
     }
@@ -147,9 +173,11 @@ function visualLineGroups(spans) {
     matching.center = matching.spans.reduce((sum, item) => sum + item.bbox.y + item.bbox.height / 2, 0) / matching.spans.length
     matching.height = Math.max(matching.height, span.bbox.height)
   }
-  return lines.map((line) => line.spans.sort((left, right) => (
-    left.bbox.x - right.bbox.x || left.source_order - right.source_order
-  )))
+  return lines
+    .sort((left, right) => left.center - right.center)
+    .map((line) => line.spans.sort((left, right) => (
+      left.bbox.x - right.bbox.x || left.source_order - right.source_order
+    )))
 }
 
 function distinctLineCount(spans) {
@@ -163,14 +191,114 @@ function hasDenseRowAlignedCells(spans) {
     if (line.length < 3) return false
     const gaps = line
       .slice(1)
-      .map((span, index) => span.bbox.x - line[index].bbox.x)
+      .map((span, index) => span.bbox.x - (line[index].bbox.x + line[index].bbox.width))
       .filter((gap) => Number.isFinite(gap) && gap > 0)
     if (gaps.length < 2) return false
     const smallestGap = Math.min(...gaps)
     const largestGap = Math.max(...gaps)
-    return smallestGap >= 0.16 && smallestGap / largestGap >= 0.5
+    return smallestGap >= 0.06 && smallestGap / largestGap >= 0.5
   })
   return denseRows.length >= 3 && denseRows.length / lines.length >= 0.5
+}
+
+function looksLikeTimelinePeriod(value) {
+  const compact = String(value ?? '').replace(/\s+/g, '')
+  const datePart = '(?:(?:19|20)\\d{2}(?:[./-]\\d{1,2}){0,2}|(?:19|20)\\d{2}年(?:\\d{1,2}月)?(?:\\d{1,2}日)?)'
+  const rangeEnd = `(?:${datePart}|至今|现在|当前|present|current)`
+  return new RegExp(`^(?:${datePart}(?:(?:[-–—~至]|到|to|through|until)${rangeEnd})?)$`, 'iu').test(compact)
+}
+
+function lineCenter(line) {
+  return line.reduce((sum, span) => sum + span.bbox.y + span.bbox.height / 2, 0) / line.length
+}
+
+function lineHeight(line) {
+  return Math.max(...line.map((span) => span.bbox.height))
+}
+
+function linesAreAligned(left, right) {
+  return Math.abs(lineCenter(left) - lineCenter(right)) <= Math.max(
+    0.003,
+    Math.min(lineHeight(left), lineHeight(right)) * 0.7
+  )
+}
+
+function alignedLinePairCountForLines(leftLines, rightLines) {
+  const usedRightLines = new Set()
+  let pairs = 0
+  for (const leftLine of leftLines) {
+    let bestIndex = -1
+    let bestDistance = Number.POSITIVE_INFINITY
+    for (const [rightIndex, rightLine] of rightLines.entries()) {
+      if (usedRightLines.has(rightIndex) || !linesAreAligned(leftLine, rightLine)) continue
+      const distance = Math.abs(lineCenter(leftLine) - lineCenter(rightLine))
+      if (distance < bestDistance) {
+        bestDistance = distance
+        bestIndex = rightIndex
+      }
+    }
+    if (bestIndex >= 0) {
+      usedRightLines.add(bestIndex)
+      pairs += 1
+    }
+  }
+  return pairs
+}
+
+function alignedLinePairCount(left, right) {
+  return alignedLinePairCountForLines(visualLineGroups(left), visualLineGroups(right))
+}
+
+function verticalRangeOverlapRatio(left, right) {
+  const leftTop = Math.min(...left.map((span) => span.bbox.y))
+  const leftBottom = Math.max(...left.map((span) => span.bbox.y + span.bbox.height))
+  const rightTop = Math.min(...right.map((span) => span.bbox.y))
+  const rightBottom = Math.max(...right.map((span) => span.bbox.y + span.bbox.height))
+  const overlap = Math.min(leftBottom, rightBottom) - Math.max(leftTop, rightTop)
+  const extent = Math.max(leftBottom - leftTop, rightBottom - rightTop)
+  return extent > 0 ? overlap / extent : 0
+}
+
+function hasTimelineRowPairs(left, right) {
+  const leftLines = visualLineGroups(left)
+  // A date-only sidebar is a legitimate independent column.  A timeline row
+  // needs a second left-side label (normally a role or value) alongside the
+  // period before it can suppress a column split.
+  const periodLines = leftLines.filter((line) => (
+    line.some((span) => looksLikeTimelinePeriod(span.text)) &&
+    line.some((span) => !looksLikeTimelinePeriod(span.text))
+  ))
+  // A page can contain a single timeline entry (for example, the current
+  // internship) alongside other detail rows. One row is enough when it has a
+  // non-period label on the left; date-only sidebars still remain eligible for
+  // an independent-column split because they do not satisfy that condition.
+  if (!periodLines.length) return false
+
+  const pairedPeriods = alignedLinePairCountForLines(periodLines, visualLineGroups(right))
+  return pairedPeriods >= 1 && pairedPeriods / periodLines.length >= 0.75
+}
+
+function hasDateOnlyRowPairs(left, right) {
+  const leftLines = visualLineGroups(left)
+  const dateLines = leftLines.filter((line) => (
+    line.length === 1 && looksLikeTimelinePeriod(line[0].text)
+  ))
+  // A date-only sidebar is still a valid independent column when the other
+  // side contains ordinary one-cell rows. Require repeated, visibly split
+  // cells on the aligned side before treating it as a timeline whose role and
+  // organization were separated by a candidate gutter.
+  if (dateLines.length < 2) return false
+  const rightLines = visualLineGroups(right)
+  const multiCellLines = rightLines.filter((line) => {
+    if (line.length < 2) return false
+    const gaps = line.slice(1).map((span, index) => (
+      span.bbox.x - (line[index].bbox.x + line[index].bbox.width)
+    )).filter((gap) => Number.isFinite(gap) && gap > 0)
+    return gaps.length > 0 && Math.max(...gaps) >= 0.06
+  })
+  if (multiCellLines.length < 2) return false
+  const pairedRows = alignedLinePairCountForLines(dateLines, multiCellLines)
+  return pairedRows >= 2 && pairedRows / dateLines.length >= 0.75
 }
 
 function detectedColumnGroups(spans) {
@@ -180,25 +308,56 @@ function detectedColumnGroups(spans) {
   // labels, values, and dates remain associated by row.
   if (hasDenseRowAlignedCells(spans)) return [spans]
   const byStart = [...spans].sort((left, right) => left.bbox.x - right.bbox.x || left.source_order - right.source_order)
+  const prefixMaxEnd = []
+  let maximumEnd = Number.NEGATIVE_INFINITY
+  for (const span of byStart) {
+    maximumEnd = Math.max(maximumEnd, span.bbox.x + span.bbox.width)
+    prefixMaxEnd.push(maximumEnd)
+  }
+  const suffixMinStart = Array(byStart.length)
+  let minimumStart = Number.POSITIVE_INFINITY
+  for (let index = byStart.length - 1; index >= 0; index -= 1) {
+    minimumStart = Math.min(minimumStart, byStart[index].bbox.x)
+    suffixMinStart[index] = minimumStart
+  }
   const candidates = []
-  for (let index = 1; index < byStart.length; index += 1) {
-    const gap = byStart[index].bbox.x - byStart[index - 1].bbox.x
-    if (gap >= 0.18) candidates.push({ gap, index })
+  for (let splitIndex = 1; splitIndex < byStart.length; splitIndex += 1) {
+    const previous = byStart[splitIndex - 1]
+    const next = byStart[splitIndex]
+    const startGap = next.bbox.x - previous.bbox.x
+    const gap = suffixMinStart[splitIndex] - prefixMaxEnd[splitIndex - 1]
+    // A start-position gap identifies a potential band break; the occupied
+    // interval gap confirms that the candidate is an actual gutter rather than
+    // an indentation inside a long line.
+    if (startGap >= 0.18 && gap >= 0.04) candidates.push({
+      gap,
+      startGap,
+      splitIndex,
+      boundary: prefixMaxEnd[splitIndex - 1] + gap / 2
+    })
   }
-  candidates.sort((left, right) => right.gap - left.gap)
-  let split = null
-  for (const { gap, index } of candidates.slice(0, 8)) {
-    const left = byStart.slice(0, index)
-    const right = byStart.slice(index)
-    if (distinctLineCount(left) < 2 || distinctLineCount(right) < 2) continue
-    const leftTop = Math.min(...left.map((span) => span.bbox.y))
-    const leftBottom = Math.max(...left.map((span) => span.bbox.y + span.bbox.height))
-    const rightTop = Math.min(...right.map((span) => span.bbox.y))
-    const rightBottom = Math.max(...right.map((span) => span.bbox.y + span.bbox.height))
-    if (Math.min(leftBottom, rightBottom) - Math.max(leftTop, rightTop) < 0.04) continue
-    split = { gap, left, right }
+  candidates.sort((left, right) => right.gap - left.gap || right.startGap - left.startGap)
+  for (const { boundary } of candidates.slice(0, 8)) {
+    const left = spans.filter((span) => span.bbox.x < boundary)
+    const right = spans.filter((span) => span.bbox.x >= boundary)
+    if (!left.length || !right.length) continue
+    const crossingCount = left.filter((span) => span.bbox.x + span.bbox.width > boundary).length
+    if (crossingCount > Math.max(2, Math.ceil(spans.length * 0.25))) continue
+    const leftLines = visualLineGroups(left)
+    const rightLines = visualLineGroups(right)
+    if (leftLines.length < 2 || rightLines.length < 2) continue
+    const overlapRatio = verticalRangeOverlapRatio(left, right)
+    if (overlapRatio < 0.35) continue
+    // Independent columns usually share several baselines. If their line
+    // baselines are consistently offset instead, require a broader vertical
+    // overlap and at least three lines on each side before reordering. This
+    // keeps a short indented block in a single-column page in visual order.
+    const alignedPairs = alignedLinePairCountForLines(leftLines, rightLines)
+    if (alignedPairs < 2 && (Math.min(leftLines.length, rightLines.length) < 3 || overlapRatio < 0.55)) continue
+    if (hasTimelineRowPairs(left, right) || hasDateOnlyRowPairs(left, right)) continue
+    return [left, right]
   }
-  return split ? [split.left, split.right] : [spans]
+  return [spans]
 }
 
 function orderedSpanLines(spans) {
@@ -229,18 +388,88 @@ function orderedSpanText(spans, maximum) {
   return text
 }
 
+function fallbackSpanLines(spans) {
+  const lines = []
+  let current = []
+  for (const span of [...spans].sort((left, right) => left.source_order - right.source_order)) {
+    current.push(span)
+    if (span.has_eol) {
+      lines.push(current)
+      current = []
+    }
+  }
+  if (current.length) lines.push(current)
+  return lines
+}
+
+function orderedTextWithFallback(positioned, fallback, maximum) {
+  const positionedLines = orderedSpanLines(positioned)
+  if (!fallback.length) return orderedSpanText(positioned, maximum)
+  if (!positionedLines.length) {
+    let text = ''
+    for (const lineSpans of fallbackSpanLines(fallback)) {
+      const line = joinSpanLine(lineSpans)
+      if (!line) continue
+      const separator = text ? '\n' : ''
+      const remaining = maximum - text.length
+      if (remaining <= 0) break
+      text += `${separator}${line}`.slice(0, remaining)
+    }
+    return text
+  }
+
+  const sourceLocations = new Map()
+  for (const [lineIndex, line] of positionedLines.entries()) {
+    for (const span of line) sourceLocations.set(span.source_order, lineIndex)
+  }
+  const validOrders = [...sourceLocations.keys()].sort((left, right) => left - right)
+  const insertions = new Map()
+  for (const line of fallbackSpanLines(fallback)) {
+    const firstOrder = line[0].source_order
+    let previousOrder = null
+    let nextOrder = null
+    for (const order of validOrders) {
+      if (order < firstOrder) previousOrder = order
+      else {
+        nextOrder = order
+        break
+      }
+    }
+    const previousLine = previousOrder === null ? null : sourceLocations.get(previousOrder)
+    const nextLine = nextOrder === null ? null : sourceLocations.get(nextOrder)
+    const insertionIndex = previousLine === null
+      ? (nextLine ?? positionedLines.length)
+      : previousLine + 1
+    if (!insertions.has(insertionIndex)) insertions.set(insertionIndex, [])
+    insertions.get(insertionIndex).push(line)
+  }
+
+  const lines = []
+  for (let index = 0; index <= positionedLines.length; index += 1) {
+    lines.push(...(insertions.get(index) ?? []))
+    if (index < positionedLines.length) lines.push(positionedLines[index])
+  }
+  let text = ''
+  for (const lineSpans of lines) {
+    const line = joinSpanLine(lineSpans)
+    if (!line) continue
+    const separator = text ? '\n' : ''
+    const remaining = maximum - text.length
+    if (remaining <= 0) break
+    text += `${separator}${line}`.slice(0, remaining)
+  }
+  return text
+}
+
 function publicTextSpans(spans) {
   return orderedSpanLines(spans).flat().map(({ text, bbox }) => ({ text, bbox }))
 }
 
 function geometryPageText(content, viewport, maximum, maximumSpans) {
   if (maximum <= 0) return ''
-  const usableItems = content.items.filter((item) => item && typeof item.str === 'string' && item.str.trim())
   const spans = normalizedTextSpans(content, viewport, maximumSpans, maximum, maximum)
-  if (spans.length < Math.min(usableItems.length, maximumSpans)) {
-    return contentStreamText(content, maximum)
-  }
-  return orderedSpanText(spans, maximum)
+  if (!spans.positioned.length && !spans.fallback.length) return contentStreamText(content, maximum)
+  return orderedTextWithFallback(spans.positioned, spans.fallback, maximum)
 }
 
 function visualTimeoutError() {
@@ -378,8 +607,11 @@ async function renderPdfPage(page, pageNumber, content, visual, totals, renderSt
       pixel_count: pixelCount,
       mime_type: 'image/png',
       image_buffer: image.buffer,
-      text: cleanText(orderedSpanText(pageSpans, visual.maxPageTextCharacters), visual.maxPageTextCharacters).text,
-      text_spans: publicTextSpans(pageSpans)
+      text: cleanText(
+        orderedTextWithFallback(pageSpans.positioned, pageSpans.fallback, visual.maxPageTextCharacters),
+        visual.maxPageTextCharacters
+      ).text,
+      text_spans: publicTextSpans(pageSpans.positioned)
     }
   } finally {
     // Release the native surface promptly; this worker may render many pages.

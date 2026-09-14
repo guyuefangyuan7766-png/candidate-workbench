@@ -2,7 +2,9 @@
 
 一个可在个人电脑上自托管、可继续二次开发的本地人才库。当前版本聚焦候选人档案、人才检索、人才库分组和职位关联，数据保存在本机 SQLite 中，不依赖付费招聘平台，也不是完整 ATS。
 
-当前应用版本：`0.1.1`。
+当前应用版本：`0.2.0`；数据库结构版本：`V13`。两者分别表示应用发布和数据库迁移版本，本次检索与界面更新不新增结构迁移。
+
+2026-09-11 已按用户授权完成正式混合检索补充，作为应用 `0.2.0` / 数据库 `V13` 补充，不新增结构迁移。正式索引已发布并启用：`429,630` 份来源文档、`630,978` 个 chunks/vectors，`text-embedding-v4 / 1024`，维护状态为 `ready`。服务仍使用 [拾才工作台](http://127.0.0.1:4173)，实施细节、匿名质量限制和运维方式见 [补充交接记录](docs/handoffs/2026-09-10-search-hybrid-formal-supplement.md)；正式启用 smoke 证据见 [正式部署验证](docs/evidence/search-hybrid-formal-supplement-deployment.json)。
 
 ## 当前能力
 
@@ -19,12 +21,14 @@
 - PDF、DOCX、XLSX、XLSM、BIFF8 XLS、UTF-8 CSV/TXT 简历附件解析、身份定位、差异预览和确认保存
 - 可选的 OpenAI-compatible 只读人才 Agent
 
+附件解析先在本地完成确定性处理：PDF 文本按页面几何坐标重排为视觉行和列，表格/时间线等密集行保留标签、值、日期的行内顺序；只有确认两侧是独立的垂直栏时才按栏读取，无法稳定判断时保守地按视觉行输出。解析记录的 `raw_text` 保留这段完整的提取正文（包括供审计的 opaque token 和独立 `~` 噪声），只在公开 section、evidence 和 suggestion 投影中执行有界规则清洗。模型建议（如启用）只能补充结构化字段，不能替代或覆盖正文，也不会绕过用户确认写入候选人。扫描件或没有文本层的 PDF 仍不提供 OCR；本链路不依赖视觉模型或外部服务。
+
 ### 2026-08-25 V13 工作年限宽容处理
 
 - `years_experience` 现在是可空数值投影，新增 `years_experience_raw` 保存非空来源原文，响应用 `years_experience_display` 提供展示文本。明确的 `0` 保持为 `0`；`经验不详`、范围或带修饰的文本保留原文且数值为 `null`；没有来源值时原文为空、数值为 `null`、展示为空白，不显示字面量 `null`。
 - 通用/北森导入和附件预填充不再因工作年限格式单独拒绝行；新的非空来源值成对更新原文和数值投影，增量导入的空单元格不清除旧值。电话、邮箱及其他身份冲突仍按原有规则阻断。
 - 档案、列表和导入预览优先显示原文，CSV/XLSX 既有“工作年限”列优先导出原文；数值排序/筛选仅使用安全数值投影。`/resume-search` 的 `min_years`、`max_years` 仍保留 API 文档所述的兼容查询输入限制，这不是存储或导入上限。
-- schema V13 是加法且幂等的迁移 `(13, 'candidate_years_experience_raw')`。Task 7 已完成最多 100 条的历史只读样本预览，脱敏聚合记录见 [V13 工作年限导入证据](docs/evidence/v13-years-experience-import-20260825.json)；本开发线仍为 `Unreleased`，正式库已于本轮前完成 V13 迁移并核对 schema V1-V13。
+- schema V13 是加法且幂等的迁移 `(13, 'candidate_years_experience_raw')`。Task 7 已完成最多 100 条的历史只读样本预览，脱敏聚合记录见 [V13 工作年限导入证据](docs/evidence/v13-years-experience-import-20260825.json)；该条为 V13 历史验收记录；当前应用已发布为 `0.2.0`，正式库在本次启动前后均核对为 schema V1-V13。
 
 ### 2026-08-21 入职信息字段
 
@@ -35,7 +39,7 @@
 - 北森和通用表格导入识别入职字段；同一候选人增量导入时空值不会清除已有入职字段，且只传日期的 PATCH 不会覆盖已有明确状态。北森字段 `最后职位类投递的职位id` 用于招聘职位关系（必要时按候选人和投递时间匹配历史职位），不能用 `入职职位` 猜测关系；整份工作簿存在该专用表头时，单行空值不回退普通 `职位编号`，仅整表缺该表头才允许兼容回退。
 - 批量清理脚本只保留入职状态非空且不等于精确文本“空”的源行，原始 `.xls` 文件保持不变；若源文件只有入职日期，导入预览会显示 `不确定`，不会把 `入职雇佣关系` 静默转换为状态。
 
-本轮开发线仍标记为 `Unreleased`；代码 schema 基线为 `V13`，正式库已完成 V13 加法迁移。V12 的历史正式 HTTP 导入记录保持不变；Task 7 只读样本证据是历史验收记录，不替代本轮正式批量导入证据。迁移、接口、字段映射、清理文件和验证命令见 [CHANGELOG.md](CHANGELOG.md)、[docs/DATA_MODEL.md](docs/DATA_MODEL.md)、[docs/API.md](docs/API.md)、[docs/FIELD_MAPPING.md](docs/FIELD_MAPPING.md)、[docs/IMPORT_GUIDE.md](docs/IMPORT_GUIDE.md) 和 [docs/TESTING.md](docs/TESTING.md)。
+当前应用发布为 `0.2.0`；代码与正式库 schema 基线均为 `V13`，本次检索发布没有新增结构迁移。V12 的历史正式 HTTP 导入记录保持不变；Task 7 只读样本证据是历史验收记录，不替代本轮正式批量导入证据。迁移、接口、字段映射、清理文件和验证命令见 [CHANGELOG.md](CHANGELOG.md)、[docs/DATA_MODEL.md](docs/DATA_MODEL.md)、[docs/API.md](docs/API.md)、[docs/FIELD_MAPPING.md](docs/FIELD_MAPPING.md)、[docs/IMPORT_GUIDE.md](docs/IMPORT_GUIDE.md) 和 [docs/TESTING.md](docs/TESTING.md)。
 
 去重只使用标准化后的邮箱、手机号或 `source_system + source_record_id`。系统不会仅凭姓名自动合并候选人，身份键指向不同记录时会拒绝自动更新。
 
@@ -75,12 +79,17 @@ http://127.0.0.1:4173
 $env:AGENT_BASE_URL = "https://your-gateway.example/v1"
 $env:AGENT_API_KEY = "your-key"
 $env:AGENT_MODEL = "your-model"
+# Only for an approved HTTPS gateway whose DNS answers are company-private.
+# Use exact hostnames; never use an IP literal or wildcard.
+# $env:ATTACHMENT_TEXT_TRUSTED_PRIVATE_HOSTS = "text.corp.example"
 .\start.ps1
 ```
 
 当前 Agent 提供 20 个只读工具，覆盖受控 SQLite 查询、业务聚合、候选人/职位/人才库检索、全业务字段 FTS、附件文本、互联网检索和本地 CSV artifact。数据库访问使用独立只读连接、实时字段目录与 SQLite authorizer；Agent 不能执行新增、修改、关联、归档、恢复、附件确认或删除操作。
 
 若 `AGENT_BASE_URL` 指向远程网关，用户问题、最近对话和当前问题所需的受控工具证据会发送到该网关，因此 Agent 不属于完全离线功能。按当前产品授权，证据可能包含未打码的候选人业务字段；请只配置经批准的模型网关。核心候选人管理不配置 Agent 也可正常使用。
+
+文本附件建议通道默认拒绝解析到私网的网关。只有 HTTPS 端点的精确 DNS 主机名列入 `ATTACHMENT_TEXT_TRUSTED_PRIVATE_HOSTS` 时，才允许其 DNS 结果全部为 RFC1918/IPv6 ULA 私网地址；该配置不接受 IP 字面量、通配符、后缀匹配或混合公网/私网结果。配置变更后需重启服务。
 
 ## 数据与备份
 

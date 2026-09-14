@@ -19,6 +19,7 @@ import { candidateYearsExperienceText } from "../utils";
 interface ImportWizardProps {
   onClose: () => void;
   onImported: (result: ImportResult) => void;
+  presentation?: "modal" | "page";
 }
 
 const IMPORT_TASK_STORAGE_KEY = "candidate-import-task-v1";
@@ -281,7 +282,7 @@ function PositionResolutionCell({ row, showExternalCode = false }: { row: Import
   );
 }
 
-export function ImportWizard({ onClose, onImported }: ImportWizardProps) {
+export function ImportWizard({ onClose, onImported, presentation = "modal" }: ImportWizardProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const taskControllerRef = useRef<AbortController | null>(null);
   const importedBatchRef = useRef<string | null>(null);
@@ -600,11 +601,11 @@ export function ImportWizard({ onClose, onImported }: ImportWizardProps) {
   );
 
   return (
-    <div className="modal-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && closeWizard()}>
-      <section className="modal import-modal" role="dialog" aria-modal="true" aria-label="导入候选人">
+    <div className={presentation === "page" ? "import-page-layer" : "modal-layer"} role="presentation" onMouseDown={(event) => presentation !== "page" && event.target === event.currentTarget && closeWizard()}>
+      <section className="modal import-modal" role={presentation === "page" ? "region" : "dialog"} aria-modal={presentation === "page" ? undefined : true} aria-label="导入候选人">
         <header className="modal-header">
           <div><p className="drawer-kicker">数据管理</p><h2>导入候选人</h2></div>
-          <button className="icon-button" type="button" onClick={onClose} aria-label="关闭" title="关闭"><X size={19} /></button>
+          <button className="icon-button" type="button" onClick={closeWizard} aria-label={presentation === "page" ? "返回人才库" : "关闭"} title={presentation === "page" ? "返回人才库" : "关闭"}>{presentation === "page" ? <ArrowLeft size={19} /> : <X size={19} />}</button>
         </header>
 
         <ol className="stepper" aria-label="导入进度">

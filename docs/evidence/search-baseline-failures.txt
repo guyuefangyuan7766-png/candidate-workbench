@@ -1,0 +1,220 @@
+▶ V8 read-only catalog and authorizer expose business data but isolate internal state
+  ✖ catalog exposes only policy business tables and allowed non-BLOB columns (107.8975ms)
+  ✔ sensitive business fields, source payloads, attachment text, and audits remain readable (302.9469ms)
+  ✔ server-owned search tools can use internal FTS without exposing restricted result columns (402.3047ms)
+  ✖ direct SQL cannot read internal tables, FTS shadows, paths, or vector BLOBs (1158.634ms)
+  ✖ comments and CTEs cannot bypass policy, while structured queries stay catalog-bound (217.8215ms)
+✖ V8 read-only catalog and authorizer expose business data but isolate internal state (2306.0645ms)
+✔ V8 business search migration is additive, idempotent and preserves the legacy resume FTS (107.6261ms)
+✔ backfill indexes searchable business fields including numbers, dates, external IDs and nested raw payload paths (143.1485ms)
+✔ compact policy omits technical columns and deduplicates equivalent JSON leaves without losing exact structured search (130.0175ms)
+✔ single-field refresh writes only changed postings and replay is a no-op (169.5861ms)
+✔ bounded queue resumes from its durable keyset cursor and replay stays stable (183.3342ms)
+✔ full backfill purges legacy documents for non-searchable relation tables (177.4867ms)
+✔ stale cleanup probes business rows through primary and composite indexes (67.5901ms)
+✔ legacy metadata-copy FTS compacts in resumable bounded batches (160.7441ms)
+✔ long JSON values are deterministically segmented without truncation and backfill is idempotent (187.4032ms)
+✔ dirty triggers fail search closed, then flush atomically refreshes updates and deletes (153.7297ms)
+✔ checkpoint coverage remains pending for partial batches and reports the exact completed batch count (151.3256ms)
+✔ position and talent-pool hits map to one deduplicated candidate with structured evidence (129.2825ms)
+✔ evidence returns every literal term and merges overlapping expanded-term intervals (121.8694ms)
+✔ all-record filters cover field paths, archive scope and candidate, position and pool relations (136.4808ms)
+✖ catalog policy excludes previews, cleanup state, FTS shadows, BLOBs and physical attachment paths (152.8403ms)
+✔ fast Top-K search omits the exact window count and exposes has_more (151.1167ms)
+✔ fast all-record scopes are applied before the bounded FTS window and deep pages recover exactly (340.2636ms)
+✔ scoped evidence preserves FTS token, CJK n-gram and diacritic semantics (159.966ms)
+✔ ready guard fails fast while an anonymous index is still building (130.2717ms)
+✔ V11 adds hire columns to a legacy database without rebuilding candidates (136.7412ms)
+✔ V12 adds hire_position and its index idempotently without rebuilding candidates (110.3786ms)
+✔ hire fields accept future dates and reject impossible dates (254.1953ms)
+✔ numeric hire dates are rejected by default and accepted only for file import sanitization (1.1027ms)
+✔ REST candidate writes reject numeric hire dates without mutating an existing date (145.4813ms)
+✔ hire_status preserves internal whitespace and rejects values over 200 characters (126.304ms)
+✔ a hire date without a status defaults to 不确定 and persists the hire position (103.4138ms)
+✔ date-only edits do not replace an existing explicit hire status (115.9251ms)
+✔ candidate PATCH keeps a non-empty hire date paired with a non-empty status (175.1126ms)
+✔ candidate CRUD and exports round-trip hire fields (223.859ms)
+✔ Excel date serials update an existing Beisen-source candidate through preview and commit (663.7068ms)
+✔ CSV text that resembles an Excel serial remains an invalid hire date (142.6888ms)
+✔ normalizeHireDate accepts finite Excel 1900 serials and rejects invalid numeric inputs (0.5452ms)
+✔ Beisen last position delivery field overrides ordinary position codes for the whole workbook (681.499ms)
+✔ Beisen preserves an overlong last-delivery key while materializing a valid draft title (667.865ms)
+✔ Beisen last delivery resolves duplicate position titles from candidate application history (642.5174ms)
+✖ public documentation describes the hire fields and migration (16.6656ms)
+✔ disabling startup import recovery preserves queued work while new previews still run (450.7714ms)
+✔ maintenance startup disables automatic preview cleanup while preview work and explicit cleanup remain available (349.6378ms)
+✔ injected maintenance services are retained while health and new import previews remain available (197.4984ms)
+✖ V12 maintenance launcher and verifier require the v2 paused-writer contract (1.3861ms)
+✔ test-owned maintenance attachment roots are cleaned when sentinel acquisition fails (4.8711ms)
+✖ a failed V12 runtime sentinel acquisition leaves no maintenance attachment directory or removes a concurrent one (71.9404ms)
+✔ commit timeout wins the Worker termination race and rolls back all business writes (1617.1502ms)
+✔ cancelling an active commit reaches a durable cancelled state and rolls back (605.7419ms)
+✔ commit Worker memory exhaustion is structured and leaves no partial import (1636.652ms)
+✔ a durable committed result is recovered after restart and replayed without duplicate writes (909.7679ms)
+✔ an interrupted commit becomes explicitly retryable after restart instead of replaying automatically (892.4886ms)
+✔ a missing persisted preview is reported as a domain error after restart (236.9781ms)
+✔ an active preview is persisted as queued on shutdown and resumes after restart (1440.7383ms)
+ℹ tests 55
+ℹ suites 0
+ℹ pass 47
+ℹ fail 8
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 21028.4394
+
+✖ failing tests:
+
+test at tests\backend\agent-readonly-policy-v8.test.mjs:139:13
+✖ catalog exposes only policy business tables and allowed non-BLOB columns (107.8975ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///C:/Users/cboy/Documents/%E5%8C%97%E6%A3%AE/tests/backend/agent-readonly-policy-v8.test.mjs:178:14)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async TestContext.<anonymous> (file:///C:/Users/cboy/Documents/%E5%8C%97%E6%A3%AE/tests/backend/agent-readonly-policy-v8.test.mjs:139:5)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\backend\agent-readonly-policy-v8.test.mjs:289:13
+✖ direct SQL cannot read internal tables, FTS shadows, paths, or vector BLOBs (1158.634ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async rejectsWithCode (file:///C:/Users/cboy/Documents/%E5%8C%97%E6%A3%AE/tests/backend/agent-readonly-policy-v8.test.mjs:128:3)
+      at async TestContext.<anonymous> (file:///C:/Users/cboy/Documents/%E5%8C%97%E6%A3%AE/tests/backend/agent-readonly-policy-v8.test.mjs:305:9)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async TestContext.<anonymous> (file:///C:/Users/cboy/Documents/%E5%8C%97%E6%A3%AE/tests/backend/agent-readonly-policy-v8.test.mjs:289:5)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests\backend\agent-readonly-policy-v8.test.mjs:309:13
+✖ comments and CTEs cannot bypass policy, while structured queries stay catalog-bound (217.8215ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async rejectsWithCode (file:///C:/Users/cboy/Documents/%E5%8C%97%E6%A3%AE/tests/backend/agent-readonly-policy-v8.test.mjs:128:3)
+      at async TestContext.<anonymous> (file:///C:/Users/cboy/Documents/%E5%8C%97%E6%A3%AE/tests/backend/agent-readonly-policy-v8.test.mjs:319:7)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async TestContext.<anonymous> (file:///C:/Users/cboy/Documents/%E5%8C%97%E6%A3%AE/tests/backend/agent-readonly-policy-v8.test.mjs:309:5)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests\backend\business-search-v8.test.mjs:696:1
+✖ catalog policy excludes previews, cleanup state, FTS shadows, BLOBs and physical attachment paths (152.8403ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///C:/Users/cboy/Documents/%E5%8C%97%E6%A3%AE/tests/backend/business-search-v8.test.mjs:715:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\backend\hire-status-v11.test.mjs:663:1
+✖ public documentation describes the hire fields and migration (16.6656ms)
+  AssertionError [ERR_ASSERTION]: docs/DATA_MODEL.md must preserve the undeployed status
+      at TestContext.<anonymous> (file:///C:/Users/cboy/Documents/%E5%8C%97%E6%A3%AE/tests/backend/hire-status-v11.test.mjs:705:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '# 数据模型\n\n## 适用范围\n\n本文描述当前 SQLite 人才库的实际模型。默认数据库为 `data/recruitment.db`，测试使用 `:memory:` 或临时数据库。\n\n系统的业务中心是“候选人资料 + 人才库分组 + 职位关联”。它保留从北森导入的申请、面试、测评、授权和其他原始历史，但这些记录是可追溯资料，不是可执行的招聘流程。当前仍不是完整 ATS：没有面试排期、面试官任务、Offer 审批、入职流程、用户、RBAC 或租户实体。\n\n`candidates.current_title` 表示候选人当前任职；`positions.title` 表示平台中的招聘职位。`candidates.stage` 是旧版全局招聘阶段，仅作数据兼容：它默认不进入普通候选人响应和自动导入映射，但可由用户通过 V8 Agent 业务全字段只读工具显式查询。\n\n## 迁移版本\n\n`schema_migrations` 记录已应用的版本：\n\n| 版本 | 名称 | 作用 |\n| ---: | --- | --- |\n| 1 | `candidate_workbench_baseline` | 候选人、职位、备注、活动和导入批次基线 |\n| 2 | `talent_library_domain` | 人才库、人才画像、求职偏好、来源记录、历史评估、授权和北森申请血缘 |\n| 3 | `candidate_photo_avatar` | 给 `candidates` 加法增加受保护的 `photo_url` |\n| 4 | `candidate_photo_backfill` | 从既有来源记录的“证件照”回填合法 URL；只填空值，不覆盖已有照片 |\n| 5 | `candidate_deletion_audits` | 创建实际表 `deletion_audits`，仅保存候选人 ID 哈希和删除时间 |\n| 6 | `readonly_agent_attachments_fts_deletion` | 创建附件、更新预览、字段来源、文件清理、职位删除审计、Agent 查询审计、履历文档/FTS5 和可选向量元数据 |\n| 7 | `candidate_demographics_and_large_import` | 给 `candidates` 加法增加 `gender`、`birth_date`、`age` 及性别索引，并从既有北森来源载荷只填空值回填人口字段；大文件导入配置本身不增加业务表 |\n| 8 | `agent_sessions_and_full_business_search` | 创建 Agent 会话/消息/摘要、全业务字段搜索文档/FTS5、dirty 队列、checkpoint、表级/字段级 coverage，并增加候选人、职位、人才库及关系查询辅助索引 |\n| 9 | `agent_async_tasks_and_phase_audits` | 创建持久 Agent 任务并扩展查询审计阶段字段和辅助索引 |\n| 10 | `durable_attachment_import_batches` | 创建持久附件导入批次并增加导入查询索引 |\n| 11 | `candidate_hire_status_and_date` | 给 `candidates` 加法增加入职状态/日期列及索引 |\n| 12 | `candidate_hire_information` | 给 `candidates` 加法增加 `hire_position` 及职位文本索引 |\n| 13 | `candidate_years_experience_raw` | 给 `candidates` 加法增加工作年限来源原文列，并为仅有数值的旧行回填规范数字文本 |\n\n`openDatabase()` 在每次启动时幂等地核验表、列和索引，再记录迁移。v3 只增加可空 `photo_url`；v4 只在该列为空时回填合法来源照片；v5 只创建 `deletion_audits`；v6 只新增附件/审计/履历表、索引、FTS5 虚拟表和同步触发器，并将既有候选人、履历区块和已解析附件回填到 `candidate_resume_documents`/`candidate_resume_fts`；v7 只增加三个人口字段和一个索引，并仅从已保存北森来源载荷补齐空值。V8 创建 Agent 会话/消息/摘要、`search_documents_v2` 及其 FTS5 表、dirty queue、checkpoint、表级/字段级 coverage 和同步触发器；同步打开或维护任务会对既有业务搜索文档/FTS 执行可恢复回填，保留 V6 的 `candidate_resume_documents`/`candidate_resume_fts`。V9 单独创建持久 `agent_tasks`，记录 `trace_id` 和任务状态；同时给 `agent_query_audits` 增加 `trace_id`、`task_id`、`phase` 及相关索引。V10 的迁移名为 `durable_attachment_import_batches`，创建持久表 `attachment_import_batches`/`attachment_import_items`，并建立幂等、状态和批次查询索引；V11 增加 `hire_status`/`hire_date`，V12 增加 `hire_position`。V13 使用 `ensureColumn` 加法确保 `years_experience REAL` 与 `years_experience_raw TEXT NOT NULL DEFAULT \'\'` 存在，登记 `(13, \'candidate_years_experience_raw\')`；只在原文为空且数值非空时回填规范数字文本，不覆盖非空原文，也不把 `NULL` 变成 `0`。这些迁移都不重建或清空旧业务表。Task 7 已完成最多 100 条历史只读样本验证，脱敏聚合记录见 [v13-years-experience-import-20260825.json](evidence/v13-years-experience-import-20260825.json)；正式库当前已应用 V1-V13，本轮正式导入证据另见 `evidence/beisen-candidate-import-b-20260827.json`。V8 正式迁移的历史耗时 `746.419` 秒是维护窗口/验收边界，不是每次启动的固定耗时。当前没有自动 down migration；V13 回滚为回滚应用代码并保留新增列，删除该列只能在另行备份并经批准的离线维护中执行。\n\n自动化验证使用 `:memory:` 和系统临时目录内的隔离 `legacy.db`：先写入旧候选人和匿名来源照片/人口字段，再重复打开数据库，验证 V1-V13 的幂等加法迁移、旧行保留、合法照片及人口字段只回填空值、已有值不覆盖、领域表、V7 三列/性别索引、V8 会话/搜索对象和同步触发器、V9 `agent_tasks`/阶段审计字段、V10 `attachment_import_batches`/items、V11 入职状态/日期列、V12 `hire_position` 列/索引，以及 V13 工作年限原文列、仅数值旧行回填和重复启动仅一条迁移记录。V8 全业务搜索另覆盖字段级 coverage、dirty 增量同步、checkpoint/队列恢复、长值分段、既有业务文档回填和 V6 旧履历 FTS 保留；Task 7 只读样本记录是历史验收，正式库当前已应用 V1-V13。\n\n正式库 V5 历史迁移结果为：候选人 57 位、归档 0 位、职位 0 个、人才库 14 个、照片 42 张，schema `[1,2,3,4,5]`，`PRAGMA foreign_key_check` 返回 0 条且 `integrity_check=ok`。V5 前当前时点完整文件集备份位于 `backups/pre-v5-formal-20260805-102510/`，`.db`、`-wal`、`-shm` 哈希逐项一致。\n\nV6 前正式文件集已在服务停止后备份至 `backups/pre-v6-agent-attachments-delete-20260805-120858/`，三件 SQLite 文件与源文件逐项 SHA-256 一致。匿名门禁通过后已显式迁移 `data\\recruitment.db`：schema `[1,2,3,4,5,6]`，9 个 V6 预期表/虚表无缺失，履历同步 trigger 11 个，`candidate_resume_documents` 112 条、覆盖 70 位候选人，`candidate_attachments` 0 条，未启用的 `candidate_resume_vectors` 0 条，`PRAGMA foreign_key_check` 返回 0 条且 `integrity_check=ok`。这些均是不含候选人明文的只读核对结果。\n\nV8 已完成匿名数据库迁移、自动化、10,000 人全业务搜索基准和双视口浏览器验收。匿名基准展开 40,641 个源记录，生成 446,259 份 FTS 文档，191/191 个政策字段均为 ready（100%）；这些指标仍只描述匿名隔离数据库。\n\n2026-08-06 正式库升级前文件集备份位于 `backups/pre-v8-agent-history-full-search-20260806-122427/data`，源/备份 `.db/-wal/-shm` 大小与 SHA-256 逐项一致。恢复副本先完成 V7→V8 门禁，候选人 8,209、职位 312、人才库 35、候选人职位关系 9,980、候选人人才库关系 6,224 在迁移前后保持；覆盖为 19/19 张表、191/191 个字段 ready，业务源记录 120,806、FTS 文档 2,629,351、dirty 0，`integrity_check=ok`、`foreign_key_check=0`。正式库随后得到相同聚合结果，schema 为 `[1,2,3,4,5,6,7,8]`，迁移耗时 746.419 秒，最终主库 4,183,719,936 bytes。核对只读取 schema、索引状态和聚合计数，未检查或输出候选人字段、附件正文、`raw_payload` 或搜索命中内容。\n\n## 核心关系\n\n```mermaid\nerDiagram\n    STAGES ||--o{ CANDIDATES : "legacy stage"\n    CANDIDATES ||--o{ NOTES : "candidate_id"\n    CANDIDATES ||--o{ ACTIVITIES : "candidate_id"\n    CANDIDATES ||--o{ CANDIDATE_POSITIONS : "candidate_id"\n    POSITIONS ||--o{ CANDIDATE_POSITIONS : "position_id"\n    CANDIDATES ||--o{ CANDIDATE_TALENT_POOLS : "candidate_id"\n    TALENT_POOLS ||--o{ CANDIDATE_TALENT_POOLS : "talent_pool_id"\n    CANDIDATES ||--o{ CANDIDATE_PROFILE_SECTIONS : "candidate_id"\n    CANDIDATES ||--o| CANDIDATE_PREFERENCES : "candidate_id"\n    CANDIDATES ||--o{ CANDIDATE_SOURCE_RECORDS : "candidate_id"\n    CANDIDATES ||--o{ CANDIDATE_ASSESSMENTS : "candidate_id"\n    POSITIONS o|--o{ CANDIDATE_ASSESSMENTS : "position_id"\n    CANDIDATES ||--o{ CANDIDATE_CONSENTS : "candidate_id"\n    CANDIDATES ||--o{ CANDIDATE_POSITION_SOURCES : "candidate_id"\n    POSITIONS ||--o{ CANDIDATE_POSITION_SOURCES : "position_id"\n    CANDIDATES ||--o{ CANDIDATE_ATTACHMENTS : "candidate_id"\n    CANDIDATES ||--o{ CANDIDATE_FIELD_SOURCES : "candidate_id"\n    CANDIDATES ||--o{ CANDIDATE_RESUME_DOCUMENTS : "candidate_id"\n    CANDIDATE_ATTACHMENTS ||--o{ CANDIDATE_FIELD_SOURCES : "attachment_id"\n    CANDIDATE_RESUME_DOCUMENTS ||--o{ CANDIDATE_RESUME_VECTORS : "document_id"\n```\n\n## candidates\n\n### 易混淆字段边界\n\n| 业务含义 | 规范存储 | 不得混用 |\n| --- | --- | --- |\n| 当前任职事实 | `candidates.current_company`、`candidates.current_title` | 不是招聘职位，也不是入职职位 |\n| 求职状态与偏好 | `candidates.job_seeking_status`、`candidate_preferences.employment_status`、`desired_titles` 等 | 不回填 `hire_status`，也不建立职位关系 |\n| 入职事实 | `candidates.hire_position`、`hire_status`、`hire_date` | 不读取旧 `stage`；`hire_position` 不写 `positions` |\n| 招聘职位实体 | `positions` | 表示系统招聘职位，不表示候选人实际入职职位 |\n| 候选人关联职位 | `candidate_positions(candidate_id, position_id)` | 北森人才库专用表头存在时只由 `最后职位类投递的职位id` 解析，行空不回退；普通 `职位编号` 仅在整表专用表头缺失时回退 |\n| 申请血缘 | `candidate_position_sources` | 需要 `申请ID` 和可用职位关系，不等同于候选人职位多对多关系 |\n| 人才库分组 | `talent_pools`、`candidate_talent_pools` | 不转换为标签或职位 |\n| 来源事实与原始列 | `candidate_source_records` | 保存 effective/first/last 与高敏 `raw_payload`，不自动启动 ATS 流程 |\n\n这一边界表与下面的完整列说明共同构成规范数据库字典；导入别名只存在于边界层，SQLite 内不新增同义列。\n\n| 字段 | 类型 | 说明 |\n| --- | --- | --- |\n| `id` | TEXT PK | 平台候选人 UUID |\n| `name` | TEXT NOT NULL | 姓名；绝不单独用于自动去重 |\n| `phone` | TEXT | 标准化电话；大陆手机号统一为 `+86` |\n| `email` | TEXT | 小写标准化邮箱 |\n| `photo_url` | TEXT | 高敏证件照原始 URL；不超过 2048 字符，协议仅限 HTTP/HTTPS，路径仅限 `.jpg`、`.jpeg`、`.png`、`.webp`，允许签名查询参数 |\n| `current_company` / `current_title` | TEXT | 当前公司和任职摘要 |\n| `location` | TEXT | 所在地 |\n| `gender` | TEXT | 规范化为 `男`、`女`、`其他` 或 `未说明`；可空并有普通索引 |\n| `birth_date` | TEXT | 可空的完整出生日期，规范化为 `YYYY-MM-DD`，不晚于当前日期 |\n| `age` | INTEGER | 可空的来源年龄，范围 0 至 120；有完整生日时界面优先实时计算年龄 |\n| `years_experience` | REAL | 可空的安全数值投影；只在来源表达式无歧义时写有限非负数，用于数值排序和筛选 |\n| `years_experience_raw` | TEXT NOT NULL DEFAULT `\'\'` | 工作年限来源文本；非空原文优先保留，空字符串表示没有来源值 |\n| `education` | TEXT | 最高学历摘要 |\n| `highest_school` / `highest_major` | TEXT | 最高学历学校和专业摘要 |\n| `job_seeking_status` | TEXT | 求职状态，可筛选 |\n| `hire_status` | TEXT | 入职状态来源文本；去首尾空白后保留非空原文，最多 200 个字符，不强制枚举；与求职偏好 `candidate_preferences.employment_status` 和旧 `stage` 不同 |\n| `hire_date` | TEXT | 可空的入职日期；有效值规范化为 `YYYY-MM-DD`，允许未来日期；状态有值但日期为空是合法状态 |\n| `hire_position` | TEXT | 来源系统入职职位文本；去首尾空白后最多 300 个字符。它是入职事实，不是招聘职位关系键 |\n| `resume_updated_at` | TEXT | 来源简历的更新时间文本 |\n| `self_summary` | TEXT | 自我评价或概述 |\n| `source` | TEXT | 当前展示来源；北森导入使用有效投递渠道 |\n| `stage` | TEXT NOT NULL FK | 旧版全局招聘阶段，仅兼容保留 |\n| `owner` | TEXT | 候选人负责人；北森导入默认不写招聘负责人 |\n| `tags` | TEXT NOT NULL | JSON 数组 |\n| `expected_salary` | TEXT | 敏感求职偏好摘要 |\n| `source_system` / `source_record_id` | TEXT | 来源系统和稳定外部候选人 ID；北森“应聘者ID”显示为应聘者编号，不是平台内部 UUID |\n| `import_batch_id` | TEXT | 最近导入批次的逻辑关联 |\n| `created_at` / `updated_at` | TEXT NOT NULL | ISO 8601 时间 |\n| `archived_at` | TEXT | 非空表示软归档 |\n\n非空 `(source_system, source_record_id)` 有部分唯一索引。`phone` 和 `email` 只有普通索引，写入时由业务层识别身份冲突。\n\n`years_experience_display` 不落库：`years_experience_raw` 非空时返回原文，否则格式化有限数值，两者均无时返回空字符串。明确 `0` 的原文/数值/展示均为 `0`；`经验不详` 等未知文本保留原文、数值为 `NULL`；真实空值保存原文 `\'\'`、数值 `NULL`、展示空白。用户可见路径不显示字面量 `null`，也不把未知或空值按 `0` 处理。V11 为 `hire_status` 和 `hire_date` 建立 `candidates_hire_status_idx` 与 `candidates_hire_date_idx`；V12 增加 `candidates_hire_position_idx`。索引只服务查询，不改变字段的可空性或写入语义。\n\n## positions 与职位关系\n\n`positions` 保存职位名称、部门、地点、招聘负责人、计划人数、状态、描述、标签和软归档时间。状态为 `draft|open|paused|closed`。\n\n北森导入增量字段为：\n\n- `source_system`、`source_record_id`、`external_code`\n- `category`、`professional_line`、`job_sequence`\n- `headcount_type`、`project_name`\n\n入职事实与招聘职位关系保持分离：`入职职位` 写入候选人的 `hire_position`，`入职雇佣关系` 只保留在来源 `raw_payload`；`最后职位类投递的职位id` 才是北森招聘职位关系键。整份工作簿有该表头时，行空值不创建关系且不回退普通职位编号；只有整表没有该表头时才允许普通编号回退。该字段若是显示名，导入会优先按候选人 ID 与最后投递时间匹配唯一历史职位，未命中时以稳定来源键创建草稿；不会用 `hire_position` 猜测关系。\n\n`(source_system, source_record_id)` 和 `(source_system, external_code)` 在非空时唯一。导入提交按以下顺序匹配或创建职位：先匹配 `source_system + 职位 ID/外部编号`，再匹配标准化“职位名称 + 部门 + 地点”，最后在只有职位名称时匹配唯一未归档同名职位；有名称但无匹配时创建草稿。将招聘负责人只写入 `positions.owner`。歧义、命中归档职位或显式职位字段无效时阻断源行；没有招聘职位字段时才允许仅导入候选人并跳过关系。\n\n`candidate_positions` 使用 `(candidate_id, position_id)` 复合主键，表达候选人与职位的多对多关联。它不保存流程阶段、面试状态或 Offer 状态。解除关联只删除关系行，不删除候选人或职位，并写入候选人活动。\n\n`candidate_position_sources` 是可选导入血缘，不是工作流引擎。只有一行同时具有 `申请ID` 和可用职位关系时才写入。它保存：\n\n- 候选人和职位外键。\n- `source_system + source_application_id` 唯一申请身份。\n- `applied_at`、完整 `raw_payload`和敏感等级。\n\n同一北森候选人 ID 可对应多个申请 ID 和多个职位，平台候选人主记录只创建一次。没有申请或职位信息的批次仍可更新候选人主档，不会创建占位关系。申请 ID 也可作为 `candidate_assessments.source_record_id` 标识真实评估来源；两张表共同用于校验申请归属，既有申请不得跨候选人改绑。\n\n## 人才库\n\n`talent_pools` 是正式业务实体，包含 `name`、`description`、`color`、来源血缘、'... 10175 more characters,
+    expected: /(?:尚未|未)[^。\n]*(?:正式部署|正式库迁移)|(?:正式部署|正式库迁移)[^。\n]*(?:尚未|未)/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at tests\backend\import-task-resilience.test.mjs:253:1
+✖ V12 maintenance launcher and verifier require the v2 paused-writer contract (1.3861ms)
+  Error: ENOENT: no such file or directory, open 'C:\Users\cboy\Documents\北森\.tmp-v12-paused-server.mjs'
+      at readFileSync (node:fs:441:20)
+      at TestContext.<anonymous> (file:///C:/Users/cboy/Documents/%E5%8C%97%E6%A3%AE/tests/backend/import-task-resilience.test.mjs:254:20)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'C:\\Users\\cboy\\Documents\\北森\\.tmp-v12-paused-server.mjs'
+  }
+
+test at tests\backend\import-task-resilience.test.mjs:290:1
+✖ a failed V12 runtime sentinel acquisition leaves no maintenance attachment directory or removes a concurrent one (71.9404ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /database_maintenance_active/. Input:
+  
+  '\n' +
+    'node:internal/modules/cjs/loader:1520\r\n' +
+    '  throw err;\r\n' +
+    '  ^\r\n' +
+    '\r\n' +
+    "Error: Cannot find module 'C:\\Users\\cboy\\Documents\\北森\\.tmp-v12-paused-server.mjs'\r\n" +
+    '    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n' +
+    '    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n' +
+    '    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n' +
+    '    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n' +
+    '    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n' +
+    '    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n' +
+    '    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n' +
+    '    at node:internal/main/run_main_module:33:47 {\r\n' +
+    "  code: 'MODULE_NOT_FOUND',\r\n" +
+    '  requireStack: []\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'Node.js v24.18.0\r\n'
+  
+      at file:///C:/Users/cboy/Documents/%E5%8C%97%E6%A3%AE/tests/backend/import-task-resilience.test.mjs:308:12
+      at withTestOwnedMaintenanceAttachmentRoot (file:///C:/Users/cboy/Documents/%E5%8C%97%E6%A3%AE/tests/backend/import-task-resilience.test.mjs:156:12)
+      at TestContext.<anonymous> (file:///C:/Users/cboy/Documents/%E5%8C%97%E6%A3%AE/tests/backend/import-task-resilience.test.mjs:293:3)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: "\nnode:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module 'C:\\Users\\cboy\\Documents\\北森\\.tmp-v12-paused-server.mjs'\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: 'MODULE_NOT_FOUND',\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0\r\n",
+    expected: /database_maintenance_active/,
+    operator: 'match',
+    diff: 'simple'
+  }

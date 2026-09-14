@@ -1,5 +1,25 @@
 # 本地 API 参考
 
+## 2026-09 人才检索增量（应用 0.2.0 / schema V13）
+
+正式本机服务沿用 0.2.0 / V13；远程混合检索补充的实际启用、索引与验收状态见 [补充交付](handoffs/2026-09-10-search-hybrid-formal-supplement.md)。开关、配置完整和索引可用是不同状态，不能只凭开关判断成功。
+
+`GET /api/resume-search/status` 保留既有本地索引状态，新增 `hybrid` 与 `vector_maintenance`。`hybrid.model` 为远程开关/配置布尔值；`hybrid.vector` 包含 available、loaded、current、generation、chunks、vectors、dimensions、memory_mapped；`hybrid.worker` 包含 ready、active、queued、max_queue 和 query_budget_ms。`vector_maintenance` 包含 enabled、running、state、last_success、脱敏计数和稳定错误码。状态不含网关、密钥、数据库路径或候选人正文，配置布尔值不是最近请求成功率。
+
+单常驻检索 worker，默认最多排队 8 项；新查询默认 18 秒总预算，满队列返回 `search_busy/429`，超时 `search_timeout/504`，取消 `search_cancelled/499`。数据或向量代际改变时游标返回 409，客户端保留输入并允许直接重试。前端仍是输入框加结果，所有条件摘要/降级/完整性信息均非阻塞。
+
+`GET /api/resume-search` 和 `POST /api/resume-search` 共用结构化查询计划，POST 使用 JSON body。保留 `q/query`、`keywords`、`phrases`、`match_mode`、字段/来源/职位/人才库/归档筛选和分页；客户端不接受 `plan` 或 SQL。
+
+结果保留 `items/pagination`，增加 `condition_summary`、`completeness`、`degradation`。证据的 `source_label/ownership/match_kind` 表达业务来源、本人归属和等价命中；分数仅作相对排序。`search_candidate_resumes` 工具复用相同执行器，通用业务记录查询仍用 `search_all_records`。
+
+`GET /api/resume-search/options?kind=position|talent_pool&page=1&page_size=100` 独立返回全部活动筛选选项，每页最多100项。
+
+游标绑定查询、筛选、页大小、缓存排序、数据库修改和向量代际，有效期5分钟。每页返回 `pagination.current_cursor`，返回第一页也复用该凭据；下一页使用 `next_cursor`。数据变化返回 `409 search_cursor_stale/search_index_changed`，过期后重新检索。取消返回 `search_cancelled`；worker最多并发2、45秒预算。页面旧结果在重试期间保留，但明确显示状态。
+
+兼容原 `stage`、`include_archived`、`evidence_limit`、camelCase 年限/字段/职位/页大小别名。阶段为硬条件，`evidence_limit` 为1至5。查询理解默认最多30秒（`SEARCH_QUERY_TIMEOUT_MS`只可缩短），查询Embedding及Rerank每请求最多5秒；客户端48秒。原18秒总体和10秒p95目标未通过；正式启用保留这些预算并以明确降级交付，不把未达性能门禁伪装成完整混合成功。
+
+`SEARCH_REMOTE_ENABLED=false` 为默认值，远程理解/Embedding/Rerank 需要显式启用。补充前“正式数据外发和向量回填另行安排”是历史状态；截至 2026-09-11，正式 generation 已发布并启用，维护状态为 `ready`，共 `429,630` 文档和 `630,978` vectors。未配置或未 ready 的向量仍返回明确本地降级，不能声称语义检索可用；最新匿名质量中仍有正常降级和 p95 `14,821.83ms`，详见补充交接记录。
+
 ## 使用边界
 
 默认基地址为 `http://127.0.0.1:4173/api`。当前 API 只服务本机单用户版，没有认证、RBAC、字段级权限或租户隔离，不应通过代理或端口转发对外暴露。要转为部门共享软件，必须先增加服务端身份和权限边界。
@@ -381,6 +401,8 @@ V6.1 前端对单条归档、恢复和永久删除都发送 `{ "expected_updated
 
 上传支持 `.pdf`（文本型、扫描型或混合型）、`.docx`、`.xlsx`、`.xlsm`、合法 BIFF8 `.xls`、UTF-8 `.csv` 和 UTF-8 `.txt`，单文件最大 15 MB。服务端联合校验扩展名、MIME 和签名/Office 容器；原始文件名被清洗，隔离文件和正式文件均使用随机内部名。同步校验失败直接返回结构化 `4xx/5xx`；进入后台解析后，`.doc`、加密文件、损坏文件、伪扩展名、非 BIFF8 XLS、无效 OCR 文本和超限内容会落入 `failed` 终态并返回安全、具体的 `error_code`、`error` 与 `retryable`。扫描或无文本 PDF 在视觉能力未启用时仍可形成确定性空文本预览；启用视觉能力但渲染器不可用时返回可确认的文本结果和 `pipeline.visual=fallback`，而不是伪造 OCR 文本。
 
+确定性文本先在本地规则链路中处理。PDF 文本项根据归一化页面坐标分组为视觉行，再按同一行的 `x` 排列；重复的三单元及以上密集行、以及日期/职位与公司/学校对齐的时间线行，优先保持行内标签、值、日期关系。只有两侧具有独立纵向内容且没有时间线证据时才按垂直栏输出，列边界不稳定时保守按视觉行输出；单个无效坐标 span 只在其局部按来源顺序降级。单文件 PDF、DOCX 和 TXT 的确定性正文以 `records[].values.raw_text` 保留（包括供审计的 opaque token 和独立 `~`，受既有长度上限约束），规则清洗只作用于公开 section、evidence 和 suggestion，不删除 `raw_text`。该正文是几何重排后的文本提取结果，不是原始文件字节副本。扫描件/无文本 PDF 仍不提供 OCR；本链路不依赖视觉模型或外部 API。模型建议仅作为补充，不得覆盖 `raw_text` 或绕过确认流程。
+
 创建成功响应为 `202 Accepted`，同时返回 `Location: /api/attachments/previews/:id` 与 `Retry-After: 1`。前端应保存首次响应中的 `preview_token`，按 `poll_after_ms` 轮询 `Location`，不得让一次浏览器请求一直等待解析器或模型建议。
 
 预览响应的核心结构：
@@ -444,11 +466,17 @@ PDF/DOCX 产生一条候选记录；Excel/CSV 每个非空数据行独立产生�
 
 生产服务在 Agent 网关配置完整时会调用同一网关生成文本补充建议：最多发送提取文本前 120,000 字符和前 100 条预览记录，使用 JSON Schema `candidate_attachment_suggestions`，不携带 tools/tool choice，系统提示把附件 JSON 视为不可信数据。默认 `ATTACHMENT_TEXT_SCHEMA_MODE=strict`；只有显式设置为 `compat` 才发送 `strict:false`，且兼容结果仍经本地严格字段白名单、Schema、证据和值校验，绝不标记为 strict。文本通道的 `ATTACHMENT_TEXT_TIMEOUT_MS` 和 `ATTACHMENT_TEXT_MAX_RESPONSE_BYTES` 只收紧有界请求。端点配置错误使用 `attachment_suggestion_endpoint_invalid` 或 `attachment_suggestion_endpoint_insecure`（均不可重试），不输出网关地址/凭据。PDF 视觉通道是独立的固定服务，只在显式 `image_input` 能力和完整视觉配置下接收受限 PNG 页面，不把 `extracted_text` 当作图像输入；端点仅支持 `http`/`https`，生产拒绝明文 HTTP，开发/测试仅允许非生产显式 loopback HTTP（这是与 trusted-private 例外分开的测试通道）。视觉端点默认拒绝私网解析结果；只有 hostname 精确列入 `ATTACHMENT_VISUAL_TRUSTED_PRIVATE_HOSTS` 时，且 URL 使用 HTTPS、（若配置）同时通过 `ATTACHMENT_VISUAL_ALLOWED_HOSTS`，才允许 DNS 结果全部属于 RFC1918/IPv6 ULA 公司私网。该配置只接受精确 DNS 主机名，不接受 IP 字面量、通配符、后缀匹配、`.localhost`/`.internal`/`.local`/metadata 保留主机名或混合公网/私网答案；loopback、metadata、link-local、multicast、保留地址、IPv4-mapped、NAT64 和 6to4 等危险目标仍逐项拒绝。其他公网 HTTPS 主机仍可用 `ATTACHMENT_VISUAL_ALLOWED_HOSTS` 限制。主机名在请求前解析，所有 DNS 结果逐一校验并使用 pinned lookup。端点拒绝使用不含 URL 的稳定错误码 `visual_endpoint_invalid`、`visual_endpoint_insecure`、`visual_endpoint_blocked`、`visual_endpoint_unapproved`，DNS 不可用降级为 `visual_unavailable`。默认 `ATTACHMENT_VISUAL_SCHEMA_MODE=strict`；视觉 compat 同样只能显式开启且仍经本地严格校验。请求使用 `stream:false`、无 tools，并拒绝 HTTP 重定向。网关未配置、超时、错误或返回无效 JSON 时，API 保留本地规则建议并继续返回可确认预览；模型建议从不直接写数据库。
 
+文本附件建议端点默认拒绝私网解析结果；只有精确列入 `ATTACHMENT_TEXT_TRUSTED_PRIVATE_HOSTS` 的 HTTPS DNS 主机名，且所有 DNS 返回地址均为 RFC1918/IPv6 ULA 时才放行，不接受 IP 字面量、通配符/后缀匹配或混合公网/私网答案。主机名在请求前解析并使用 pinned lookup，配置变更后需重启服务。
+
+文本模型建议的附件服务外层等待窗口为 15 秒；适配器内部仍执行自身的 60 秒请求上限。窗口耗尽时仅降级模型建议，保留本地确定性解析结果和人工确认流程。
+
 预览变为 `confirmed`、`cancelled` 或 `expired` 时，服务端清空该临时记录的 `extracted_text` 和 `records_json` 并移除隔离路径，只保留文件最小元数据、状态、错误码/时间等审计信息。确认后的完整正文位于正式候选人附件记录，不在预览中保留副本。
 
 ### PDF 双通道解析契约
 
 PDF 预览在视觉能力显式声明为 `ATTACHMENT_VISUAL_CAPABILITY=image_input`、且本地配置完整时采用两条独立但不等价的通道：确定性文本通道始终负责文本、身份标准化、数据库身份匹配和基础字段/区块；视觉通道只在已渲染的 PDF 页可用时提出补充建议。该声明不执行标准化的主动探测或健康检查；网关是否可用、响应是否合规只在实际视觉请求/响应期间验证，并以安全 fallback 反映。预览顶层的 `parser_version` 当前为本地确定性解析器版本；`pipeline` 是异步任务完成后的通道状态，而非客户可设置的输入。
+
+内部 HTTPS 网关可将精确主机名加入 `ATTACHMENT_TEXT_TRUSTED_PRIVATE_HOSTS` 和 `ATTACHMENT_VISUAL_TRUSTED_PRIVATE_HOSTS`，并设置 `NODE_USE_SYSTEM_CA=1` 让 Node 24 使用 Windows 系统根证书。视觉模型通过 `ATTACHMENT_VISUAL_MODEL` 配置；模型超时或响应不符合本地 JSON Schema 时保持确定性结果并标记 `review_required`，不会自动确认。
 
 ```json
 {

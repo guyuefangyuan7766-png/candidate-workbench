@@ -29,7 +29,7 @@ const DEFAULT_LIMITS = Object.freeze({
   maxTextCharacters: 8_000,
   maxRecords: ATTACHMENT_MODEL_CONTRACT_LIMITS.maxRecords,
   maxResponseBytes: ATTACHMENT_MODEL_CONTRACT_LIMITS.maxResponseBytes,
-  timeoutMs: 15_000
+  timeoutMs: 45_000
 })
 
 // These ceilings are intentionally separate from DEFAULT_LIMITS. Operators
@@ -44,7 +44,7 @@ const HARD_LIMITS = Object.freeze({
   maxTextCharacters: 8_000,
   maxRecords: 100,
   maxResponseBytes: 512 * 1024,
-  timeoutMs: 15_000
+  timeoutMs: 45_000
 })
 
 const PNG_SIGNATURE = Object.freeze([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])

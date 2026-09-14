@@ -1,6 +1,7 @@
 import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
+  ArrowLeft,
   Bot,
   Check,
   ChevronDown,
@@ -12,6 +13,8 @@ import {
   LoaderCircle,
   LockKeyhole,
   Minus,
+  PanelLeftClose,
+  PanelLeftOpen,
   Paperclip,
   Pencil,
   Plus,
@@ -23,7 +26,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { agentSessionApi, agentTaskApi, candidateApi, getResumeSearchStatus, searchCandidateResumes, ApiError } from "../api";
+import { agentSessionApi, agentTaskApi, candidateApi, getResumeSearchStatus, getResumeSearchOptions, searchCandidateResumesWithPlan, ApiError } from "../api";
 import type { ResumeSearchFilters } from "../api";
 import { normalizeSearchHighlightRanges } from "../types";
 import type {
@@ -40,12 +43,15 @@ import type {
   ResumeSearchEvidence,
   ResumeSearchItem,
   ResumeSearchIndexStatus,
+  ResumeSearchOption,
+  ResumeSearchResponse,
   Candidate,
   Position,
   TalentPool,
 } from "../types";
 import { AssistantMarkdown } from "./AssistantMarkdown";
 import { AttachmentBatchWorkflow } from "./AttachmentBatchWorkflow";
+import "../search.css";
 
 const ACTIVE_SESSION_STORAGE_KEY = "candidate-workbench.agent.active-session-id.v1";
 const HISTORY_OPEN_STORAGE_KEY = "candidate-workbench.agent.history-open.v1";
@@ -105,6 +111,9 @@ interface AssistantDrawerProps {
   onOpenCandidateId?: (candidateId: string) => void;
   onOpenCandidate?: (candidate: Candidate) => void;
   onCandidatesUpdated?: () => void;
+  /** Render the assistant as an app page instead of a modal drawer. */
+  presentation?: "drawer" | "page";
+  initialTab?: AssistantTab;
 }
 
 type AssistantTab = "chat" | "resume-search" | "attachment";
@@ -191,6 +200,52 @@ function evidenceActualTerms(evidence: ResumeSearchEvidence) {
     ...(evidence.matched_actual_terms ?? []),
     ...(evidence.snippet?.highlights ?? []).flatMap((range) => range.actual_terms ?? (range.actual_term ? [range.actual_term] : [])),
   ].map(String).filter(Boolean))];
+}
+
+const SEARCH_SOURCE_LABELS: Record<string, string> = {
+  candidates: "候选人主档", candidate: "候选人主档",
+  candidate_profile_sections: "履历经历", profile_section: "履历经历",
+  candidate_attachments: "附件简历", attachment: "附件简历",
+  positions: "关联职位", position: "关联职位",
+  talent_pools: "人才库分组", talent_pool: "人才库分组",
+  candidate_notes: "候选人备注", candidate_preferences: "求职意向",
+  candidate_position_links: "职位关系", candidate_talent_pool_links: "人才库关系",
+};
+
+function searchSourceLabel(evidence: ResumeSearchEvidence) {
+  return evidence.source_label || SEARCH_SOURCE_LABELS[evidence.source_table] || SEARCH_SOURCE_LABELS[evidence.entity_type] || "来源记录";
+}
+
+function searchFieldLabel(field: string) {
+  const labels: Record<string, string> = { title: "标题", content: "正文", name: "姓名", current_title: "当前职位", current_company: "当前公司", location: "所在地", years_experience: "工作年限", skills: "专业技能", work_experience: "工作经历", project_experience: "项目经历" };
+  const segments = field.split(/[.\[\]]/).filter(Boolean);
+  return labels[field] || SEARCH_SOURCE_LABELS[field] || segments.map((segment) => labels[segment] || SEARCH_SOURCE_LABELS[segment]).find(Boolean) || "履历字段";
+}
+
+function searchReasonLabel(reason: string) {
+  return reason.startsWith("证据来源：") ? `证据来源：${searchFieldLabel(reason.slice("证据来源：".length))}` : reason;
+}
+
+function SearchEvidence({ evidence }: { evidence: ResumeSearchEvidence }) {
+  const matchLabels: Record<string, string> = { exact: "精确命中", phrase: "精确短语", concept: "同义表达", semantic: "语义相关", expanded: "同义表达", unknown: "待核实" };
+  const terms = evidenceActualTerms(evidence);
+  const relatedKinds = ["positions", "position", "talent_pools", "talent_pool", "candidate_position_links", "candidate_talent_pool_links"];
+  const inferredRelated = evidence.ownership ?? (relatedKinds.includes(evidence.source_table) || relatedKinds.includes(evidence.entity_type) ? "related" : undefined);
+  return <div className="resume-evidence">
+    <span className="resume-evidence-source"><b>{searchSourceLabel(evidence)}</b>
+      {inferredRelated === "related" && <span className="resume-evidence-ownership">关联信息，不代表本人能力</span>}
+      {inferredRelated === "self" && <span>本人经历</span>}
+      {evidence.match_kind && matchLabels[evidence.match_kind] && <span>{matchLabels[evidence.match_kind]}</span>}
+    </span>
+    <HighlightedSnippet evidence={evidence} />
+    <details className="resume-evidence-detail">
+      <summary>展开证据片段</summary>
+      <div className="resume-evidence-expanded"><HighlightedSnippet evidence={evidence} />
+        {terms.length > 0 && <span className="resume-evidence-terms" aria-label="实际命中关键词">{terms.map((term) => <mark key={term}>{term}</mark>)}</span>}
+        {(evidence.snippet.truncated_before || evidence.snippet.truncated_after) && <small>此处为命中片段，可打开候选人查看来源记录。</small>}
+      </div>
+    </details>
+  </div>;
 }
 
 function isActiveTask(task: AgentTask | null | undefined) {
@@ -578,8 +633,10 @@ export function AssistantDrawer({
   onOpenCandidateId,
   onOpenCandidate,
   onCandidatesUpdated,
+  presentation = "drawer",
+  initialTab = "chat",
 }: AssistantDrawerProps) {
-  const [tab, setTab] = useState<AssistantTab>("chat");
+  const [tab, setTab] = useState<AssistantTab>(initialTab);
   const [query, setQuery] = useState("");
   const [pending, setPending] = useState(false);
   const [pendingLabel, setPendingLabel] = useState("正在提交查询…");
@@ -602,6 +659,15 @@ export function AssistantDrawer({
   const [resumeSubmittedQuery, setResumeSubmittedQuery] = useState("");
   const [resumePending, setResumePending] = useState(false);
   const [resumeError, setResumeError] = useState("");
+  const [resumeState, setResumeState] = useState<"idle" | "success" | "cancelled" | "error">("idle");
+  const [resumeCriteriaChanged, setResumeCriteriaChanged] = useState(false);
+  const [resumeMetadata, setResumeMetadata] = useState<Pick<ResumeSearchResponse, "condition_summary" | "completeness" | "degradation">>({});
+  const [resumePositionOptions, setResumePositionOptions] = useState<ResumeSearchOption[] | null>(null);
+  const [resumePoolOptions, setResumePoolOptions] = useState<ResumeSearchOption[] | null>(null);
+  const [resumeOptionsPending, setResumeOptionsPending] = useState(false);
+  const [resumeOptionsError, setResumeOptionsError] = useState("");
+  const [resumeOptionsRevision, setResumeOptionsRevision] = useState(0);
+  const [resumeIndexError, setResumeIndexError] = useState("");
   const [resumeItems, setResumeItems] = useState<ResumeSearchItem[]>([]);
   const [resumePagination, setResumePagination] = useState<ResumeSearchCursorPagination | null>(null);
   const [resumeIndex, setResumeIndex] = useState<ResumeSearchIndexStatus | null>(null);
@@ -622,6 +688,7 @@ export function AssistantDrawer({
   const resumeAbort = useRef<AbortController | null>(null);
   const resumeStatusAbort = useRef<AbortController | null>(null);
   const resumeCursors = useRef<Map<number, string | null>>(new Map([[1, null]]));
+  const resumeInputComposing = useRef(false);
   const sendAbort = useRef<AbortController | null>(null);
   const taskMutationAbort = useRef<AbortController | null>(null);
   const taskRecoveryAbort = useRef<AbortController | null>(null);
@@ -1054,6 +1121,10 @@ export function AssistantDrawer({
   }
 
   useEffect(() => {
+    if (open) setTab(initialTab);
+  }, [initialTab, open]);
+
+  useEffect(() => {
     if (!open) {
       setTab("chat");
       return;
@@ -1102,12 +1173,13 @@ export function AssistantDrawer({
         const status = await getResumeSearchStatus(controller.signal);
         if (!active || controller.signal.aborted) return;
         setResumeIndex(status);
+        setResumeIndexError("");
         if (!status.ready) {
           timer = window.setTimeout(() => void check(), Math.min(10_000, Math.max(1_000, Number(status.retry_after_ms) || 2_000)));
         }
       } catch (requestError) {
         if (!active || controller.signal.aborted) return;
-        setResumeError(requestError instanceof Error ? requestError.message : "无法读取履历索引状态。");
+        setResumeIndexError(requestError instanceof Error ? requestError.message : "无法读取履历索引状态。");
         timer = window.setTimeout(() => void check(), 3_000);
       }
     };
@@ -1118,6 +1190,26 @@ export function AssistantDrawer({
       resumeStatusAbort.current?.abort();
     };
   }, [open, resumeStatusRevision]);
+
+  useEffect(() => {
+    if (!open || tab !== "resume-search") return;
+    let active = true;
+    const controller = new AbortController();
+    setResumeOptionsPending(true);
+    setResumeOptionsError("");
+    Promise.all([getResumeSearchOptions("position", controller.signal), getResumeSearchOptions("talent_pool", controller.signal)])
+      .then(([positionOptions, poolOptions]) => {
+        if (!active) return;
+        setResumePositionOptions(positionOptions);
+        setResumePoolOptions(poolOptions);
+      })
+      .catch((error) => {
+        if (!active || (error as Error).name === "AbortError") return;
+        setResumeOptionsError(error instanceof Error ? error.message : "筛选选项读取失败，当前选项可能不完整。");
+      })
+      .finally(() => { if (active) setResumeOptionsPending(false); });
+    return () => { active = false; controller.abort(); };
+  }, [open, tab, resumeOptionsRevision]);
 
   useEffect(() => {
     if (!chatListRef.current || messagePending) return;
@@ -1363,9 +1455,10 @@ export function AssistantDrawer({
     }
   }
 
-  async function searchResumes(event?: FormEvent, requestedPage = 1) {
+  async function searchResumes(event?: FormEvent, requestedPage = 1, useSnapshot = false) {
     event?.preventDefault();
-    const value = (requestedPage === 1 ? resumeQuery : resumeSubmittedQuery).trim();
+    if (useSnapshot && resumeCriteriaChanged) return;
+    const value = (useSnapshot ? resumeSubmittedQuery : resumeQuery).trim();
     if (!value) return;
     const requestId = ++resumeRequest.current;
     resumeAbort.current?.abort();
@@ -1373,6 +1466,9 @@ export function AssistantDrawer({
     resumeAbort.current = controller;
     setResumePending(true);
     setResumeError("");
+    setResumeState("idle");
+    setResumeCriteriaChanged(false);
+    setResumeMetadata({});
     const filters: ResumeSearchFilters = {
       archived: resumeArchived,
       fields: resumeField || undefined,
@@ -1380,26 +1476,54 @@ export function AssistantDrawer({
       position_id: resumePositionId || undefined,
       talent_pool_id: resumePoolId || undefined,
     };
-    if (requestedPage === 1) resumeCursors.current = new Map([[1, null]]);
-    const cursor = requestedPage > 1 ? resumeCursors.current.get(requestedPage) : null;
+    if (!useSnapshot) resumeCursors.current = new Map([[1, null]]);
+    const cursor = useSnapshot ? resumeCursors.current.get(requestedPage) : null;
     try {
-      const result = await searchCandidateResumes(value, requestedPage, 20, controller.signal, filters, cursor);
-      if (requestId !== resumeRequest.current) return;
+      const result = await searchCandidateResumesWithPlan(value, requestedPage, 20, controller.signal, filters, cursor);
+      if (controller.signal.aborted || requestId !== resumeRequest.current) return;
       setResumeItems(result.items);
       setResumePagination(result.pagination);
       if (result.index) setResumeIndex(result.index);
+      if (result.pagination.current_cursor) resumeCursors.current.set(result.pagination.page ?? requestedPage, result.pagination.current_cursor);
       if (result.pagination.next_cursor) resumeCursors.current.set((result.pagination.page ?? requestedPage) + 1, result.pagination.next_cursor);
       setResumeSubmittedQuery(value);
+      setResumeMetadata({ condition_summary: result.condition_summary, completeness: result.completeness, degradation: result.degradation });
+      setResumeState("success");
     } catch (error) {
-      if ((error as Error).name !== "AbortError" && requestId === resumeRequest.current) {
+      if ((error as Error).name === "AbortError") {
+        if (requestId === resumeRequest.current) setResumeState("cancelled");
+      } else if (requestId === resumeRequest.current) {
         if (error instanceof ApiError && error.code === "search_index_not_ready" && isResumeIndexStatus(error.details)) {
           setResumeIndex(error.details);
         }
         setResumeError(error instanceof Error ? error.message : "履历检索失败。");
+        setResumeState("error");
+        if (error instanceof ApiError && ["search_snapshot_stale", "search_cursor_stale", "search_index_changed", "invalid_cursor"].includes(error.code)) {
+          resumeCursors.current = new Map([[1, null]]);
+          setResumeCriteriaChanged(true);
+        }
       }
     } finally {
       if (requestId === resumeRequest.current) setResumePending(false);
     }
+  }
+
+  function markResumeCriteriaChanged() {
+    resumeAbort.current?.abort();
+    resumeRequest.current += 1;
+    resumeCursors.current = new Map([[1, null]]);
+    setResumePending(false);
+    setResumeError("");
+    setResumeMetadata({});
+    setResumeCriteriaChanged(true);
+    setResumeState("idle");
+  }
+
+  function cancelResumeSearch() {
+    resumeRequest.current += 1;
+    resumeAbort.current?.abort();
+    setResumePending(false);
+    setResumeState("cancelled");
   }
 
   async function openResult(item: ResumeSearchItem) {
@@ -1436,26 +1560,31 @@ export function AssistantDrawer({
     ? messages.find((message) => isTaskAnswerMessage(activeTask, message))?.id ?? null
     : null;
 
+  const pagePresentation = presentation === "page";
   return (
-    <div className="drawer-layer assistant-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <aside className="drawer assistant-drawer" role="dialog" aria-modal="true" aria-label="智能助手">
-        <header className="drawer-header">
-          <div><p className="drawer-kicker">Agent</p><h2>智能助手</h2></div>
+    <div className={`drawer-layer assistant-layer${pagePresentation ? " assistant-page-layer" : ""}`} role="presentation" onMouseDown={(event) => !pagePresentation && event.target === event.currentTarget && onClose()}>
+      <aside className={`drawer assistant-drawer${pagePresentation ? " assistant-page-drawer" : ""}`} role={pagePresentation ? "region" : "dialog"} aria-modal={pagePresentation ? undefined : true} aria-label={tab === "chat" ? "智能助手" : tab === "resume-search" ? "履历检索" : "附件解析"}>
+        <header className={`drawer-header${pagePresentation ? " assistant-page-header" : ""}`}>
+          <div><p className="drawer-kicker">Agent</p><h2>{tab === "chat" ? "智能助手" : tab === "resume-search" ? "履历检索" : "附件解析"}</h2></div>
           <div className="assistant-header-actions">
             <span className="readonly-badge"><ShieldCheck size={13} />受控数据源</span>
             {configured && <button className="icon-button" type="button" onClick={() => setHistoryOpen(!historyOpen)} aria-label={historyOpen ? "收起历史会话" : "打开历史会话"} title={historyOpen ? "收起历史会话" : "历史会话"}><History size={18} /></button>}
             {configured && <button className="icon-button" type="button" onClick={() => void createSession()} disabled={sessionMutationPending} aria-label="新建会话" title="新建会话"><Plus size={18} /></button>}
-            <button className="icon-button" type="button" onClick={onClose} aria-label="关闭" title="关闭"><X size={19} /></button>
+            <button className="icon-button assistant-back" type="button" onClick={onClose} aria-label={pagePresentation ? "返回人才库" : "关闭"} title={pagePresentation ? "返回人才库" : "关闭"}>{pagePresentation ? <ArrowLeft size={19} /> : <X size={19} />}</button>
           </div>
         </header>
 
-        <div className="assistant-mode-tabs" role="tablist" aria-label="助手工具">
+        {!pagePresentation && <div className="assistant-mode-tabs" role="tablist" aria-label="助手工具">
           <button className={tab === "chat" ? "active" : ""} type="button" onClick={() => setTab("chat")}><Bot size={15} />数据问答</button>
           <button className={tab === "resume-search" ? "active" : ""} type="button" onClick={() => setTab("resume-search")}><FileSearch size={15} />履历检索</button>
           <button className={tab === "attachment" ? "active" : ""} type="button" onClick={() => setTab("attachment")}><Paperclip size={15} />附件更新</button>
-        </div>
+        </div>}
 
-        {tab === "chat" && (configured ? <div className="assistant-chat-workspace">
+        {tab === "chat" && (configured ? <div className={`assistant-chat-workspace${pagePresentation ? ` assistant-page-chat${historyOpen ? " has-history" : ""}${!messages.length && !messagePending && !activeTask ? " is-new" : ""}` : ""}`}>
+          {pagePresentation && !historyOpen && <nav className="assistant-page-rail" aria-label="会话导航">
+            <button className="icon-button" type="button" onClick={() => void createSession()} disabled={sessionMutationPending} aria-label="新建会话" title="新建会话"><Plus size={19} /></button>
+            <button className="icon-button assistant-history-toggle" type="button" onClick={() => setHistoryOpen(true)} aria-label="展开历史会话" title="展开历史会话" aria-expanded={false}><PanelLeftOpen size={19} /></button>
+          </nav>}
           <div className="assistant-session-context">
             <button type="button" onClick={() => setHistoryOpen(!historyOpen)} aria-expanded={historyOpen}>
               <History size={14} /><span>{activeSession?.title ?? "新对话"}</span><small>{activeSession?.message_count ?? 0} 条消息</small>
@@ -1485,13 +1614,14 @@ export function AssistantDrawer({
               <span>{sessionPage} / {sessionPagination.total_pages}</span>
               <button className="icon-button" type="button" disabled={sessionPending || sessionPage >= sessionPagination.total_pages} onClick={() => void loadSessions(sessionPage + 1, activeSessionId)} aria-label="下一页会话"><ChevronRight size={14} /></button>
             </div>}
+            {pagePresentation && <button className="icon-button assistant-history-toggle" type="button" onClick={() => setHistoryOpen(false)} aria-label="收起历史会话" title="收起历史会话" aria-expanded={true}><PanelLeftClose size={19} /></button>}
           </section>}
 
           <div className="assistant-content" ref={chatListRef}>
             {messagePagination?.has_more && <button className="assistant-load-earlier" type="button" onClick={() => void loadEarlierMessages()} disabled={messagePending}>加载更早消息</button>}
             {!messages.length && !messagePending && !activeTask ? <div className="assistant-welcome">
               <span><Sparkles size={24} /></span>
-              <h3>数据库与互联网按问题路由</h3>
+              <h3>{pagePresentation ? "你好，我是拾才助手" : "数据库与互联网按问题路由"}</h3>
               <p className="assistant-boundary-copy">招聘库问题使用本机只读证据，时效问题使用受控联网检索，混合问题会分别标明来源。消息保存在本机 SQLite。</p>
               <div className="quick-query-list">
                 {quickQueries.map((item) => <button type="button" key={item} onClick={() => void submit(undefined, item)}><Search size={14} />{item}</button>)}
@@ -1526,42 +1656,50 @@ export function AssistantDrawer({
         </div>)}
 
         {tab === "resume-search" && <div className="assistant-tool-panel resume-search-panel">
-          <form className="resume-search-form" onSubmit={(event) => void searchResumes(event)}>
-             <Search size={16} /><input value={resumeQuery} onChange={(event) => setResumeQuery(event.target.value)} placeholder="关键词或精确短语" /><button className="button primary-button" type="submit" disabled={!resumeQuery.trim() || resumeIndex?.ready === false}>{resumePending ? "重新检索" : "检索"}</button>
+          <form className="resume-search-form" onSubmit={(event) => { if (resumeInputComposing.current) { event.preventDefault(); return; } void searchResumes(event); }} aria-label="履历检索">
+             <Search size={16} /><input value={resumeQuery} onChange={(event) => { markResumeCriteriaChanged(); setResumeQuery(event.target.value); }} onCompositionStart={() => { resumeInputComposing.current = true; }} onCompositionEnd={() => { resumeInputComposing.current = false; }} placeholder="关键词或精确短语" aria-label="检索候选人履历" /><button className="button primary-button" type="submit" disabled={!resumeQuery.trim() || resumePending || resumeIndex?.ready === false}>{resumePending ? "检索中…" : "检索"}</button>
           </form>
           <div className="resume-search-filters">
-            <label><span>字段</span><select value={resumeField} onChange={(event) => setResumeField(event.target.value as typeof resumeField)}><option value="">全部字段</option><option value="title">标题</option><option value="content">正文</option></select></label>
-            <label><span>来源</span><select value={resumeSourceType} onChange={(event) => setResumeSourceType(event.target.value as typeof resumeSourceType)}><option value="">全部来源</option><option value="candidate">候选人主档</option><option value="profile_section">履历区块</option><option value="attachment">附件简历</option></select></label>
-            <label><span>职位</span><select value={resumePositionId} onChange={(event) => setResumePositionId(event.target.value)}><option value="">全部职位</option>{positions.filter((position) => !position.archived_at).map((position) => <option value={position.id} key={position.id}>{position.title}</option>)}</select></label>
-            <label><span>人才库</span><select value={resumePoolId} onChange={(event) => setResumePoolId(event.target.value)}><option value="">全部人才库</option>{talentPools.filter((pool) => !pool.archived_at).map((pool) => <option value={pool.id} key={pool.id}>{pool.name}</option>)}</select></label>
-            <div className="resume-archive-filter" role="group" aria-label="归档范围">{([['exclude', '活动'], ['include', '全部'], ['only', '归档']] as const).map(([value, label]) => <button className={resumeArchived === value ? "active" : ""} type="button" key={value} onClick={() => setResumeArchived(value)}>{label}</button>)}</div>
+            <label><span>字段</span><select value={resumeField} onChange={(event) => { markResumeCriteriaChanged(); setResumeField(event.target.value as typeof resumeField); }}><option value="">全部字段</option><option value="title">标题</option><option value="content">正文</option></select></label>
+            <label><span>来源</span><select value={resumeSourceType} onChange={(event) => { markResumeCriteriaChanged(); setResumeSourceType(event.target.value as typeof resumeSourceType); }}><option value="">全部来源</option><option value="candidate">候选人主档</option><option value="profile_section">履历区块</option><option value="attachment">附件简历</option></select></label>
+            <label><span>职位</span><select value={resumePositionId} onChange={(event) => { markResumeCriteriaChanged(); setResumePositionId(event.target.value); }}><option value="">全部职位</option>{(resumePositionOptions ?? positions.filter((position) => !position.archived_at).map((position) => ({ id: position.id, name: position.title }))).map((position) => <option value={position.id} key={position.id}>{position.name}</option>)}</select></label>
+            <label><span>人才库</span><select value={resumePoolId} onChange={(event) => { markResumeCriteriaChanged(); setResumePoolId(event.target.value); }}><option value="">全部人才库</option>{(resumePoolOptions ?? talentPools.filter((pool) => !pool.archived_at).map((pool) => ({ id: pool.id, name: pool.name }))).map((pool) => <option value={pool.id} key={pool.id}>{pool.name}</option>)}</select></label>
+            <div className="resume-archive-filter" role="group" aria-label="归档范围">{([['exclude', '活动'], ['include', '全部'], ['only', '归档']] as const).map(([value, label]) => <button className={resumeArchived === value ? "active" : ""} type="button" key={value} onClick={() => { markResumeCriteriaChanged(); setResumeArchived(value); }}>{label}</button>)}</div>
           </div>
+          {resumeOptionsPending && <div className="resume-options-status" role="status">正在更新职位和人才库选项…</div>}
+          {resumeOptionsError && <div className="resume-options-status is-error" role="status">{resumeOptionsError} <button type="button" onClick={() => setResumeOptionsRevision((value) => value + 1)}>重试</button></div>}
+          {resumeCriteriaChanged && resumeSubmittedQuery && <div className="resume-query-status" role="status">条件已改变，下方仍为上次检索结果。</div>}
+          {resumePending && <div className="resume-query-status resume-search-progress" role="status"><LoaderCircle className="spin" size={16} /><span>正在检索{resumeItems.length > 0 ? "，暂保留上次结果" : ""}…</span><button className="icon-button" type="button" onClick={cancelResumeSearch} aria-label="取消检索" title="取消检索"><X size={16} /></button></div>}
+          {resumeState === "cancelled" && <div className="resume-query-status resume-search-progress" role="status"><span>检索已取消{resumeItems.length > 0 ? "，已保留上次结果" : ""}。</span><button className="icon-button" type="button" onClick={() => void searchResumes()} aria-label="重新检索" title="重新检索"><RefreshCw size={16} /></button></div>}
           {resumeIndex && !resumeIndex.ready && <div className={`resume-index-status is-${resumeIndex.state}`} role="status">
             <LoaderCircle className={resumeIndex.state === "indexing" ? "spin" : ""} size={17} />
             <div><strong>{resumeIndex.state === "failed" ? "履历索引不可用" : "履历索引准备中"}</strong><span>{resumeIndex.remaining == null ? "正在核对索引状态" : `剩余 ${resumeIndex.remaining} 条`}</span>{resumeIndex.progress != null && <progress max={1} value={resumeIndex.progress} />}</div>
             <button className="icon-button compact-icon-button" type="button" onClick={() => { setResumeError(""); setResumeStatusRevision((revision) => revision + 1); }} aria-label="重新检查索引" title="重新检查"><RefreshCw size={14} /></button>
           </div>}
-          {resumeError && <div className="assistant-tool-error" role="alert">{resumeError}</div>}
-          {!resumeItems.length && !resumePending && !resumeError && <div className="assistant-tool-empty"><FileSearch size={26} /><strong>搜索全部候选人业务字段</strong><span>SQLite 结构化筛选与 FTS5 完成全量召回，界面仅展示排名靠前的候选人与真实命中证据。</span></div>}
-          {resumeItems.length > 0 && <div className="resume-search-results" aria-live="polite">
-            <div className="resume-results-summary"><span>“{resumeSubmittedQuery}”</span><strong>{resumePagination?.total == null ? `本页 ${resumeItems.length} 位` : `${resumePagination.total} 位匹配候选人`}</strong></div>
+          {resumeIndexError && <div className="resume-options-status is-error" role="status">{resumeIndexError}<button className="icon-button" type="button" onClick={() => setResumeStatusRevision((value) => value + 1)} aria-label="重新读取索引状态" title="重新读取索引状态"><RefreshCw size={14} /></button></div>}
+          {resumeError && <div className="assistant-tool-error resume-search-progress" role="alert"><span>{resumeError}{resumeItems.length > 0 ? " 已保留上次结果。" : ""}</span>{resumeState === "error" && <button className="icon-button" type="button" onClick={() => void searchResumes()} aria-label="重试检索" title="重试检索"><RefreshCw size={16} /></button>}</div>}
+          {resumeMetadata.condition_summary && resumeMetadata.condition_summary.length > 0 && <details className="resume-condition-summary"><summary>已识别 {resumeMetadata.condition_summary.length} 项条件</summary><div>{resumeMetadata.condition_summary.map((condition) => <span className={`resume-condition is-${condition.kind}`} key={condition.id}>{condition.kind === "required" ? "必需" : condition.kind === "excluded" ? "排除" : condition.kind === "preferred" ? "偏好" : "未解析"}：{condition.text}</span>)}</div></details>}
+          {resumeMetadata.degradation && resumeMetadata.degradation.length > 0 && <div className="resume-degradation" role="status">{resumeMetadata.degradation.map((item) => <span key={`${item.code}-${item.stage}`}>{item.message}</span>)}</div>}
+          {resumeMetadata.completeness && (resumeMetadata.completeness.conditions !== "complete" || resumeMetadata.completeness.retrieval !== "complete") && <div className="resume-query-status" role="status">结果可能不完整：{[resumeMetadata.completeness.conditions === "partial" ? "部分条件未执行" : "", resumeMetadata.completeness.retrieval === "index_not_ready" ? "索引尚未就绪" : resumeMetadata.completeness.retrieval === "bounded" ? "召回范围受限" : resumeMetadata.completeness.retrieval === "partial" ? "部分来源尚未检索" : ""].filter(Boolean).join("；")}。</div>}
+          {!resumeItems.length && !resumePending && !resumeError && resumeState !== "cancelled" && <div className="assistant-tool-empty"><FileSearch size={26} /><strong>{resumeState === "success" ? "未找到符合已执行条件的候选人" : "人才检索"}</strong>{resumeState === "success" && <span>“{resumeSubmittedQuery}”</span>}</div>}
+          {resumeItems.length > 0 && <div className="resume-search-results" aria-busy={resumePending}>
+            <div className="resume-results-summary"><span>“{resumeSubmittedQuery}”</span><strong role="status">{resumePagination?.total == null ? `本页 ${resumeItems.length} 位` : `${resumePagination.total} 位候选人`}</strong></div>
             {resumeItems.map((item, index) => <article key={item.candidate_id}>
               <button type="button" onClick={() => void openResult(item)} disabled={!canOpenCandidate || openingCandidateId === item.candidate_id}>
                 <span className="resume-result-rank">{(resumePagination?.page ? (resumePagination.page - 1) * resumePagination.page_size : 0) + index + 1}</span>
                 <span className="resume-result-main">
-                  <span><strong>{item.name}</strong><em>{Number(item.score).toFixed(2)}</em></span>
-                  <span className="resume-match-fields">{item.matched_fields.map((field) => <i key={field}>{field}</i>)}</span>
-                  {(item.evidence ?? []).map((evidence) => <span className="resume-evidence" key={evidence.document_id}>
-                    <span className="resume-evidence-source"><b>{evidence.source_table}</b><code>{evidence.field_path}</code></span>
-                    {evidenceActualTerms(evidence).length > 0 && <span className="resume-evidence-terms" aria-label="实际命中关键词">{evidenceActualTerms(evidence).map((term) => <mark key={term}>{term}</mark>)}</span>}
-                    <HighlightedSnippet evidence={evidence} />
-                  </span>)}
-                  {!(item.evidence?.length) && item.snippets.map((snippet, snippetIndex) => <span className="resume-legacy-snippet" key={snippetIndex}>{snippet}</span>)}
-                  {item.reasons.length > 0 && <small>{item.reasons.join(" · ")}</small>}
+                  <span><strong>{item.name}</strong>{(item.current_title || item.current_company) && <small className="resume-current-meta">{[item.current_title, item.current_company].filter(Boolean).join(" · ")}</small>}</span>
+                  <span className="resume-match-fields">{[...new Set(item.matched_fields.map(searchFieldLabel))].map((field) => <i key={field}>{field}</i>)}</span>
+                  {item.condition_status && item.condition_status !== "matched" && <small className="resume-condition-status">条件状态：{item.condition_status === "unknown" ? "待核实" : "部分匹配"}</small>}
                 </span>
               </button>
+              <div className="resume-result-details">
+                {(item.evidence ?? []).map((evidence, evidenceIndex) => <SearchEvidence evidence={evidence} key={`${evidence.document_id}:${evidenceIndex}`} />)}
+                {!(item.evidence?.length) && item.snippets.map((snippet, snippetIndex) => <span className="resume-legacy-snippet" key={snippetIndex}>{snippet}</span>)}
+                {item.reasons.length > 0 && <small>{[...new Set(item.reasons.map(searchReasonLabel))].join(" · ")}</small>}
+              </div>
             </article>)}
-            {resumePagination && ((resumePagination.page ?? 1) > 1 || resumePagination.has_more || resumePagination.has_next) && <div className="resume-result-pagination"><button className="icon-button" type="button" disabled={resumePending || (resumePagination.page ?? 1) <= 1} onClick={() => void searchResumes(undefined, Math.max(1, (resumePagination.page ?? 1) - 1))} aria-label="上一页"><ChevronLeft size={16} /></button><span>第 {resumePagination.page ?? 1} 页</span><button className="icon-button" type="button" disabled={resumePending || !(resumePagination.has_more || resumePagination.has_next)} onClick={() => void searchResumes(undefined, (resumePagination.page ?? 1) + 1)} aria-label="下一页"><ChevronRight size={16} /></button></div>}
+            {resumePagination && ((resumePagination.page ?? 1) > 1 || resumePagination.has_more || resumePagination.has_next) && <div className="resume-result-pagination"><button className="icon-button" type="button" disabled={resumePending || resumeCriteriaChanged || (resumePagination.page ?? 1) <= 1} onClick={() => void searchResumes(undefined, Math.max(1, (resumePagination.page ?? 1) - 1), true)} aria-label="上一页"><ChevronLeft size={16} /></button><span>第 {resumePagination.page ?? 1} 页</span><button className="icon-button" type="button" disabled={resumePending || resumeCriteriaChanged || !(resumePagination.has_more || resumePagination.has_next)} onClick={() => void searchResumes(undefined, (resumePagination.page ?? 1) + 1, true)} aria-label="下一页"><ChevronRight size={16} /></button></div>}
           </div>}
         </div>}
 

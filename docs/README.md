@@ -1,6 +1,8 @@
 # 项目文档索引
 
-本文档集对应招聘工作台 `0.1.x` 个人版及当前 `Unreleased` V13 工作年限宽容迭代。当前代码基线为 schema V13：`years_experience` 是可空数值投影，`years_experience_raw` 是 `TEXT NOT NULL DEFAULT ''` 的来源原文，`years_experience_display` 为计算展示文本。明确 `0`、未知文本和真实空值必须分别显示为 `0`、原文和空白；导入格式本身不拒绝行，电话/邮箱冲突仍阻断。Task 7 已完成最多 100 条历史只读样本预览，脱敏证据见 [v13-years-experience-import-20260825.json](evidence/v13-years-experience-import-20260825.json)；正式库已完成 V13 加法迁移，schema 为 V1-V13。历史 V11 候选人入职信息迭代引入 `hire_status`（入职状态）和 `hire_date`（入职日期）；V12 增加 `hire_position`（入职职位），日期有值而状态为空时使用精确文本 `不确定`，三项全空时详情隐藏入职信息区块。V12 历史正式 HTTP 记录不构成本轮批量导入证据。代码行为是事实来源，文档与实现不一致时，应先修正文档或通过技术决策记录明确变更。
+2026-09-10 已按用户授权应用并启动正式本机服务，当前为应用 `0.2.0` / 数据库 schema `V13`。本地检索改进和新界面已生效，`SEARCH_REMOTE_ENABLED=false`；未生成真实简历向量，远程混合检索尚未启用。当前证据见 [正式部署记录](evidence/search-formal-deployment.json)，完整实现与匿名验收见 [检索交付](handoffs/2026-09-10-search-hybrid-delivery.md)。
+
+本文档集对应招聘工作台应用 `0.2.0` 个人版、schema `V13`，并保留此前工作年限、导入等迭代的历史记录。当前代码基线为 schema V13：`years_experience` 是可空数值投影，`years_experience_raw` 是 `TEXT NOT NULL DEFAULT ''` 的来源原文，`years_experience_display` 为计算展示文本。明确 `0`、未知文本和真实空值必须分别显示为 `0`、原文和空白；导入格式本身不拒绝行，电话/邮箱冲突仍阻断。Task 7 已完成最多 100 条历史只读样本预览，脱敏证据见 [v13-years-experience-import-20260825.json](evidence/v13-years-experience-import-20260825.json)；正式库已完成 V13 加法迁移，schema 为 V1-V13。历史 V11 候选人入职信息迭代引入 `hire_status`（入职状态）和 `hire_date`（入职日期）；V12 增加 `hire_position`（入职职位），日期有值而状态为空时使用精确文本 `不确定`，三项全空时详情隐藏入职信息区块。V12 历史正式 HTTP 记录不构成本轮批量导入证据。代码行为是事实来源，文档与实现不一致时，应先修正文档或通过技术决策记录明确变更。
 
 | 文档 | 主要用途 |
 | --- | --- |

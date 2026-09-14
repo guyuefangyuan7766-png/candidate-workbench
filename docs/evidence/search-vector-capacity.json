@@ -1,0 +1,59 @@
+{
+  "recorded_at": "2026-09-10T04:29:28.840Z",
+  "command": "node scripts/benchmark-search-vector-capacity.mjs --count 100000 --output docs/evidence/search-vector-capacity.json",
+  "runtime": {
+    "node": "v24.18.0",
+    "platform": "win32",
+    "architecture": "x64",
+    "logical_cpus": 16,
+    "total_memory_bytes": 16943685632
+  },
+  "methodology": {
+    "data": "Generated deterministic numeric vectors; one unique fact and candidate per vector, Math.sin(id * 13 + dimension * 17). No model endpoint or candidate database is used.",
+    "index": "USearch HNSW cosine Float32; connectivity 16; expansion_add/search 128",
+    "build_batch": 1000,
+    "embedding_cost_included": false,
+    "remote_calls": 0,
+    "query_k": 50,
+    "ann_vector_window": 1600,
+    "memory": "RSS sampled after each build batch/commit and each read query; sampling can miss transient peaks.",
+    "cold": "Fresh Node process; operating-system filesystem cache is not flushed.",
+    "limits": "Capacity measurements only. Deterministic vectors have low intrinsic dimensionality; these results do not establish semantic quality, ANN recall or performance on production distributions."
+  },
+  "measurements": [
+    {
+      "vectors": 100000,
+      "dimensions": 512,
+      "build_ms": 62724.6886,
+      "query_samples": 30,
+      "query_ms_p50": 10.302000000003318,
+      "query_ms_p95": 13.214899999999034,
+      "sampled_peak_build_rss_bytes": 777605120,
+      "sqlite_bytes": 465240064,
+      "ann_bytes": 219637488,
+      "cold_process_open_ms": 2077.7751,
+      "filtered_vectors": 10000,
+      "filtered_samples": 10,
+      "filtered_query_ms_p50": 869.3842999999997,
+      "filtered_query_ms_p95": 954.377199999999,
+      "sampled_peak_read_rss_bytes": 355098624
+    },
+    {
+      "vectors": 100000,
+      "dimensions": 1024,
+      "build_ms": 85523.5241,
+      "query_samples": 30,
+      "query_ms_p50": 10.38190000000759,
+      "query_ms_p95": 11.863899999996647,
+      "sampled_peak_build_rss_bytes": 1223442432,
+      "sqlite_bytes": 515555328,
+      "ann_bytes": 424437488,
+      "cold_process_open_ms": 3126.9487,
+      "filtered_vectors": 10000,
+      "filtered_samples": 10,
+      "filtered_query_ms_p50": 912.7143999999998,
+      "filtered_query_ms_p95": 952.1049000000003,
+      "sampled_peak_read_rss_bytes": 564719616
+    }
+  ]
+}

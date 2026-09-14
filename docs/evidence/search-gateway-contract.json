@@ -1,0 +1,110 @@
+{
+  "recorded_date": "2026-09-10",
+  "scope": "Anonymous gateway contract probes and implementation follow-up; no candidate database was opened and no real resume text was sent.",
+  "provenance": {
+    "schema_diagnostics": "Actual tool executions in the search-query-plan implementation task on 2026-09-10; observations summarized from tool results.",
+    "earlier_capabilities": "Previously recorded anonymous probe results in docs/superpowers/plans/2026-09-10-search-vector-frontend-implementation-plan.md section 1.2.",
+    "limitations": "Diagnostic samples are not a fixed evaluation set or a latency percentile measurement. This file preserves successful and failed observations; it is not a complete request log. The separate 60-query evaluation must report its own failures and sample counts."
+  },
+  "redaction": {
+    "gateway_address_recorded": false,
+    "credential_recorded": false,
+    "provider_error_body_recorded": false,
+    "real_candidate_data_recorded": false,
+    "request_content": "Only synthetic capability text and the explicitly requested anonymous test queries."
+  },
+  "contracts": {
+    "embedding": {
+      "method": "POST",
+      "path": "/v1/embeddings",
+      "model": "text-embedding-v4",
+      "request": { "model": "string", "input": "string[]", "encoding_format": "float", "dimensions": "optional integer: 512 or 1024" },
+      "response": "data[] containing index and embedding:number[]; reorder by index, reject duplicate/missing/out-of-range indexes and nonfinite or wrong-dimension vectors",
+      "earlier_actual_observations": [
+        { "inputs": 1, "http_status": 200, "dimensions": 1024, "elapsed_ms": 517 },
+        { "inputs": 10, "http_status": 200, "dimensions": 1024, "elapsed_ms": 1044 },
+        { "inputs": 11, "http_status": 400, "classification": "batch_limit", "elapsed_ms": 352 },
+        { "inputs": 1, "requested_dimensions": 512, "http_status": 200, "dimensions": 512, "elapsed_ms": 182 }
+      ],
+      "remaining_dependencies": ["long-text token limit", "rate limits", "cost", "provider data retention"]
+    },
+    "rerank": {
+      "method": "POST",
+      "path": "/v1/rerank",
+      "model": "qwen3-rerank",
+      "request": { "model": "string", "query": "string", "documents": "string[]", "top_n": "integer", "return_documents": false },
+      "response": "results[] containing index and relevance_score; returned count must equal requested top_n bounded by input length; reject duplicate, missing, nonfinite and out-of-range results",
+      "earlier_actual_observations": [
+        { "documents": 2, "top_n": 2, "http_status": 200, "elapsed_ms": 329 },
+        { "documents": 3, "top_n": 1, "http_status": 200, "elapsed_ms": 594 },
+        { "documents": 50, "top_n": 50, "http_status": 200, "elapsed_ms": 698, "all_indexes_valid_and_unique": true }
+      ],
+      "remaining_dependencies": ["long-document token limit", "rate limits", "cost", "provider data retention"]
+    },
+    "planner": {
+      "method": "POST",
+      "path": "/v1/chat/completions",
+      "model": "gpt-6-astra",
+      "request": { "stream": false, "reasoning_effort": "low", "max_completion_tokens": 2048, "response_format": "json_schema", "strict": true, "tools": "not provided" },
+      "response": "choices[0].message.content must be a JSON query plan; require finish_reason=stop, no refusal, then full local Ajv and semantic validation",
+      "gateway_schema_adapter": {
+        "kept": ["object", "array", "required", "additionalProperties:false", "enum", "$defs", "$ref", "anyOf"],
+        "transformed": { "prefixItems": "uniform items:{type:integer}; exact two-item span checked locally", "const": "type plus singleton enum" },
+        "local_only": ["$schema", "$id", "minItems", "maxItems", "minimum", "maximum", "minLength", "maxLength"],
+        "local_validation": "Unchanged complete draft-2020 JSON Schema compiled by Ajv2020, plus maximum 32 expression nodes / depth 4, original UTF-16 spans, value provenance, explicit filter overlay and boolean constraint conservation.",
+        "json_object_fallback": false,
+        "causal_limit": "The original full schema was rejected with HTTP 400. The final structural subset succeeded. Intermediate timeouts do not establish which individual keyword caused a timeout."
+      },
+      "actual_schema_diagnostics": [
+        { "variant": "original-full-draft2020", "http_status": 400, "safe_classification": ["invalid_request_error", "schema", "response_format"] },
+        { "variant": "explicit-types-only", "http_status": 400 },
+        { "variant": "remove-schema-identifiers-only", "http_status": 400 },
+        { "variant": "uniform-span-items-with-types", "result": "timeout", "configured_timeout_ms": 25000 },
+        { "variant": "uniform-span-items-with-types-retry", "result": "timeout", "configured_timeout_ms": 60000 },
+        { "variant": "span-items-only-low-reasoning", "http_status": 400 },
+        { "variant": "uniform-items-types-low-reasoning", "result": "timeout", "configured_timeout_ms": 45000 },
+        { "variant": "bounded-expression-depth-low-reasoning", "result": "timeout", "configured_timeout_ms": 45000 },
+        { "variant": "minimal-strict-schema-control", "http_status": 200, "note": "Control output intentionally was not a SearchPlanV1 and was rejected by local plan validation." },
+        { "variant": "fully-inlined-schema", "result": "timeout", "configured_timeout_ms": 30000 },
+        { "variant": "simple-plan-control-with-collection-limits", "result": "timeout", "configured_timeout_ms": 30000 },
+        { "variant": "final-structural-subset-low-reasoning", "query": "Unity 或 Unreal", "http_status": 200, "local_plan_valid": true, "elapsed_ms": 6725 }
+      ],
+      "selected_actual_successes": [
+        { "query": "Unity 或 Unreal", "source": "model", "elapsed_ms": 10822, "semantics": "required Unity OR Unreal" },
+        { "query": "找3到5年经验的后端工程师", "source": "model", "elapsed_ms": 6259, "semantics": "required backend engineer, years >=3 and <=5" },
+        { "query": "Unity 不要外包", "source": "model", "elapsed_ms": 16640, "semantics": "required Unity, exclude self outsourcing evidence" },
+        { "query": "上海 游戏策划 战斗系统", "source": "model", "elapsed_ms": 6927, "semantics": "current location Shanghai AND game design AND combat systems" },
+        { "query": "找3年以下经验的后端工程师", "source": "model", "elapsed_ms": 4539, "semantics": "required backend engineer, years <=3" },
+        { "query": "找熟悉数值策划的人", "source": "model", "elapsed_ms": 22151, "configured_timeout_ms": 30000, "semantics": "required numerical game design" }
+      ],
+      "selected_actual_failures_after_schema_fix": [
+        { "query": "找3到5年经验的后端工程师", "elapsed_ms": 18010, "result": "rules fallback", "classification": "18-second planning budget exhausted" },
+        { "query": "找3年以下经验的后端工程师", "http_status": 200, "result": "rules fallback", "classification": "model returned incorrect source spans; local validation rejected" },
+        { "query": "找熟悉数值策划的人", "http_status": 200, "elapsed_ms": 5465, "result": "rules fallback", "classification": "model retained instruction prefix in a required term; constraint validation rejected" },
+        { "query": "找熟悉数值策划的人", "elapsed_ms": 18011, "result": "rules fallback", "classification": "18-second planning budget exhausted" }
+      ],
+      "following_fixes": ["Added explicit instruction-prefix removal guidance.", "Added original-query UTF-16 character offsets to reduce span mistakes.", "Equivalent numeric value spans may consume deterministic full range text only after boolean and operator equivalence validation."],
+      "historical_alternate_model": { "model": "gpt-5.6-terra", "earlier_http_statuses": [502, 502], "adopted": false }
+    }
+  },
+  "runtime_budgets": {
+    "planner_default_ms": 30000,
+    "planner_environment_variable": "SEARCH_QUERY_TIMEOUT_MS",
+    "planner_maximum_ms": 30000,
+    "embedding_per_request_maximum_ms": 5000,
+    "rerank_per_request_maximum_ms": 5000,
+    "shorter_explicit_test_timeout_respected": true,
+    "worker_total_ms_managed_by_parent_integration": 45000,
+    "reason_for_change": "Anonymous real planning exceeded the earlier 18-second budget. Runtime planning was aligned to the 30-second budget used in the 60-query evaluation.",
+    "eighteen_second_original_latency_gate_passed": false,
+    "quality_or_latency_acceptance_claim": false
+  },
+  "local_verification": {
+    "command": "node --test tests/backend/search-query-plan.test.mjs tests/backend/search-model-adapters.test.mjs",
+    "tests": 38,
+    "passed": 38,
+    "failed": 0,
+    "new_cases": ["legacy stage remains a mandatory string filter on normal/model/fallback paths", "planner expires at bounded 30 seconds", "embedding and rerank expire at 5 seconds", "shorter test and environment budgets honored"],
+    "new_gateway_calls_for_budget_and_stage_followup": 0
+  }
+}

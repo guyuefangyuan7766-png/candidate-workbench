@@ -433,10 +433,7 @@ export function TalentPoolPage({
 
   return (
     <section className="talent-pool-page">
-      <header className="page-heading">
-        <div><p className="eyebrow">人才分组</p><h1>人才库分组</h1><p className="page-description">按长期人才价值整理候选人，不改变候选人档案或职位关联</p></div>
-        <button className="button primary-button" type="button" onClick={() => openEditor("create")}><Plus size={17} />新建人才库</button>
-      </header>
+      <div className="talent-pool-top-row" />
 
       {selectedPoolIds.size > 0 && (
         <div className="bulk-action-bar talent-pool-group-bulk-bar">
@@ -461,6 +458,7 @@ export function TalentPoolPage({
             <label><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索人才库" />{query && <button type="button" onClick={() => setQuery("")} aria-label="清除搜索"><X size={14} /></button>}</label>
             <div className="talent-pool-archive-filter segmented-control" role="group" aria-label="人才库归档状态">
               {[["all", "全部"], ["active", "使用中"], ["archived", "已归档"]].map(([value, label]) => <button className={archiveMode === value ? "active" : ""} type="button" key={value} aria-pressed={archiveMode === value} onClick={() => setArchiveMode(value as ArchiveMode)}>{label}</button>)}
+              <button className="pool-create-inline" type="button" onClick={() => openEditor("create")}><Plus size={15} />新建人才库</button>
             </div>
           </div>
           <div className="talent-pool-selection-toolbar">

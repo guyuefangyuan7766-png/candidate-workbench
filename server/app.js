@@ -28,6 +28,7 @@ import {
 } from './candidates.js'
 import { createAgentService } from './agent.js'
 import { BusinessSearchMaintenanceService } from './business-search-maintenance.js'
+import { SearchVectorMaintenanceService } from './search-vector-maintenance-service.js'
 import { configuredDatabasePath, listStages, openDatabase, withTransaction } from './database.js'
 import { createAttachmentService } from './attachments.js'
 import { recoverLegacyOriginalFilename } from './attachment-parser.js'
@@ -97,6 +98,7 @@ import {
   searchCandidateResumesIndexed
 } from './resume-search.js'
 import { ResumeSearchService } from './resume-search-service.js'
+import { HybridSearchService } from './hybrid-search-service.js'
 
 export const DEFAULT_CANDIDATE_IMPORT_MAX_FILE_BYTES = 64 * 1024 * 1024
 export const DEFAULT_CANDIDATE_IMPORT_ASYNC_THRESHOLD_BYTES = 8 * 1024 * 1024
@@ -350,6 +352,29 @@ export function createApp(options = {}) {
           close: async () => undefined
         }
   )
+  const hybridResumeSearch = options.hybridSearchService ?? new HybridSearchService({
+    ...(databasePath && databasePath !== ':memory:' ? { databasePath } : { db }),
+    remoteEnabled: options.searchRemoteEnabled ?? process.env.SEARCH_REMOTE_ENABLED === 'true',
+    modelConfig: options.searchModelConfig,
+    vectorDirectory: options.searchVectorDirectory ?? process.env.SEARCH_VECTOR_DIRECTORY,
+    dimensions: Number(process.env.SEARCH_EMBEDDING_DIMENSIONS ?? 1024)
+  })
+  const vectorDirectory = options.searchVectorDirectory ?? process.env.SEARCH_VECTOR_DIRECTORY
+  const remoteSearchEnabled = options.searchRemoteEnabled ?? process.env.SEARCH_REMOTE_ENABLED === 'true'
+  const vectorMaintenanceEnabled = options.searchVectorMaintenanceEnabled ?? process.env.SEARCH_VECTOR_MAINTENANCE_ENABLED === 'true'
+  const vectorMaintenance = options.searchVectorMaintenanceService ?? (
+    remoteSearchEnabled && vectorMaintenanceEnabled && vectorDirectory && databasePath && databasePath !== ':memory:'
+      ? new SearchVectorMaintenanceService({
+          databasePath, directory: vectorDirectory,
+          dimensions: Number(process.env.SEARCH_EMBEDDING_DIMENSIONS ?? 1024),
+          model: options.searchModelConfig?.embeddingModel ?? process.env.SEARCH_EMBEDDING_MODEL ?? 'text-embedding-v4',
+          modelConfig: options.searchModelConfig,
+          concurrency: Number(process.env.SEARCH_VECTOR_MAINTENANCE_CONCURRENCY ?? 4),
+          intervalMs: Number(process.env.SEARCH_VECTOR_MAINTENANCE_INTERVAL_MS ?? 300_000)
+        })
+      : null
+  )
+  if (remoteSearchEnabled) void hybridResumeSearch.warmup?.().catch(() => undefined)
   const importPreviewTtlMs = positiveByteLimit(options.importPreviewTtlMs, DEFAULT_IMPORT_PREVIEW_TTL_MS)
   const importPreviewMaxEntries = positiveByteLimit(
     options.importPreviewMaxEntries,
@@ -442,6 +467,7 @@ export function createApp(options = {}) {
   })
   const agent = options.agentService ?? createAgentService(db, {
     ...options.agentConfig,
+    hybridSearchService: hybridResumeSearch,
     databasePath,
     exportRoot: options.agentExportRoot ?? resolve(process.cwd(), 'exports', 'agent')
   })
@@ -1232,10 +1258,23 @@ export function createApp(options = {}) {
     privateNoStore(res)
     const status = await resumeSearch.status()
     if (!status.ready) res.setHeader('Retry-After', String(Math.max(1, Math.ceil(Number(status.retry_after_ms ?? 2_000) / 1_000))))
-    res.json(status)
+    res.json({ ...status, hybrid: hybridResumeSearch.status?.() ?? { remote_enabled: remoteSearchEnabled }, vector_maintenance: vectorMaintenance?.status() ?? { enabled: false, state: 'disabled' } })
   }))
 
-  app.get('/api/resume-search', asyncRoute(async (req, res) => {
+  app.get('/api/resume-search/options', (req, res) => {
+    privateNoStore(res)
+    const kinds = { position: ['positions', 'title'], talent_pool: ['talent_pools', 'name'] }
+    const kind = kinds[req.query.kind]
+    const page = Number(req.query.page ?? 1)
+    const pageSize = Number(req.query.page_size ?? 100)
+    if (!kind || !Number.isInteger(page) || page < 1 || !Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) throw httpError(400, '筛选选项参数无效')
+    const [table, title] = kind
+    const total = Number(db.prepare(`SELECT count(*) n FROM ${table} WHERE archived_at IS NULL`).get().n)
+    const items = db.prepare(`SELECT id, ${title} name FROM ${table} WHERE archived_at IS NULL ORDER BY ${title}, id LIMIT ? OFFSET ?`).all(pageSize, (page - 1) * pageSize)
+    res.json({ items, pagination: { page, page_size: pageSize, total, total_pages: Math.ceil(total / pageSize), has_more: page * pageSize < total } })
+  })
+
+  const searchResumesHandler = asyncRoute(async (req, res) => {
     privateNoStore(res)
     const controller = new AbortController()
     const cancel = () => controller.abort()
@@ -1243,12 +1282,14 @@ export function createApp(options = {}) {
     req.once('aborted', cancel)
     res.once('close', cancelOnClosedResponse)
     try {
-      res.json(await resumeSearch.search(req.query, { signal: controller.signal }))
+      res.json(await hybridResumeSearch.search(req.method === 'POST' ? req.body : req.query, { signal: controller.signal }))
     } finally {
       req.removeListener('aborted', cancel)
       res.removeListener('close', cancelOnClosedResponse)
     }
-  }))
+  })
+  app.get('/api/resume-search', searchResumesHandler)
+  app.post('/api/resume-search', searchResumesHandler)
 
   app.get('/api/candidates/:id/notes', (req, res) => {
     if (!candidateExists(db, req.params.id)) throw httpError(404, '候选人不存在')
@@ -1351,7 +1392,7 @@ export function createApp(options = {}) {
   if (existsSync(indexPath)) {
     app.use(express.static(distPath, { index: false }))
     app.use((req, res, next) => {
-      if (req.method === 'GET' && req.accepts('html')) return res.sendFile(indexPath)
+      if (req.method === 'GET' && req.accepts('html')) return res.sendFile('index.html', { root: distPath })
       return next()
     })
   }
@@ -1419,6 +1460,8 @@ export function createApp(options = {}) {
   app.locals.importTasks = importTasks
   app.locals.searchMaintenance = searchMaintenance
   app.locals.resumeSearch = resumeSearch
+  app.locals.hybridResumeSearch = hybridResumeSearch
+  app.locals.vectorMaintenance = vectorMaintenance
   app.locals.agent = agent
   app.locals.candidateImportConfig = candidateImportConfig
   app.locals.importUploadRoot = importUploadRoot
@@ -1434,6 +1477,8 @@ export function createApp(options = {}) {
       .catch(() => undefined)
       .then(async () => {
         await resumeSearch.close?.()
+        await hybridResumeSearch.close?.()
+        await vectorMaintenance?.close()
         await searchMaintenance?.close()
         await importTasks.close?.()
         previewStore.close?.()

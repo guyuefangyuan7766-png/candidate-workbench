@@ -463,6 +463,9 @@ export interface AttachmentBatchConfirmResponse {
 export interface ResumeSearchItem {
   candidate_id: string;
   name: string;
+  current_title?: string | null;
+  current_company?: string | null;
+  condition_status?: "matched" | "unknown" | "partial";
   score: number;
   matched_fields: string[];
   matched_terms?: string[];
@@ -495,12 +498,42 @@ export interface ResumeSearchCursorPagination {
   has_next?: boolean;
   has_more: boolean;
   next_cursor: string | null;
+  current_cursor?: string | null;
 }
 
 export interface ResumeSearchResponse {
   items: ResumeSearchItem[];
   pagination: ResumeSearchCursorPagination;
   index?: ResumeSearchIndexStatus;
+  condition_summary?: ResumeSearchCondition[];
+  completeness?: {
+    conditions: "complete" | "partial";
+    retrieval: "complete" | "bounded" | "partial" | "index_not_ready";
+    ranking: "hybrid_reranked" | "rrf" | "fts";
+  };
+  degradation?: { code: string; message: string; stage: string }[];
+}
+
+export interface ResumeSearchCondition {
+  id: string;
+  text: string;
+  kind: "required" | "excluded" | "preferred" | "unresolved";
+}
+
+export interface ResumeSearchOption {
+  id: string;
+  name: string;
+}
+
+export interface ResumeSearchOptionsResponse {
+  items: ResumeSearchOption[];
+  pagination: {
+    page: number;
+    page_size: number;
+    total: number;
+    total_pages: number;
+    has_more: boolean;
+  };
 }
 
 export interface SearchHighlightMatch {
@@ -589,6 +622,9 @@ export interface ResumeSearchEvidence {
   matched_actual_terms: string[];
   has_expanded_matches?: boolean;
   snippet: SearchEvidenceSnippet;
+  source_label?: string;
+  ownership?: "self" | "related";
+  match_kind?: string;
 }
 
 export interface AgentSession {

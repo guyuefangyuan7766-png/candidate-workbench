@@ -43,8 +43,11 @@ const DEFAULT_PREVIEW_TTL_MS = 15 * 60 * 1000
 const DEFAULT_PARSE_CONCURRENCY = 2
 const MAX_CONFIRM_RECORDS = 1000
 const MAX_PROFILE_SECTIONS = 100
-const ATTACHMENT_SUGGESTION_TIMEOUT_MS = 5_000
-const ATTACHMENT_VISUAL_SUGGESTION_TIMEOUT_MS = 45_000
+// Keep the wrapper aligned with the text adapter's bounded gateway request.
+// Model suggestions remain optional, but a slow valid response must not be
+// cut off by a shorter service-level race.
+const ATTACHMENT_SUGGESTION_TIMEOUT_MS = 60_000
+const ATTACHMENT_VISUAL_SUGGESTION_TIMEOUT_MS = 60_000
 const ATTACHMENT_AVATAR_URL_PREFIX = 'attachment-avatar:'
 const PARSE_FAILURE_MESSAGES = Object.freeze({
   attachment_empty: '附件中没有可确认的候选人记录',
@@ -240,7 +243,7 @@ const RESUME_SECTION_DEFINITIONS = Object.freeze([
     title: '技能',
     aliases: [
       '技能/荣誉', '技能与荣誉', '技能及荣誉', '专业技能', '技能清单', '核心技能', '技能',
-      '技能证书', '技能与证书', '技能及证书', '技能/证书', '技能证书及荣誉',
+      '相关技能', '技能证书', '技能与证书', '技能及证书', '技能/证书', '技能证书及荣誉',
       '荣誉证书', '证书/竞赛', '证书与竞赛', '证书及竞赛', '荣誉', '获奖经历',
       'skills', 'technical skills', 'skills and certificates', 'skills/certificates',
       'skills certificates', 'honors', 'awards', 'certificates', 'skill'
@@ -254,7 +257,7 @@ const RESUME_SECTION_DEFINITIONS = Object.freeze([
   Object.freeze({
     section_type: 'campus',
     title: '校园经历',
-    aliases: ['校园经历', '校园实践', '校内经历', 'campus experience', 'campus']
+    aliases: ['校园经历', '校园实践', '校内经历', '在校经历', 'campus experience', 'campus']
   }),
   Object.freeze({
     section_type: 'certificate',
@@ -274,7 +277,7 @@ const RESUME_SECTION_DEFINITIONS = Object.freeze([
   Object.freeze({
     section_type: 'publication',
     title: '论文与作品',
-    aliases: ['论文与作品', '论文', '作品', 'publication', 'publications']
+    aliases: ['论文与作品', '论文与专利', '发表文章及专利', '发表论文及专利', '论文', '作品', 'publication', 'publications']
   }),
   Object.freeze({
     section_type: 'management',
@@ -613,7 +616,27 @@ function isLikelyAttachmentNoiseToken(value) {
   // `abcDEF123456789012345678`.
   if (/^[0-9a-f]{12,}[A-Z]{1,8}(?:-[A-Za-z0-9]{8,})+[-~]*$/.test(token)) return true
   if (/^[0-9a-f]{12,}[A-Z]{1,8}$/.test(token)) return true
+  // Some PDF exporters use an underscore after the short uppercase marker
+  // (`...HN_...`) and then emit one long mixed-case fragment without hyphens.
+  if (/^[0-9a-f]{12,}[A-Z]{1,8}_[A-Za-z0-9]{16,}[-~]*$/.test(token)) return true
   return false
+}
+
+function isStandaloneAttachmentNoiseLine(value) {
+  return /^~+$/u.test(String(value ?? '').trim())
+}
+
+function isAttachmentNoiseOnlyLine(value) {
+  const trimmed = String(value ?? '').trim()
+  if (!trimmed) return false
+  if (isStandaloneAttachmentNoiseLine(trimmed)) return true
+  let sawOpaqueToken = false
+  const remainder = trimmed.replace(/[A-Za-z0-9][A-Za-z0-9_~:-]{11,}/g, (token) => {
+    if (!isLikelyAttachmentNoiseToken(token)) return token
+    sawOpaqueToken = true
+    return ''
+  }).trim()
+  return sawOpaqueToken && isStandaloneAttachmentNoiseLine(remainder)
 }
 
 // Opaque-looking identifiers are valid business data when the attachment
@@ -633,6 +656,7 @@ function stripAttachmentNoise(value, maximum = 50_000) {
   const cleanedLines = lines.flatMap((line) => {
     const trimmed = line.trim()
     if (!trimmed) return ['']
+    if (isAttachmentNoiseOnlyLine(trimmed)) return []
     if (isLikelyAttachmentNoiseToken(trimmed)) return []
     const scrubbed = trimmed.replace(/[A-Za-z0-9][A-Za-z0-9_~:-]{11,}/g, (token, offset, whole) => {
       const previous = whole[offset - 1] ?? ''
@@ -646,6 +670,10 @@ function stripAttachmentNoise(value, maximum = 50_000) {
     // Engineer"). CJK-only spacing was normalized above; removing every
     // whitespace token here would silently change legitimate resume text.
     const cleaned = scrubbed.replace(/[ \t]{2,}/g, ' ').trim()
+    // An opaque token can share a visual line with a standalone `~`. Once the
+    // token is removed, re-check the residual line so the marker cannot leak
+    // into public section content or evidence.
+    if (isAttachmentNoiseOnlyLine(cleaned)) return []
     const repeatedKey = cleaned.replace(/\s+/g, ' ')
     if (repeatedKey.length >= 40 && seenLongLines.has(repeatedKey)) return []
     if (repeatedKey.length >= 40) seenLongLines.add(repeatedKey)
@@ -991,6 +1019,20 @@ function scanStandaloneFieldMarkers(text) {
     if (leading < 0) continue
     const trimmed = rawLine.trim().replace(/\s*[:：]\s*$/, '')
     const descriptor = LABEL_DESCRIPTORS.get(normalizeLabel(trimmed))
+    // `自我评价` is represented as a scalar candidate field even when the
+    // heading is on its own line. Other section-only headings remain section
+    // boundaries and are handled by scanStandaloneSectionMarkers().
+    if (descriptor?.section?.section_type === 'self_summary' && descriptor.fields.has('self_summary')) {
+      markers.push({
+        start: lineMatch.index + leading,
+        end: lineMatch.index + rawLine.length,
+        label: trimmed,
+        descriptor,
+        inline: false,
+        standalone: true
+      })
+      continue
+    }
     if (!descriptor || descriptor.section) continue
     // A standalone label must occupy the whole physical line.  This avoids
     // treating ordinary prose containing e.g. “专业” as a field marker.
@@ -1088,16 +1130,26 @@ function cleanResumeSegment(value, maximum) {
 // the attachment source and can still be audited back to the original text.
 function cleanEvidenceSegment(value, maximum = 1_000) {
   const source = String(value ?? '')
+  const sourceLines = source.split(/\r?\n/u)
+  const standaloneNoiseIndex = sourceLines.findIndex((line) => (
+    isAttachmentNoiseOnlyLine(line) || isLikelyAttachmentNoiseToken(line)
+  ))
+  // Keep evidence as a contiguous source fragment. If a standalone noise line
+  // interrupts a candidate value, stop before it instead of joining separated
+  // source lines into evidence that cannot be audited literally.
+  const boundedSource = standaloneNoiseIndex >= 0
+    ? sourceLines.slice(0, standaloneNoiseIndex).join('\n')
+    : source
   const matcher = /[A-Za-z0-9][A-Za-z0-9_~:-]{11,}/g
   let match
-  while ((match = matcher.exec(source))) {
+  while ((match = matcher.exec(boundedSource))) {
     const token = match[0]
     const lineageToken = /^(?:attachment-preview:|source[-_](?:offset|record))/i.test(token)
-    if (lineageToken || (!hasExplicitIdentifierContext(source, match.index) && isLikelyAttachmentNoiseToken(token))) {
-      return cleanExtractedSegment(source.slice(0, match.index), maximum)
+    if (lineageToken || (!hasExplicitIdentifierContext(boundedSource, match.index) && isLikelyAttachmentNoiseToken(token))) {
+      return cleanExtractedSegment(boundedSource.slice(0, match.index), maximum)
     }
   }
-  return cleanExtractedSegment(source, maximum)
+  return cleanExtractedSegment(boundedSource, maximum)
 }
 
 const DOMESTIC_PHONE_PATTERN = /(?:\+?86|0086)?[\s().-]*1[3-9](?:[\s().-]*\d){9}(?!\d)/g

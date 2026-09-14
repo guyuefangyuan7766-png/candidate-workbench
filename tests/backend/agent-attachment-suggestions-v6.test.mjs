@@ -293,6 +293,46 @@ test('attachment suggestions reject anonymous gateway hostnames that resolve to 
   }
 })
 
+test('attachment suggestions allow an explicitly trusted private HTTPS hostname', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'agent-attachment-trusted-private-'))
+  const databasePath = join(directory, 'anonymous.db')
+  const db = openDatabase(databasePath)
+  let agent
+  let requestCount = 0
+  const attachmentSuggestionHttpsRequest = (_url, _options, callback) => {
+    const request = new EventEmitter()
+    request.end = () => {
+      requestCount += 1
+      const body = JSON.stringify({ choices: [{ message: { content: '{"records":[]}' } }] })
+      const response = Readable.from([Buffer.from(body)])
+      response.statusCode = 200
+      response.headers = { 'content-type': 'application/json' }
+      callback(response)
+    }
+    request.destroy = (error) => queueMicrotask(() => request.emit('error', error))
+    return request
+  }
+  try {
+    agent = createAgentService(db, {
+      databasePath,
+      baseUrl: 'https://private-gateway.invalid/v1',
+      apiKey: 'anonymous-test-key',
+      model: 'anonymous-model',
+      attachmentSuggestionTrustedPrivateHosts: ['private-gateway.invalid'],
+      attachmentSuggestionDnsLookup: async () => [{ address: '192.168.10.20', family: 4 }],
+      attachmentSuggestionHttpsRequest
+    })
+
+    const result = await agent.suggestAttachment(anonymousSuggestionInput())
+    assert.equal(requestCount, 1)
+    assert.deepEqual(result, { records: [], status: 'ready', schema_mode: 'strict', retryable: false })
+  } finally {
+    await agent?.close()
+    db.close()
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
 test('attachment suggestions pin the actual connection to the DNS addresses already validated', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'agent-attachment-pinned-endpoint-'))
   const databasePath = join(directory, 'anonymous.db')

@@ -15,12 +15,27 @@ if ($null -ne $blockingMaintenanceSentinel) {
 }
 
 $agentVariableNames = @(
+    "NODE_USE_SYSTEM_CA",
     "AGENT_BASE_URL",
     "AGENT_API_KEY",
     "AGENT_MODEL",
+    "SEARCH_REMOTE_ENABLED",
+    "SEARCH_QUERY_MODEL",
+    "SEARCH_QUERY_REASONING_EFFORT",
+    "SEARCH_QUERY_TIMEOUT_MS",
+    "SEARCH_EMBEDDING_MODEL",
+    "SEARCH_EMBEDDING_DIMENSIONS",
+    "SEARCH_RERANK_MODEL",
+    "SEARCH_VECTOR_DIRECTORY",
+    "SEARCH_VECTOR_MAINTENANCE_ENABLED",
+    "SEARCH_VECTOR_MAINTENANCE_CONCURRENCY",
+    "SEARCH_VECTOR_MAINTENANCE_INTERVAL_MS",
+    "SEARCH_MODEL_ALLOWED_HOSTS",
+    "SEARCH_MODEL_TRUSTED_PRIVATE_HOSTS",
     "ATTACHMENT_TEXT_SCHEMA_MODE",
     "ATTACHMENT_TEXT_TIMEOUT_MS",
     "ATTACHMENT_TEXT_MAX_RESPONSE_BYTES",
+    "ATTACHMENT_TEXT_TRUSTED_PRIVATE_HOSTS",
     "ATTACHMENT_VISUAL_CAPABILITY",
     "ATTACHMENT_VISUAL_SCHEMA_MODE",
     "ATTACHMENT_VISUAL_BASE_URL",
@@ -39,11 +54,27 @@ $agentVariableNames = @(
 )
 foreach ($name in $agentVariableNames) {
     $processValue = [Environment]::GetEnvironmentVariable($name, "Process")
-    if ([string]::IsNullOrWhiteSpace($processValue)) {
-        $userValue = [Environment]::GetEnvironmentVariable($name, "User")
-        if (-not [string]::IsNullOrWhiteSpace($userValue)) {
-            [Environment]::SetEnvironmentVariable($name, $userValue, "Process")
+    $userValue = [Environment]::GetEnvironmentVariable($name, "User")
+    # User-scoped model and gateway settings are the launcher contract. This
+    # prevents a stale parent shell from silently retaining an older model.
+    if (-not [string]::IsNullOrWhiteSpace($userValue)) {
+        [Environment]::SetEnvironmentVariable($name, $userValue, "Process")
+    } elseif ([string]::IsNullOrWhiteSpace($processValue)) {
+        [Environment]::SetEnvironmentVariable($name, $null, "Process")
+    }
+}
+
+# Workspace-specific search activation survives a normal launcher restart.
+# This ignored local file only accepts search switches/model names, never credentials.
+$searchRuntimePath = Join-Path $PSScriptRoot 'data/search-runtime.json'
+if (Test-Path -LiteralPath $searchRuntimePath) {
+    $searchRuntimeNames = @('SEARCH_REMOTE_ENABLED', 'SEARCH_QUERY_MODEL', 'SEARCH_QUERY_REASONING_EFFORT', 'SEARCH_QUERY_TIMEOUT_MS', 'SEARCH_EMBEDDING_MODEL', 'SEARCH_EMBEDDING_DIMENSIONS', 'SEARCH_RERANK_MODEL', 'SEARCH_VECTOR_DIRECTORY', 'SEARCH_VECTOR_MAINTENANCE_ENABLED', 'SEARCH_VECTOR_MAINTENANCE_CONCURRENCY', 'SEARCH_VECTOR_MAINTENANCE_INTERVAL_MS')
+    $searchRuntime = Get-Content -Raw -LiteralPath $searchRuntimePath | ConvertFrom-Json
+    foreach ($setting in $searchRuntime.PSObject.Properties) {
+        if ($setting.Name -notin $searchRuntimeNames -or $setting.Value -isnot [string] -or $setting.Value.Length -gt 1024) {
+            throw 'Invalid local search runtime setting.'
         }
+        [Environment]::SetEnvironmentVariable($setting.Name, $setting.Value, 'Process')
     }
 }
 

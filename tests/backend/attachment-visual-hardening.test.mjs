@@ -310,6 +310,8 @@ test('visual endpoint configuration rejects unsafe schemes, private targets, and
   assert.equal(createAttachmentVisualParser({ ...base, baseUrl: 'https://[64:ff9b::c0a8:101]/v1' }).status().error_code, 'visual_endpoint_blocked')
   assert.equal(createAttachmentVisualParser({ ...base, baseUrl: 'https://[2002:c0a8:101::]/v1' }).status().error_code, 'visual_endpoint_blocked')
   assert.match(readFileSync(new URL('../../start.ps1', import.meta.url), 'utf8'), /"ATTACHMENT_VISUAL_ALLOWED_HOSTS"/u)
+  assert.match(readFileSync(new URL('../../start.ps1', import.meta.url), 'utf8'), /"ATTACHMENT_TEXT_TRUSTED_PRIVATE_HOSTS"/u)
+  assert.match(readFileSync(new URL('../../start.ps1', import.meta.url), 'utf8'), /"NODE_USE_SYSTEM_CA"/u)
 
   const previous = process.env.NODE_ENV
   try {
@@ -794,7 +796,7 @@ test('visual adapter clamps oversized overrides and environment budgets', () => 
     maxTextCharacters: 8_000,
     maxRecords: 100,
     maxResponseBytes: 512 * 1024,
-    timeoutMs: 15_000
+    timeoutMs: 45_000
   }
   const credentials = {
     capability: 'image_input',

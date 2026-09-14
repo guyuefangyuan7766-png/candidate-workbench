@@ -1,0 +1,3528 @@
+{
+  "anonymous": true,
+  "cold_queries": true,
+  "query_cache": false,
+  "unique_queries": 60,
+  "concurrency": 2,
+  "at": "2026-09-10T06:06:20.676Z",
+  "model": "qwen3.8-flash",
+  "reasoning_effort": "none",
+  "budgets_ms": {
+    "query": 18000,
+    "planner": 12000,
+    "embedding": 5000,
+    "rerank": 5000
+  },
+  "limitations": [
+    "Synthetic 80-candidate binary qrels; not a production-data quality claim.",
+    "Fresh temporary index and unique cold application queries; provider prompt caching is not controlled."
+  ],
+  "calls": {
+    "index_embedding": 2,
+    "planner": 60,
+    "embedding": 60,
+    "rerank": 60
+  },
+  "summary": {
+    "total": 60,
+    "model_accepted": 59,
+    "fallback": 1,
+    "failed": 0,
+    "condition_correct": 60,
+    "degraded": 0,
+    "latency_ms": {
+      "p50": 3239.0580999999984,
+      "p95": 4998.368399999992,
+      "max": 12337.622799999997
+    },
+    "stage_ms": {
+      "planner": {
+        "p50": 2843.3973000000115,
+        "p95": 4161.744600000002,
+        "max": 12013.215300000003
+      },
+      "embedding": {
+        "p50": 423.45329999999376,
+        "p95": 1001.5241999999998,
+        "max": 1457.1736999999994
+      },
+      "rerank": {
+        "p50": 313.8804999999993,
+        "p95": 1150.3931000000011,
+        "max": 1958.809500000003
+      }
+    },
+    "recall50": 1,
+    "precision10": 0.5066666666666666,
+    "ndcg10": 1,
+    "mrr": 1
+  },
+  "rows": [
+    {
+      "id": "q-1",
+      "query": "找3到5年经验的后端工程师",
+      "ms": 3222.5841999999993,
+      "timing": {
+        "embedding": 564.2985000000001,
+        "planner": 2914.2135,
+        "rerank": 287.83320000000003
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.3,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "gte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 3
+          },
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "lte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 5
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              8,
+              13
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "找3到5年经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-0",
+      "query": "上海 游戏策划 战斗系统",
+      "ms": 3430.0897999999997,
+      "timing": {
+        "embedding": 555.5083,
+        "planner": 2850.6948999999995,
+        "rerank": 546.2441999999992
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.4,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "current_location",
+            "kind": "filter",
+            "op": "eq",
+            "span": [
+              0,
+              2
+            ],
+            "value": "上海"
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              3,
+              7
+            ],
+            "text": "游戏策划"
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              8,
+              12
+            ],
+            "text": "战斗系统"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "上海 游戏策划 战斗系统",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-3",
+      "query": "Unity 或 Unreal",
+      "ms": 2810.2772999999997,
+      "timing": {
+        "embedding": 157.8654000000006,
+        "planner": 2434.3148,
+        "rerank": 320.86029999999937
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 1,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "kind": "any",
+            "scope": "candidate",
+            "children": [
+              {
+                "evidence_scope": "self",
+                "kind": "term",
+                "match": "concept",
+                "span": [
+                  0,
+                  5
+                ],
+                "text": "Unity"
+              },
+              {
+                "evidence_scope": "self",
+                "kind": "term",
+                "match": "concept",
+                "span": [
+                  8,
+                  14
+                ],
+                "text": "Unreal"
+              }
+            ]
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "Unity 或 Unreal",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-2",
+      "query": "找3年以下经验的后端工程师",
+      "ms": 3365.0853000000006,
+      "timing": {
+        "embedding": 152.16870000000017,
+        "planner": 2805.3584,
+        "rerank": 543.4727000000003
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.6,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "lte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 3
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              8,
+              13
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "找3年以下经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-5",
+      "query": "找熟悉数值策划的人",
+      "ms": 1609.4179999999997,
+      "timing": {
+        "embedding": 466.47969999999987,
+        "planner": 1288.6607000000004,
+        "rerank": 293.6985999999997
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 1,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              3,
+              7
+            ],
+            "text": "数值策划"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "找熟悉数值策划的人",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-4",
+      "query": "Unity 不要外包",
+      "ms": 2656.091699999999,
+      "timing": {
+        "embedding": 425.82550000000083,
+        "planner": 1736.1669000000002,
+        "rerank": 891.5234
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 1,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              0,
+              5
+            ],
+            "text": "Unity"
+          }
+        ],
+        "must_not": [
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              8,
+              10
+            ],
+            "text": "外包"
+          }
+        ],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "Unity 不要外包",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-6",
+      "query": "请找0年以下经验的后端工程师",
+      "ms": 2551.687900000001,
+      "timing": {
+        "embedding": 559.7010000000009,
+        "planner": 2239.0995999999996,
+        "rerank": 294.1147999999994
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.2,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "lte",
+            "span": [
+              2,
+              6
+            ],
+            "value": 0
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              9,
+              14
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "请找0年以下经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-7",
+      "query": "找0年以上经验的后端工程师",
+      "ms": 2496.455,
+      "timing": {
+        "embedding": 743.1370000000006,
+        "planner": 1796.9076000000005,
+        "rerank": 682.2764000000006
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 1,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "gte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 0
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              8,
+              13
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "找0年以上经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-8",
+      "query": "找0到1年经验的后端工程师",
+      "ms": 2195.613800000001,
+      "timing": {
+        "embedding": 480.1168999999991,
+        "planner": 1906.5261999999984,
+        "rerank": 274.58370000000104
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.4,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "gte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 0
+          },
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "lte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 1
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              8,
+              13
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "找0到1年经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-9",
+      "query": "请找1年以下经验的后端工程师",
+      "ms": 4025.9861,
+      "timing": {
+        "embedding": 191.48389999999927,
+        "planner": 3459.0981999999985,
+        "rerank": 552.438900000001
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.4,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "lte",
+            "span": [
+              2,
+              6
+            ],
+            "value": 1
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              9,
+              14
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "请找1年以下经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-10",
+      "query": "找1年以上经验的后端工程师",
+      "ms": 3386.861899999998,
+      "timing": {
+        "embedding": 179.96830000000045,
+        "planner": 3054.7823999999982,
+        "rerank": 316.0356999999967
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.8,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "gte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 1
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              8,
+              13
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "找1年以上经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-11",
+      "query": "找1到2年经验的后端工程师",
+      "ms": 3390.3934999999983,
+      "timing": {
+        "embedding": 447.73099999999977,
+        "planner": 2844.4635000000017,
+        "rerank": 534.3786
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.3,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "gte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 1
+          },
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "lte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 2
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              8,
+              13
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "找1到2年经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-12",
+      "query": "请找2年以下经验的后端工程师",
+      "ms": 3239.0580999999984,
+      "timing": {
+        "embedding": 191.3633000000009,
+        "planner": 2909.118200000001,
+        "rerank": 307.4922000000006
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.5,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "lte",
+            "span": [
+              2,
+              6
+            ],
+            "value": 2
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              9,
+              14
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "请找2年以下经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-13",
+      "query": "找2年以上经验的后端工程师",
+      "ms": 3810.153900000001,
+      "timing": {
+        "embedding": 165.87189999999828,
+        "planner": 3252.4384000000027,
+        "rerank": 544.5897999999979
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.6,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "gte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 2
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              8,
+              13
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "找2年以上经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-14",
+      "query": "找2到3年经验的后端工程师",
+      "ms": 3169.131300000001,
+      "timing": {
+        "embedding": 929.9156000000003,
+        "planner": 2889.6769999999997,
+        "rerank": 267.6239999999998
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.2,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "gte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 2
+          },
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "lte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 3
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              8,
+              13
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "找2到3年经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-15",
+      "query": "请找3年以下经验的后端工程师",
+      "ms": 2830.775600000001,
+      "timing": {
+        "embedding": 174.61929999999847,
+        "planner": 2528.3823999999986,
+        "rerank": 283.96470000000045
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.6,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "lte",
+            "span": [
+              2,
+              6
+            ],
+            "value": 3
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              9,
+              14
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "请找3年以下经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-16",
+      "query": "找3年以上经验的后端工程师",
+      "ms": 3239.9339999999975,
+      "timing": {
+        "embedding": 164.1430999999975,
+        "planner": 2652.723600000001,
+        "rerank": 574.3774999999987
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.5,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "gte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 3
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              8,
+              13
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "找3年以上经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-18",
+      "query": "请找4年以下经验的后端工程师",
+      "ms": 3053.4333000000006,
+      "timing": {
+        "embedding": 1234.3246,
+        "planner": 2480.951699999998,
+        "rerank": 554.9762999999984
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.7,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "lte",
+            "span": [
+              2,
+              6
+            ],
+            "value": 4
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              9,
+              14
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "请找4年以下经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-17",
+      "query": "找3到4年经验的后端工程师",
+      "ms": 3635.358400000001,
+      "timing": {
+        "embedding": 160.14640000000145,
+        "planner": 3324.248599999999,
+        "rerank": 296.59730000000127
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.2,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "gte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 3
+          },
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "lte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 4
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              8,
+              13
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "找3到4年经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-19",
+      "query": "找4年以上经验的后端工程师",
+      "ms": 2779.6476000000002,
+      "timing": {
+        "embedding": 189.92259999999806,
+        "planner": 2480.3423999999977,
+        "rerank": 277.43760000000475
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.4,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "gte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 4
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              8,
+              13
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "找4年以上经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-20",
+      "query": "找4到5年经验的后端工程师",
+      "ms": 4453.9166000000005,
+      "timing": {
+        "embedding": 1001.5241999999998,
+        "planner": 4161.744600000002,
+        "rerank": 279.7350000000006
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.2,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "gte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 4
+          },
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "lte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 5
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              8,
+              13
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "找4到5年经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-21",
+      "query": "请找5年以下经验的后端工程师",
+      "ms": 3347.651700000002,
+      "timing": {
+        "embedding": 453.7998000000007,
+        "planner": 3043.0691000000006,
+        "rerank": 281.0954000000056
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.8,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "lte",
+            "span": [
+              2,
+              6
+            ],
+            "value": 5
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              9,
+              14
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "请找5年以下经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-22",
+      "query": "找5年以上经验的后端工程师",
+      "ms": 3502.9257,
+      "timing": {
+        "embedding": 441.6863999999987,
+        "planner": 3191.8686000000016,
+        "rerank": 297.0705999999991
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.3,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "gte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 5
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              8,
+              13
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "找5年以上经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-23",
+      "query": "找5到6年经验的后端工程师",
+      "ms": 2564.4809999999998,
+      "timing": {
+        "embedding": 415.8387999999977,
+        "planner": 2238.137999999999,
+        "rerank": 311.0063000000009
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.2,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "gte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 5
+          },
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "lte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 6
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              8,
+              13
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "找5到6年经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-24",
+      "query": "请找6年以下经验的后端工程师",
+      "ms": 3745.652000000002,
+      "timing": {
+        "embedding": 457.0604000000021,
+        "planner": 3403.9182999999975,
+        "rerank": 319.10919999999896
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.9,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "lte",
+            "span": [
+              2,
+              6
+            ],
+            "value": 6
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              9,
+              14
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "请找6年以下经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-25",
+      "query": "找6年以上经验的后端工程师",
+      "ms": 3453.2131999999983,
+      "timing": {
+        "embedding": 185.21330000000307,
+        "planner": 3096.6426999999967,
+        "rerank": 337.501400000001
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.2,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "gte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 6
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              8,
+              13
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "找6年以上经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-26",
+      "query": "找6到7年经验的后端工程师",
+      "ms": 3835.625399999997,
+      "timing": {
+        "embedding": 453.76900000000023,
+        "planner": 3538.5574999999953,
+        "rerank": 284.2094999999972
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.2,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "gte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 6
+          },
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "lte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 7
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              8,
+              13
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "找6到7年经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-28",
+      "query": "找7年以上经验的后端工程师",
+      "ms": 2943.5295999999944,
+      "timing": {
+        "embedding": 436.21830000000045,
+        "planner": 2414.681500000006,
+        "rerank": 519.360099999998
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.1,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "gte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 7
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              8,
+              13
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "找7年以上经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-29",
+      "query": "找7到8年经验的后端工程师",
+      "ms": 4356.0250000000015,
+      "timing": {
+        "embedding": 155.33840000000055,
+        "planner": 4069.095699999998,
+        "rerank": 273.99319999999716
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.1,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "gte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 7
+          },
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "lte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 8
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              8,
+              13
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "找7到8年经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-27",
+      "query": "请找7年以下经验的后端工程师",
+      "ms": 12337.622799999997,
+      "timing": {
+        "embedding": 627.2566000000006,
+        "planner": 12013.215300000003,
+        "rerank": 299.3555000000051
+      },
+      "errors": {
+        "planner": "search_model_timeout"
+      },
+      "plan_source": "rules",
+      "plan_warnings": [
+        "model_planning_unavailable"
+      ],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 1,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "version": 1,
+        "must": [
+          {
+            "kind": "filter",
+            "field": "years",
+            "op": "lte",
+            "value": 7,
+            "span": [
+              2,
+              6
+            ]
+          },
+          {
+            "kind": "term",
+            "text": "后端工程师",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              9,
+              14
+            ]
+          }
+        ],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [],
+        "unresolved": [],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_planning_unavailable"
+          ],
+          "query": "请找7年以下经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-30",
+      "query": "上海 Unity",
+      "ms": 2855.034400000004,
+      "timing": {
+        "embedding": 419.6926999999996,
+        "planner": 2548.0164000000004,
+        "rerank": 287.47060000000056
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 1,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "current_location",
+            "kind": "filter",
+            "op": "eq",
+            "span": [
+              0,
+              2
+            ],
+            "value": "上海"
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              3,
+              8
+            ],
+            "text": "Unity"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "上海 Unity",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-31",
+      "query": "上海 Unreal",
+      "ms": 3181.1430000000037,
+      "timing": {
+        "embedding": 407.5179999999964,
+        "planner": 2823.4532999999938,
+        "rerank": 341.6938000000009
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.4,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "current_location",
+            "kind": "filter",
+            "op": "eq",
+            "span": [
+              0,
+              2
+            ],
+            "value": "上海"
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              3,
+              9
+            ],
+            "text": "Unreal"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "上海 Unreal",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-33",
+      "query": "上海 数值策划",
+      "ms": 2981.531599999995,
+      "timing": {
+        "embedding": 1457.1736999999994,
+        "planner": 1811.9588000000003,
+        "rerank": 1150.3931000000011
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.6,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "current_location",
+            "kind": "filter",
+            "op": "eq",
+            "span": [
+              0,
+              2
+            ],
+            "value": "上海"
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              3,
+              7
+            ],
+            "text": "数值策划"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "上海 数值策划",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-32",
+      "query": "上海 后端工程师",
+      "ms": 5046.854900000006,
+      "timing": {
+        "embedding": 400.1105000000025,
+        "planner": 4731.714500000002,
+        "rerank": 301.15209999999934
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.3,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "current_location",
+            "kind": "filter",
+            "op": "eq",
+            "span": [
+              0,
+              2
+            ],
+            "value": "上海"
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              3,
+              8
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "上海 后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-34",
+      "query": "北京 Unity",
+      "ms": 2490.7930999999953,
+      "timing": {
+        "embedding": 421.02739999999903,
+        "planner": 2169.106200000002,
+        "rerank": 300.4988999999987
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 1,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "current_location",
+            "kind": "filter",
+            "op": "eq",
+            "span": [
+              0,
+              2
+            ],
+            "value": "北京"
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              3,
+              8
+            ],
+            "text": "Unity"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "北京 Unity",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-35",
+      "query": "北京 Unreal",
+      "ms": 2462.3998999999967,
+      "timing": {
+        "embedding": 949.4976000000024,
+        "planner": 1888.6039999999994,
+        "rerank": 554.3738999999987
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.3,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "current_location",
+            "kind": "filter",
+            "op": "eq",
+            "span": [
+              0,
+              2
+            ],
+            "value": "北京"
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              3,
+              9
+            ],
+            "text": "Unreal"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "北京 Unreal",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-36",
+      "query": "北京 后端工程师",
+      "ms": 2491.6277999999947,
+      "timing": {
+        "embedding": 432.88490000000456,
+        "planner": 2160.926299999999,
+        "rerank": 309.14079999999376
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.4,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "current_location",
+            "kind": "filter",
+            "op": "eq",
+            "span": [
+              0,
+              2
+            ],
+            "value": "北京"
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              3,
+              8
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "北京 后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-37",
+      "query": "北京 数值策划",
+      "ms": 3604.0120000000024,
+      "timing": {
+        "embedding": 617.2532999999967,
+        "planner": 1630.117999999995,
+        "rerank": 1958.809500000003
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.7,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "current_location",
+            "kind": "filter",
+            "op": "eq",
+            "span": [
+              0,
+              2
+            ],
+            "value": "北京"
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              3,
+              7
+            ],
+            "text": "数值策划"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "北京 数值策划",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-38",
+      "query": "杭州 Unity",
+      "ms": 3494.8882000000012,
+      "timing": {
+        "embedding": 177.68530000001192,
+        "planner": 2892.1880999999994,
+        "rerank": 584.1975999999995
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 1,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "current_location",
+            "kind": "filter",
+            "op": "eq",
+            "span": [
+              0,
+              2
+            ],
+            "value": "杭州"
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              3,
+              8
+            ],
+            "text": "Unity"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "杭州 Unity",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-39",
+      "query": "杭州 Unreal",
+      "ms": 4998.368399999992,
+      "timing": {
+        "embedding": 177.83810000000813,
+        "planner": 3634.1875,
+        "rerank": 1351.289499999999
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.3,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "current_location",
+            "kind": "filter",
+            "op": "eq",
+            "span": [
+              0,
+              2
+            ],
+            "value": "杭州"
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              3,
+              9
+            ],
+            "text": "Unreal"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "杭州 Unreal",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-40",
+      "query": "杭州 后端工程师",
+      "ms": 3753.294900000008,
+      "timing": {
+        "embedding": 145.664300000004,
+        "planner": 3462.2614999999932,
+        "rerank": 278.48979999999574
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.3,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "current_location",
+            "kind": "filter",
+            "op": "eq",
+            "span": [
+              0,
+              2
+            ],
+            "value": "杭州"
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              3,
+              8
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "杭州 后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-41",
+      "query": "杭州 数值策划",
+      "ms": 2769.674399999989,
+      "timing": {
+        "embedding": 451.6293000000005,
+        "planner": 2189.217499999999,
+        "rerank": 565.979800000001
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.7,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "current_location",
+            "kind": "filter",
+            "op": "eq",
+            "span": [
+              0,
+              2
+            ],
+            "value": "杭州"
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              3,
+              7
+            ],
+            "text": "数值策划"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "杭州 数值策划",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-42",
+      "query": "上海 Unity 不要外包",
+      "ms": 2883.5246999999945,
+      "timing": {
+        "embedding": 477.0862999999954,
+        "planner": 2275.98550000001,
+        "rerank": 573.6208000000042
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.7,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "current_location",
+            "kind": "filter",
+            "op": "eq",
+            "span": [
+              0,
+              2
+            ],
+            "value": "上海"
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              3,
+              8
+            ],
+            "text": "Unity"
+          }
+        ],
+        "must_not": [
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              11,
+              13
+            ],
+            "text": "外包"
+          }
+        ],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "上海 Unity 不要外包",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-43",
+      "query": "请找 上海 游戏策划 战斗系统",
+      "ms": 3186.265900000013,
+      "timing": {
+        "embedding": 329.57330000000366,
+        "planner": 2850.9496999999974,
+        "rerank": 318.1064000000042
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.4,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "current_location",
+            "kind": "filter",
+            "op": "eq",
+            "span": [
+              3,
+              5
+            ],
+            "value": "上海"
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              6,
+              10
+            ],
+            "text": "游戏策划"
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              11,
+              15
+            ],
+            "text": "战斗系统"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "请找 上海 游戏策划 战斗系统",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-44",
+      "query": "北京 Unity 不要外包",
+      "ms": 4514.775399999999,
+      "timing": {
+        "embedding": 164.68020000000251,
+        "planner": 3962.7871999999916,
+        "rerank": 530.3243999999977
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.7,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "current_location",
+            "kind": "filter",
+            "op": "eq",
+            "span": [
+              0,
+              2
+            ],
+            "value": "北京"
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              3,
+              8
+            ],
+            "text": "Unity"
+          }
+        ],
+        "must_not": [
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              11,
+              13
+            ],
+            "text": "外包"
+          }
+        ],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "北京 Unity 不要外包",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-45",
+      "query": "请找 北京 游戏策划 战斗系统",
+      "ms": 3389.775800000003,
+      "timing": {
+        "embedding": 148.0124000000069,
+        "planner": 3073.1907999999967,
+        "rerank": 296.48979999999574
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.3,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "current_location",
+            "kind": "filter",
+            "op": "eq",
+            "span": [
+              3,
+              5
+            ],
+            "value": "北京"
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              6,
+              10
+            ],
+            "text": "游戏策划"
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              11,
+              15
+            ],
+            "text": "战斗系统"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "请找 北京 游戏策划 战斗系统",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-46",
+      "query": "杭州 Unity 不要外包",
+      "ms": 4679.949900000007,
+      "timing": {
+        "embedding": 255.78149999999732,
+        "planner": 4105.987999999998,
+        "rerank": 553.917100000006
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.6,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "current_location",
+            "kind": "filter",
+            "op": "eq",
+            "span": [
+              0,
+              2
+            ],
+            "value": "杭州"
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              3,
+              8
+            ],
+            "text": "Unity"
+          }
+        ],
+        "must_not": [
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              11,
+              13
+            ],
+            "text": "外包"
+          }
+        ],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "杭州 Unity 不要外包",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-47",
+      "query": "请找 杭州 游戏策划 战斗系统",
+      "ms": 3878.224900000001,
+      "timing": {
+        "embedding": 167.02939999999944,
+        "planner": 3551.560200000007,
+        "rerank": 306.2280000000028
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.3,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "current_location",
+            "kind": "filter",
+            "op": "eq",
+            "span": [
+              3,
+              5
+            ],
+            "value": "杭州"
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              6,
+              10
+            ],
+            "text": "游戏策划"
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              11,
+              15
+            ],
+            "text": "战斗系统"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "请找 杭州 游戏策划 战斗系统",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-48",
+      "query": "不足1年经验的后端工程师",
+      "ms": 2058.337599999999,
+      "timing": {
+        "embedding": 466.6006999999954,
+        "planner": 1750.9766999999993,
+        "rerank": 295.93060000000696
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.2,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "lt",
+            "span": [
+              0,
+              4
+            ],
+            "value": 1
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              7,
+              12
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "不足1年经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-49",
+      "query": "超过1年经验的后端工程师",
+      "ms": 3412.128500000006,
+      "timing": {
+        "embedding": 175.58379999999306,
+        "planner": 2815.9796999999962,
+        "rerank": 562.1396000000095
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.6,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "gt",
+            "span": [
+              0,
+              4
+            ],
+            "value": 1
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              7,
+              12
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "超过1年经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-50",
+      "query": "不足2年经验的后端工程师",
+      "ms": 2623.1833000000042,
+      "timing": {
+        "embedding": 192.09120000000985,
+        "planner": 2289.2734000000055,
+        "rerank": 313.8804999999993
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.4,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "lt",
+            "span": [
+              0,
+              4
+            ],
+            "value": 2
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              7,
+              12
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "不足2年经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-51",
+      "query": "超过2年经验的后端工程师",
+      "ms": 3205.733500000002,
+      "timing": {
+        "embedding": 187.88300000000163,
+        "planner": 2895.7541999999958,
+        "rerank": 296.48629999998957
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.5,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "gt",
+            "span": [
+              0,
+              4
+            ],
+            "value": 2
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              7,
+              12
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "超过2年经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-52",
+      "query": "不足3年经验的后端工程师",
+      "ms": 2594.172099999996,
+      "timing": {
+        "embedding": 722.0097999999998,
+        "planner": 2274.3543999999965,
+        "rerank": 306.5207000000082
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.5,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "lt",
+            "span": [
+              0,
+              4
+            ],
+            "value": 3
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              7,
+              12
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "不足3年经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-53",
+      "query": "超过3年经验的后端工程师",
+      "ms": 3647.5121999999974,
+      "timing": {
+        "embedding": 170.69619999999122,
+        "planner": 3069.6906000000017,
+        "rerank": 538.8166000000056
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.4,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "gt",
+            "span": [
+              0,
+              4
+            ],
+            "value": 3
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              7,
+              12
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "超过3年经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-54",
+      "query": "不足4年经验的后端工程师",
+      "ms": 3301.401700000002,
+      "timing": {
+        "embedding": 487.9951999999903,
+        "planner": 2995.965599999996,
+        "rerank": 285.2097000000067
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.6,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "lt",
+            "span": [
+              0,
+              4
+            ],
+            "value": 4
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              7,
+              12
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "不足4年经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-56",
+      "query": "不足5年经验的后端工程师",
+      "ms": 1886.436600000001,
+      "timing": {
+        "embedding": 428.78489999999874,
+        "planner": 1566.0984000000026,
+        "rerank": 295.17780000000494
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.7,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "lt",
+            "span": [
+              0,
+              4
+            ],
+            "value": 5
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              7,
+              12
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "不足5年经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-55",
+      "query": "超过4年经验的后端工程师",
+      "ms": 2955.965400000001,
+      "timing": {
+        "embedding": 423.45329999999376,
+        "planner": 2368.0815999999904,
+        "rerank": 570.6938000000082
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.3,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "gt",
+            "span": [
+              0,
+              4
+            ],
+            "value": 4
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              7,
+              12
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "超过4年经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-57",
+      "query": "超过5年经验的后端工程师",
+      "ms": 1856.4565000000002,
+      "timing": {
+        "embedding": 450.88489999999,
+        "planner": 1522.7724000000017,
+        "rerank": 309.3738999999914
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.2,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "gt",
+            "span": [
+              0,
+              4
+            ],
+            "value": 5
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              7,
+              12
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "超过5年经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-58",
+      "query": "不足6年经验的后端工程师",
+      "ms": 2472.113400000002,
+      "timing": {
+        "embedding": 193.9436999999889,
+        "planner": 2146.945700000011,
+        "rerank": 310.7326999999932
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.8,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "lt",
+            "span": [
+              0,
+              4
+            ],
+            "value": 6
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              7,
+              12
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "不足6年经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "id": "q-59",
+      "query": "超过6年经验的后端工程师",
+      "ms": 3444.609400000001,
+      "timing": {
+        "embedding": 440.85430000000633,
+        "planner": 2843.3973000000115,
+        "rerank": 590.3341999999975
+      },
+      "errors": {},
+      "plan_source": "model",
+      "plan_warnings": [],
+      "condition_correct": true,
+      "degradation": [],
+      "recall50": 1,
+      "precision10": 0.1,
+      "ndcg10": 1,
+      "mrr": 1,
+      "zero_result_correct": null,
+      "actual_plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "gt",
+            "span": [
+              0,
+              4
+            ],
+            "value": 6
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              7,
+              12
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "超过6年经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    }
+  ]
+}

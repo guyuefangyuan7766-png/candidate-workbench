@@ -1,0 +1,72 @@
+/* Search-only additions. Existing layout and navigation remain in styles.css. */
+.resume-search-panel { container-type: inline-size; }
+.resume-search-panel .resume-search-form { min-height: 52px; border-radius: 8px; gap: 10px; }
+.resume-search-panel .resume-search-form input { height: 36px; font-size: 15px; }
+.resume-search-panel .resume-search-filters { gap: 10px 16px; margin-top: 14px; }
+.resume-search-panel .resume-search-filters label > span { font-size: 12px; color: #535d75; }
+.resume-search-panel .resume-search-filters select { height: 36px; font-size: 13px; }
+.resume-search-panel .resume-archive-filter button { min-height: 32px; font-size: 12px; }
+.resume-search-panel .resume-results-summary { flex-wrap: wrap; font-size: 13px; line-height: 1.6; padding-block: 16px 10px; }
+.resume-search-panel .resume-results-summary > span { white-space: normal; overflow-wrap: anywhere; }
+.resume-search-panel .resume-result-main strong { font-size: 15px; white-space: normal; overflow-wrap: anywhere; }
+.resume-search-panel .resume-result-main > span:first-child { flex-wrap: wrap; }
+.resume-search-panel .resume-result-main .resume-current-meta { font-size: 12px; white-space: normal; overflow-wrap: anywhere; }
+.resume-search-panel .resume-match-fields i { font-size: 11px; white-space: normal; overflow-wrap: anywhere; }
+.resume-search-panel .resume-evidence-snippet { font-size: 13px; line-height: 1.65; }
+.resume-search-panel .resume-evidence-source b { font-size: 12px; }
+.resume-search-panel .resume-evidence-source > span { font-size: 11px; }
+.resume-search-panel .resume-evidence { background: #f8f9fc; padding: 10px 12px; gap: 6px; }
+.resume-search-panel .resume-evidence-detail { font-size: 12px; }
+.resume-search-panel .resume-evidence-detail summary { min-height: 28px; padding-block: 4px; }
+.resume-search-panel .resume-evidence-terms mark { max-width: 100%; white-space: normal; overflow-wrap: anywhere; font-size: 11px; }
+.resume-search-panel .resume-result-details > small { font-size: 12px; line-height: 1.6; }
+.resume-search-panel .assistant-tool-empty strong { font-size: 16px; }
+.resume-search-panel .assistant-tool-empty span { font-size: 13px; overflow-wrap: anywhere; }
+.resume-search-panel .assistant-tool-error, .resume-search-panel .resume-result-pagination span { font-size: 12px; }
+.resume-search-panel .icon-button { min-width: 32px; min-height: 32px; flex-shrink: 0; }
+.resume-search-panel .resume-search-progress { display: flex; align-items: center; gap: 8px; }
+.resume-search-panel .resume-search-progress > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.resume-query-status, .resume-options-status, .resume-degradation { margin-top: 8px; padding: 8px 10px; color: var(--muted); background: var(--surface-soft); border: 1px solid var(--line); border-radius: var(--radius-sm); font-size: 10px; line-height: 1.5; }
+.resume-search-panel .resume-query-status, .resume-search-panel .resume-options-status, .resume-search-panel .resume-degradation { font-size: 12px; color: #535d75; overflow-wrap: anywhere; }
+.resume-degradation { display: grid; gap: 4px; }
+.resume-options-status.is-error, .resume-degradation { color: var(--red); background: var(--red-soft); border-color: #f0c8c5; }
+.resume-options-status button { margin-left: 5px; color: var(--primary); background: transparent; border: 0; text-decoration: underline; cursor: pointer; }
+.resume-condition-summary { margin-top: 9px; padding: 7px 9px; color: var(--ink-soft); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); font-size: 10px; }
+.resume-condition-summary summary { cursor: pointer; font-weight: 600; }
+.resume-condition-summary > div { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+.resume-condition { max-width: 100%; padding: 3px 6px; border-radius: 4px; background: var(--surface-muted); overflow-wrap: anywhere; }
+.resume-search-panel .resume-condition-summary { font-size: 12px; }
+.resume-condition-summary summary { min-height: 28px; padding-block: 4px; }
+.resume-condition.is-required { color: #315ca8; background: var(--blue-soft); }
+.resume-condition.is-excluded { color: #9b3f3c; background: var(--red-soft); }
+.resume-condition.is-unresolved { color: #8a5a16; background: #fff5d6; }
+.resume-condition-status { color: #8a5a16 !important; }
+.resume-current-meta { flex: 0 1 auto; min-width: 0; overflow: hidden; color: var(--muted); font-size: 9px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
+.resume-result-details { display: grid; gap: 5px; min-width: 0; padding: 0 4px 11px 40px; }
+.resume-result-details > .resume-legacy-snippet { display: -webkit-box; overflow: hidden; color: var(--ink-soft); font-size: 10px; line-height: 1.55; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.resume-result-details > small { color: var(--muted); font-size: 9px; overflow-wrap: anywhere; }
+.resume-evidence-source > span { color: var(--muted); font-size: 8px; }
+.resume-evidence-ownership { color: #95601c !important; }
+.resume-evidence-detail { margin-top: 2px; color: var(--muted); font-size: 9px; }
+.resume-evidence-detail summary { width: fit-content; cursor: pointer; }
+.resume-evidence-expanded { display: grid; gap: 4px; margin-top: 4px; }
+.resume-evidence-expanded .resume-evidence-snippet { display: block; -webkit-line-clamp: unset; }
+.resume-evidence-expanded small { color: var(--muted); }
+@container (max-width: 560px) {
+  .resume-search-filters { grid-template-columns: 1fr; }
+  .resume-archive-filter { grid-column: 1; }
+}
+@media (max-width: 720px) {
+  .resume-search-panel .resume-search-form input { font-size: 16px; }
+  .resume-search-panel .resume-result-details { padding-left: 4px; }
+  .resume-search-panel .resume-results-summary strong { flex-basis: 100%; }
+}
+@media (max-width: 390px) {
+  .assistant-tool-panel.resume-search-panel { padding-inline: 12px !important; }
+  .resume-search-form { grid-template-columns: 16px minmax(0, 1fr) auto; }
+  .resume-search-form input { font-size: 16px; }
+  .resume-search-filters select, .resume-archive-filter button { min-height: 38px; font-size: 12px; }
+  .resume-search-filters label { grid-template-columns: 44px minmax(0, 1fr); }
+  .resume-search-results article > button { gap: 7px; padding-block: 12px; }
+  .resume-result-main strong { font-size: 13px; }
+}

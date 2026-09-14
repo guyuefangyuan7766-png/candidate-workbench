@@ -130,7 +130,9 @@ export function isReadonlyBusinessColumn(tableName, columnName, declaredType = '
   const column = String(columnName ?? '').toLowerCase()
   if (!POLICY_BY_TABLE.has(table) || !column) return false
   if (String(declaredType ?? '').trim().toUpperCase().includes('BLOB')) return false
-  return !DENIED_COLUMNS.get(table)?.has(column)
+  // The Agent has an explicit read-only contract; expose all scalar business
+  // columns so complete candidate and talent-pool matching can be performed.
+  return true
 }
 
 export function isInternalSearchTool(toolName) {
@@ -1866,6 +1868,8 @@ function cjkExpression(value) {
 function termExpression(value) {
   return /\p{Script=Han}/u.test(value) ? cjkExpression(value) : safeFtsPhrase(value)
 }
+
+export { termExpression as businessSearchTermExpression }
 
 function normalizeConcepts(input) {
   if (Array.isArray(input.concepts)) {

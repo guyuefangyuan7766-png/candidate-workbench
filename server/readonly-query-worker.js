@@ -17,6 +17,7 @@ const SAFE_FUNCTIONS = new Set([
   'glob', 'group_concat', 'hex', 'highlight', 'if', 'ifnull', 'iif', 'instr', 'json',
   'json_array', 'json_array_length', 'json_error_position', 'json_extract', 'json_group_array',
   'json_group_object', 'json_insert', 'json_object', 'json_patch', 'json_pretty', 'json_quote',
+  'json_each', 'json_tree',
   'json_remove', 'json_replace', 'json_set', 'json_type', 'json_valid', 'julianday', 'lag',
   'last_value', 'lead', 'length', 'like', 'likelihood', 'likely', 'ln', 'log', 'log10',
   'log2', 'lower', 'ltrim', 'match', 'max', 'min', 'mod', 'nth_value', 'ntile', 'nullif',

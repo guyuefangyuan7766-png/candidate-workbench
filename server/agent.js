@@ -415,9 +415,11 @@ export const TOOL_DEFINITIONS = [
   ),
   functionTool(
     'search_candidate_resumes',
-    '在候选人及其全部关联业务字段的 FTS5 索引上混合检索，按候选人去重并返回 Top-K 证据。',
+    '按自然语言条件检索候选人本人履历，执行资格、AND/OR/排除和精确短语；返回本人证据、完整性和降级提示。职位/人才库只作关系筛选，要求不能证明本人能力。',
     {
       query: { type: 'string', minLength: 1, maxLength: 500 },
+      phrases: { type: 'array', maxItems: 16, items: { type: 'string', minLength: 1, maxLength: 80 } },
+      cursor: { type: 'string', maxLength: 2048 },
       keywords: { type: 'array', maxItems: 16, items: { type: 'string', minLength: 1, maxLength: 80 } },
       match_mode: { type: 'string', enum: ['all', 'any'], default: 'all' },
       archived: { type: 'string', enum: ['include', 'exclude', 'only'], default: 'include' },
@@ -496,6 +498,9 @@ function agentConfig(overrides = {}) {
     attachmentSuggestionDnsLookup: typeof overrides.attachmentSuggestionDnsLookup === 'function'
       ? overrides.attachmentSuggestionDnsLookup
       : lookup,
+    attachmentSuggestionTrustedPrivateHosts: trustedPrivateHostnameSet(
+      overrides.attachmentSuggestionTrustedPrivateHosts ?? process.env.ATTACHMENT_TEXT_TRUSTED_PRIVATE_HOSTS
+    ),
     attachmentSuggestionHttpRequest: typeof overrides.attachmentSuggestionHttpRequest === 'function'
       ? overrides.attachmentSuggestionHttpRequest
       : httpRequest,
@@ -508,6 +513,36 @@ function agentConfig(overrides = {}) {
 function endpointFor(baseUrl) {
   const value = String(baseUrl ?? '').trim().replace(/\/+$/, '')
   return value.endsWith('/chat/completions') ? value : `${value}/chat/completions`
+}
+
+function trustedPrivateHostnameSet(value) {
+  const values = Array.isArray(value) ? value : String(value ?? '').split(',')
+  return new Set(values
+    .map((entry) => String(entry ?? '').trim().toLowerCase().replace(/^\[|\]$/gu, '').replace(/\.$/u, ''))
+    .filter((hostname) => hostname && isIP(hostname) === 0 && !hostname.includes('*')))
+}
+
+function companyPrivateIpv6(address) {
+  const normalized = String(address ?? '').toLowerCase().split('%')[0]
+  if (isIP(normalized) !== 6 || normalized.includes('.')) return false
+  const halves = normalized.split('::')
+  if (halves.length > 2) return false
+  const left = halves[0] ? halves[0].split(':') : []
+  const right = halves[1] ? halves[1].split(':') : []
+  const missing = 8 - left.length - right.length
+  if ((halves.length === 1 && missing !== 0) || missing < 0) return false
+  const words = [...left, ...Array(missing).fill('0'), ...right].map((word) => Number.parseInt(word || '0', 16))
+  return words.length === 8 && words.every((word) => Number.isInteger(word) && word >= 0 && word <= 0xffff) &&
+    (words[0] & 0xfe00) === 0xfc00
+}
+
+function companyPrivateAddress(address) {
+  const normalized = String(address ?? '').split('%')[0]
+  if (isIP(normalized) === 4) {
+    const [first, second] = normalized.split('.').map(Number)
+    return first === 10 || (first === 172 && second >= 16 && second <= 31) || (first === 192 && second === 168)
+  }
+  return companyPrivateIpv6(normalized)
 }
 
 function attachmentSuggestionEndpointError(baseUrl) {
@@ -570,12 +605,15 @@ async function assertAttachmentSuggestionEndpointDns(config, signal) {
     family: Number(entry?.family) || isIP(String(entry?.address ?? '').split('%')[0])
   })) : []
   const loopbackHttp = endpoint.protocol === 'http:' && process.env.NODE_ENV !== 'production' && loopback
+  const trustedPrivateHostname = config.attachmentSuggestionTrustedPrivateHosts.has(hostname)
+  const invalidResolvedAddress = ({ address, family }) => {
+    if (![4, 6].includes(family) || isIP(address) !== family) return true
+    if (loopbackHttp) return !(address === '::1' || (isIP(address) === 4 && address.split('.')[0] === '127'))
+    if (trustedPrivateHostname) return endpoint.protocol !== 'https:' || !companyPrivateAddress(address)
+    return isBlockedNetworkAddress(address)
+  }
   if (!values.length || values.some(({ address, family }) => ![4, 6].includes(family) || isIP(address) !== family) ||
-      values.some(({ address }) => isBlockedNetworkAddress(address) && !loopbackHttp) ||
-      (loopbackHttp && values.some(({ address }) => {
-        const normalized = address
-        return !(normalized === '::1' || (isIP(normalized) === 4 && normalized.split('.')[0] === '127'))
-      }))) {
+      values.some(invalidResolvedAddress)) {
     throw attachmentSuggestionEndpointFailure('attachment_suggestion_endpoint_invalid')
   }
   return { endpoint, addresses: values }
@@ -1820,6 +1858,9 @@ export function createAgentService(db, overrides = {}) {
       throw error
     }
     throwIfTaskAborted(context.signal)
+    if (name === 'search_candidate_resumes' && overrides.hybridSearchService) {
+      return overrides.hybridSearchService.search({ ...args, page_size: Math.min(50, Number(args.page_size ?? args.limit) || 20) }, { signal: context.signal })
+    }
     if (name === 'search_all_records' || name === 'search_candidate_resumes') {
       // Index maintenance happens at database startup/background flush time. Never
       // synchronously backfill millions of rows inside an Agent request.
@@ -1919,9 +1960,12 @@ export function createAgentService(db, overrides = {}) {
 
       if (!response.ok) {
         const canRetry = retryableGatewayStatus(response.status)
-        try { await response.body?.cancel?.() } catch {}
+        let gatewayMessage = ''
+        try {
+          gatewayMessage = (await response.text()).trim().slice(0, 1000)
+        } catch {}
         await recordPhase(`model_gateway_wait`, gatewayStartedAt, `agent_gateway_http_${response.status}`, options)
-        const error = new Error(`Agent 模型服务返回 ${response.status}`)
+        const error = new Error(`Agent 模型服务返回 ${response.status}${gatewayMessage ? `: ${gatewayMessage}` : ''}`)
         error.status = response.status === 408 ? 408 : 502
         error.code = 'agent_gateway_error'
         error.retryable = canRetry
@@ -2796,6 +2840,10 @@ export function createAgentService(db, overrides = {}) {
 
   return {
     status() {
+      const hybridStatus = overrides.hybridSearchService?.status?.()
+      const vectorEnabled = hybridStatus
+        ? Boolean(hybridStatus.model?.remote_enabled && hybridStatus.model?.embedding && hybridStatus.vector?.available && hybridStatus.vector?.loaded && hybridStatus.vector?.current)
+        : config.embeddingSupported
       return {
         configured: missing.length === 0,
         model: config.model || null,
@@ -2835,9 +2883,11 @@ export function createAgentService(db, overrides = {}) {
           internet_enabled: true
         },
         vector_search: {
-          enabled: config.embeddingSupported,
+          enabled: vectorEnabled,
           fallback: 'sqlite_fts5',
-          reason: config.embeddingSupported ? null : '现有网关未确认 Embedding 能力，未连接其他服务'
+          reason: vectorEnabled ? null : hybridStatus
+            ? hybridStatus.model?.remote_enabled ? '向量索引或模型配置暂未就绪，当前使用本地检索' : '远程混合检索未启用，当前使用本地检索'
+            : '现有网关未确认 Embedding 能力，未连接其他服务'
         },
         missing
       }

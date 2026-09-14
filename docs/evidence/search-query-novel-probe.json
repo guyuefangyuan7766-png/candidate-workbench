@@ -1,0 +1,377 @@
+{
+  "anonymous": true,
+  "database_access": false,
+  "cold_queries": true,
+  "reasoning_effort": "none",
+  "concurrency": 2,
+  "at": "2026-09-10T06:07:11.743Z",
+  "summary": [
+    {
+      "model": "qwen3.8-flash",
+      "count": 4,
+      "model_accepted": 3,
+      "condition_correct": 3,
+      "latency_ms": {
+        "p50": 3710.0654999999997,
+        "p95": 3746.9393,
+        "max": 3746.9393
+      }
+    }
+  ],
+  "rows": [
+    {
+      "model": "qwen3.8-flash",
+      "id": "novel-location",
+      "query": "深圳 可观测性",
+      "milliseconds": 2870.2608,
+      "source": "model",
+      "correct": true,
+      "error_code": null,
+      "warnings": [],
+      "plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "current_location",
+            "kind": "filter",
+            "op": "eq",
+            "span": [
+              0,
+              2
+            ],
+            "value": "深圳"
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              3,
+              7
+            ],
+            "text": "可观测性"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "深圳 可观测性",
+          "schemaVersion": 1
+        }
+      },
+      "proposed": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "current_location",
+            "kind": "filter",
+            "op": "eq",
+            "span": [
+              0,
+              2
+            ],
+            "value": "深圳"
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              3,
+              7
+            ],
+            "text": "可观测性"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1
+      },
+      "validation_issue": null
+    },
+    {
+      "model": "qwen3.8-flash",
+      "id": "novel-or",
+      "query": "可观测性 OR 链路追踪",
+      "milliseconds": 3746.9393,
+      "source": "model",
+      "correct": true,
+      "error_code": null,
+      "warnings": [],
+      "plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "kind": "any",
+            "scope": "candidate",
+            "children": [
+              {
+                "evidence_scope": "self",
+                "kind": "term",
+                "match": "concept",
+                "span": [
+                  0,
+                  4
+                ],
+                "text": "可观测性"
+              },
+              {
+                "evidence_scope": "self",
+                "kind": "term",
+                "match": "concept",
+                "span": [
+                  8,
+                  12
+                ],
+                "text": "链路追踪"
+              }
+            ]
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "可观测性 OR 链路追踪",
+          "schemaVersion": 1
+        }
+      },
+      "proposed": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "children": [
+              {
+                "evidence_scope": "self",
+                "kind": "term",
+                "match": "concept",
+                "span": [
+                  0,
+                  4
+                ],
+                "text": "可观测性"
+              },
+              {
+                "evidence_scope": "self",
+                "kind": "term",
+                "match": "concept",
+                "span": [
+                  8,
+                  12
+                ],
+                "text": "链路追踪"
+              }
+            ],
+            "kind": "any",
+            "scope": "candidate"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1
+      },
+      "validation_issue": null
+    },
+    {
+      "model": "qwen3.8-flash",
+      "id": "novel-exclusion",
+      "query": "(可观测性 OR 链路追踪) AND NOT 外包",
+      "milliseconds": 3710.0654999999997,
+      "source": "model",
+      "correct": true,
+      "error_code": null,
+      "warnings": [],
+      "plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "kind": "any",
+            "scope": "candidate",
+            "children": [
+              {
+                "evidence_scope": "self",
+                "kind": "term",
+                "match": "concept",
+                "span": [
+                  1,
+                  5
+                ],
+                "text": "可观测性"
+              },
+              {
+                "evidence_scope": "self",
+                "kind": "term",
+                "match": "concept",
+                "span": [
+                  9,
+                  13
+                ],
+                "text": "链路追踪"
+              }
+            ]
+          }
+        ],
+        "must_not": [
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              23,
+              25
+            ],
+            "text": "外包"
+          }
+        ],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "(可观测性 OR 链路追踪) AND NOT 外包",
+          "schemaVersion": 1
+        }
+      },
+      "proposed": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "children": [
+              {
+                "evidence_scope": "self",
+                "kind": "term",
+                "match": "concept",
+                "span": [
+                  1,
+                  5
+                ],
+                "text": "可观测性"
+              },
+              {
+                "evidence_scope": "self",
+                "kind": "term",
+                "match": "concept",
+                "span": [
+                  9,
+                  13
+                ],
+                "text": "链路追踪"
+              }
+            ],
+            "kind": "any",
+            "scope": "candidate"
+          }
+        ],
+        "must_not": [
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              23,
+              25
+            ],
+            "text": "外包"
+          }
+        ],
+        "should": [],
+        "unresolved": [],
+        "version": 1
+      },
+      "validation_issue": null
+    },
+    {
+      "model": "qwen3.8-flash",
+      "id": "novel-record",
+      "query": "同一项目 可观测性 AND 链路追踪",
+      "milliseconds": 2851.9619,
+      "source": "rules",
+      "correct": false,
+      "error_code": null,
+      "warnings": [
+        "model_plan_constraints_changed"
+      ],
+      "plan": {
+        "version": 1,
+        "must": [],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [],
+        "unresolved": [
+          {
+            "text": "可观测性",
+            "span": [
+              5,
+              9
+            ],
+            "reason": "ambiguous",
+            "impact": "required"
+          },
+          {
+            "text": "链路追踪",
+            "span": [
+              14,
+              18
+            ],
+            "reason": "ambiguous",
+            "impact": "required"
+          }
+        ],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_plan_constraints_changed"
+          ],
+          "query": "同一项目 可观测性 AND 链路追踪",
+          "schemaVersion": 1
+        }
+      },
+      "proposed": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "children": [
+              {
+                "evidence_scope": "self",
+                "kind": "term",
+                "match": "concept",
+                "span": [
+                  5,
+                  9
+                ],
+                "text": "可观测性"
+              },
+              {
+                "evidence_scope": "self",
+                "kind": "term",
+                "match": "concept",
+                "span": [
+                  14,
+                  18
+                ],
+                "text": "链路追踪"
+              }
+            ],
+            "kind": "all",
+            "scope": "record"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1
+      },
+      "validation_issue": null
+    }
+  ]
+}

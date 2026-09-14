@@ -17,6 +17,7 @@ import {
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
+  Paperclip,
   Plus,
   Search,
   Sparkles,
@@ -69,6 +70,7 @@ import { PermanentDeleteDialog, type PermanentDeleteEntity } from "./components/
 import { TalentPoolPage } from "./components/TalentPoolPage";
 
 type Page = "dashboard" | "candidates" | "talent-pools" | "positions" | "position-detail";
+type ToolPage = "assistant" | "resume-search" | "attachment-parser";
 type CandidateView = "list" | "grouped";
 type ArchiveFilter = "active" | "archived" | "all";
 
@@ -134,13 +136,16 @@ const pageMeta: Record<Exclude<Page, "position-detail">, { label: string; icon: 
   positions: { label: "职位管理", icon: BriefcaseBusiness },
 };
 
-function initialRoute(): { page: Page; positionId: string | null } {
+function initialRoute(): { page: Page; positionId: string | null; toolPage: ToolPage | null } {
   const positionMatch = window.location.pathname.match(/^\/positions\/([^/]+)$/);
-  if (positionMatch) return { page: "position-detail", positionId: decodeURIComponent(positionMatch[1]) };
-  if (window.location.pathname === "/candidates") return { page: "candidates", positionId: null };
-  if (window.location.pathname === "/talent-pools") return { page: "talent-pools", positionId: null };
-  if (window.location.pathname === "/positions") return { page: "positions", positionId: null };
-  return { page: "dashboard", positionId: null };
+  if (positionMatch) return { page: "position-detail", positionId: decodeURIComponent(positionMatch[1]), toolPage: null };
+  if (window.location.pathname === "/candidates") return { page: "candidates", positionId: null, toolPage: null };
+  if (window.location.pathname === "/talent-pools") return { page: "talent-pools", positionId: null, toolPage: null };
+  if (window.location.pathname === "/positions") return { page: "positions", positionId: null, toolPage: null };
+  if (window.location.pathname === "/assistant") return { page: "dashboard", positionId: null, toolPage: "assistant" };
+  if (window.location.pathname === "/resume-search") return { page: "dashboard", positionId: null, toolPage: "resume-search" };
+  if (window.location.pathname === "/attachment-parser") return { page: "dashboard", positionId: null, toolPage: "attachment-parser" };
+  return { page: "dashboard", positionId: null, toolPage: null };
 }
 
 function errorMessage(error: unknown, fallback: string) {
@@ -226,7 +231,8 @@ function App() {
   const [linkDialogBusy, setLinkDialogBusy] = useState(false);
 
   const [importOpen, setImportOpen] = useState(hasRecoverableImportTask);
-  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(Boolean(initial.toolPage));
+  const [toolPage, setToolPage] = useState<ToolPage | null>(initial.toolPage);
   const [exportOpen, setExportOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readSidebarCollapsedPreference);
@@ -438,7 +444,6 @@ function App() {
       || candidatePickerOpen
       || linkTargetCandidateIds.length
       || importOpen
-      || assistantOpen
       || confirmAction
       || permanentDeleteRequest,
     );
@@ -455,20 +460,22 @@ function App() {
       if (candidatePickerOpen && !candidatePickerBusy) return setCandidatePickerOpen(false);
       if (positionFormMode && !positionFormBusy) return setPositionFormMode(null);
       if (drawerMode && !candidateBusy) return setDrawerMode(null);
-      if (assistantOpen) return setAssistantOpen(false);
+      if (assistantOpen) return closeToolPage();
       if (exportOpen) return setExportOpen(false);
       if (candidateFiltersOpen) return setCandidateFiltersOpen(false);
       if (positionFiltersOpen) setPositionFiltersOpen(false);
     };
     window.addEventListener("keydown", closeTopLayer);
     return () => window.removeEventListener("keydown", closeTopLayer);
-  }, [assistantOpen, candidateBusy, candidateFiltersOpen, candidatePickerBusy, candidatePickerOpen, confirmAction, confirmBusy, drawerMode, exportOpen, linkDialogBusy, linkTargetCandidateIds.length, permanentDeleteRequest, positionFiltersOpen, positionFormBusy, positionFormMode]);
+  }, [assistantOpen, candidateBusy, candidateFiltersOpen, candidatePickerBusy, candidatePickerOpen, confirmAction, confirmBusy, drawerMode, exportOpen, linkDialogBusy, linkTargetCandidateIds.length, permanentDeleteRequest, positionFiltersOpen, positionFormBusy, positionFormMode, page, activePositionId]);
 
   useEffect(() => {
     const handlePopState = () => {
       const route = initialRoute();
       setPage(route.page);
       setActivePositionId(route.positionId);
+      setToolPage(route.toolPage);
+      setAssistantOpen(Boolean(route.toolPage));
       setSidebarOpen(false);
     };
     window.addEventListener("popstate", handlePopState);
@@ -628,12 +635,31 @@ function App() {
   }
 
   function navigate(next: Exclude<Page, "position-detail">, replace = false) {
+    setAssistantOpen(false);
+    setToolPage(null);
     const path = next === "dashboard" ? "/" : `/${next}`;
     window.history[replace ? "replaceState" : "pushState"]({}, "", path);
     setPage(next);
     setActivePositionId(null);
     setSidebarOpen(false);
     setExportOpen(false);
+  }
+
+  function openTool(next: ToolPage) {
+    const path = next === "assistant" ? "/assistant" : next === "resume-search" ? "/resume-search" : "/attachment-parser";
+    window.history.pushState({}, "", path);
+    setToolPage(next);
+    setAssistantOpen(true);
+    setSidebarOpen(false);
+  }
+
+  function closeToolPage() {
+    setAssistantOpen(false);
+    setToolPage(null);
+    const returnPath = page === "position-detail" && activePositionId
+      ? `/positions/${encodeURIComponent(activePositionId)}`
+      : page === "dashboard" ? "/" : `/${page}`;
+    if (window.location.pathname !== returnPath) window.history.pushState({}, "", returnPath);
   }
 
   function openPosition(position: Position) {
@@ -1306,34 +1332,27 @@ function App() {
       : "位在库候选人";
 
   return (
-    <div className={`app-shell${sidebarCollapsed ? " is-sidebar-collapsed" : ""}`}>
+    <div className={`app-shell preview-workbench${sidebarCollapsed ? " is-sidebar-collapsed" : ""}${assistantOpen ? " assistant-page-open" : ""}`}>
       <aside className={`sidebar ${sidebarOpen ? "is-open" : ""}`}>
         <div className="brand">
-          <span className="brand-mark" title={sidebarCollapsed ? "拾才工作台" : undefined}><Sparkles size={19} /></span>
+          <button className="icon-button sidebar-collapse-button" type="button" onClick={toggleDesktopSidebar} aria-label={sidebarCollapsed ? "展开侧边栏" : "收起侧边栏"} title={sidebarCollapsed ? "展开侧边栏" : "收起侧边栏"} aria-expanded={!sidebarCollapsed}>{sidebarCollapsed ? <PanelLeftOpen size={19} /> : <PanelLeftClose size={19} />}</button>
           <div><strong>拾才工作台</strong><small>Talent Workspace</small></div>
         </div>
         <nav className="primary-nav" aria-label="主导航">
           {(Object.entries(pageMeta) as Array<[Exclude<Page, "position-detail">, typeof pageMeta.dashboard]>).map(([id, item]) => {
             const Icon = item.icon;
-            const active = page === id || (id === "positions" && page === "position-detail");
+            const active = !assistantOpen && (page === id || (id === "positions" && page === "position-detail"));
             return <button className={active ? "active" : ""} type="button" key={id} onClick={() => navigate(id)} aria-label={item.label} title={sidebarCollapsed ? item.label : undefined}><Icon size={18} /><span>{item.label}</span></button>;
           })}
           <span className="nav-divider" />
-          <button type="button" onClick={() => { setImportOpen(true); setSidebarOpen(false); }} aria-label="数据导入" title={sidebarCollapsed ? "数据导入" : undefined}><Upload size={18} /><span>数据导入</span></button>
-          <button type="button" onClick={() => { setAssistantOpen(true); setSidebarOpen(false); }} aria-label="AI 助手" title={sidebarCollapsed ? `AI 助手（${agentConfigured ? "在线" : "未配置"}）` : undefined}><Bot size={18} /><span>AI 助手</span><small className={`nav-status-dot ${agentConfigured ? "is-online" : ""}`} /></button>
+          <button type="button" onClick={() => { setImportOpen(true); setSidebarOpen(false); }} aria-label="导入候选人" title={sidebarCollapsed ? "导入候选人" : undefined}><Upload size={18} /><span>导入候选人</span></button>
+          <button className={`preview-assistant-entry${toolPage === "assistant" ? " active" : ""}`} type="button" onClick={() => openTool("assistant")} aria-label="AI 助手" title="AI 助手"><Sparkles size={18} /><span>AI 助手</span><small className={`nav-status-dot ${agentConfigured ? "is-online" : ""}`} /></button>
+          <button type="button" onClick={() => openTool("resume-search")} aria-label="履历检索" title="履历检索"><Search size={18} /><span>履历检索</span></button>
+          <button type="button" onClick={() => openTool("attachment-parser")} aria-label="附件解析" title="附件解析"><Paperclip size={18} /><span>附件解析</span></button>
         </nav>
         <div className="sidebar-context" title={sidebarCollapsed ? "本地工作区：数据仅保存在本机" : undefined}>
           <span className="context-icon"><Check size={14} /></span>
-          <div><strong>本地工作区</strong><small>数据仅保存在本机</small></div>
-          <button
-            className="icon-button compact-icon-button sidebar-collapse-button"
-            type="button"
-            onClick={toggleDesktopSidebar}
-            aria-label={sidebarCollapsed ? "展开侧边栏" : "收起侧边栏"}
-            title={sidebarCollapsed ? "展开侧边栏" : "收起侧边栏"}
-          >
-            {sidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-          </button>
+          <div><strong>本地工作区</strong><small>人才库工作台</small></div>
         </div>
       </aside>
 
@@ -1351,12 +1370,12 @@ function App() {
           </button>
           <div className="topbar-title"><strong>{title}</strong><span>{page === "position-detail" ? "职位工作台" : "人才资料管理"}</span></div>
           <div className="topbar-spacer" />
-          <button className="agent-entry" type="button" onClick={() => setAssistantOpen(true)}>
+          <button className="agent-entry" type="button" onClick={() => openTool("assistant")}>
             <span className="agent-entry-icon"><Bot size={16} /></span><span>AI 助手</span><small>{agentConfigured ? "全量只读" : "未配置"}</small>
           </button>
         </header>
 
-        <main className="content">
+        <main className={`content${page === "candidates" ? " candidate-content" : ""}`} hidden={assistantOpen}>
           {workspaceError && (
             <div className="workspace-error" role="alert"><span>{workspaceError}</span><button className="button secondary-button" type="button" onClick={() => void loadWorkspace()}>重新加载</button></div>
           )}
@@ -1389,9 +1408,13 @@ function App() {
           )}
 
           {page === "candidates" && (
-            <section className="candidate-page">
-              <header className="page-heading candidate-page-heading">
-                <div><p className="eyebrow">人才资产</p><h1>候选人库</h1><p className="page-description">当前 {filteredCandidates.length} / 共 {candidatePagination.total} {candidateScopeLabel}</p></div>
+            <section className="candidate-page" aria-label="候选人库">
+              <div className="candidate-top-row">
+                <div className="candidate-scope-tabs" aria-label="候选人档案范围">
+                  <button className={candidateArchive === "active" ? "active" : ""} type="button" onClick={() => setCandidateArchive("active")}><span>在库候选人</span><strong>{activeCandidateTotal}</strong></button>
+                  <button className={candidateArchive === "archived" ? "active" : ""} type="button" onClick={() => { setCandidateArchive("archived"); setCandidateView("list"); }}><span>已归档</span><strong>{archivedCandidateTotal}</strong></button>
+                  <button className={candidateArchive === "all" ? "active" : ""} type="button" onClick={() => setCandidateArchive("all")}><span>全部档案</span><strong>{candidateFacets.totals.total}</strong></button>
+                </div>
                 <div className="page-actions">
                   <button className="button secondary-button desktop-action" type="button" onClick={() => setImportOpen(true)}><Upload size={16} />导入</button>
                   <div className="menu-wrap">
@@ -1400,12 +1423,6 @@ function App() {
                   </div>
                   <button className="button primary-button" type="button" onClick={() => createCandidate()}><Plus size={17} />新增候选人</button>
                 </div>
-              </header>
-
-              <div className="candidate-scope-tabs" aria-label="候选人档案范围">
-                <button className={candidateArchive === "active" ? "active" : ""} type="button" onClick={() => setCandidateArchive("active")}><span>在库候选人</span><strong>{activeCandidateTotal}</strong></button>
-                <button className={candidateArchive === "archived" ? "active" : ""} type="button" onClick={() => { setCandidateArchive("archived"); setCandidateView("list"); }}><span>已归档</span><strong>{archivedCandidateTotal}</strong></button>
-                <button className={candidateArchive === "all" ? "active" : ""} type="button" onClick={() => setCandidateArchive("all")}><span>全部档案</span><strong>{candidateFacets.totals.total}</strong></button>
               </div>
 
               <div className="workspace-toolbar candidate-toolbar">
@@ -1493,6 +1510,7 @@ function App() {
               <div className="workspace-toolbar">
                 <label className="workspace-search"><Search size={17} /><input value={positionSearch} onChange={(event) => setPositionSearch(event.target.value)} placeholder="搜索职位名称、部门或地点" />{positionSearch && <button type="button" onClick={() => setPositionSearch("")} aria-label="清除搜索" title="清除"><X size={15} /></button>}</label>
                 <button className={`button filter-toggle ${positionFiltersOpen || positionFilterCount ? "is-active" : ""}`} type="button" onClick={() => setPositionFiltersOpen((current) => !current)}><Filter size={16} />筛选{positionFilterCount ? <span>{positionFilterCount}</span> : null}</button>
+                <button className="position-create-inline button primary-button" type="button" onClick={() => openPositionForm("create")}><Plus size={16} />新增职位</button>
                 <div className="toolbar-spacer" /><label className="compact-select"><span className="sr-only">职位排序</span><select value={positionSort} onChange={(event) => setPositionSort(event.target.value)}><option value="updated_desc">最近更新</option><option value="title_asc">职位名称</option><option value="candidates_desc">候选人数</option><option value="headcount_desc">计划人数</option></select></label>
               </div>
               <div className={`filter-panel position-filter-panel ${positionFiltersOpen ? "is-open" : ""}`}>
@@ -1543,6 +1561,18 @@ function App() {
             )
           )}
         </main>
+        {assistantOpen && <AssistantDrawer
+          open
+          configured={agentConfigured}
+          candidates={candidates}
+          positions={positions}
+          talentPools={talentPools}
+          presentation="page"
+          initialTab={toolPage === "resume-search" ? "resume-search" : toolPage === "attachment-parser" ? "attachment" : "chat"}
+          onOpenCandidateId={(candidateId) => void openCandidateById(candidateId)}
+          onCandidatesUpdated={() => void loadWorkspace(false)}
+          onClose={closeToolPage}
+        />}
       </div>
 
       <CandidateDrawer mode={drawerMode} candidate={currentCandidate} notes={candidateDetail?.notes ?? []} activities={candidateDetail?.activities ?? []} positions={activePositionOptions} talentPools={talentPools.filter((pool) => !pool.archived_at)} busy={candidateBusy} pendingProfileSave={Boolean(pendingCreatedCandidateId)} positionBusy={candidateBusy} sensitiveBusy={sensitiveBusy} sensitiveLoaded={sensitiveLoaded} onRevealSensitive={() => void revealCandidateSensitive()} onClose={() => { if (!candidateBusy) { setDrawerMode(null); setCreateForPositionId(null); setPendingCreatedCandidateId(null); setSensitiveLoaded(false); } }} onEdit={() => currentCandidate && editCandidate(currentCandidate)} onSave={(draft) => void saveCandidate(draft)} onArchive={() => currentCandidate && void archiveCandidate(currentCandidate)} onRestore={() => currentCandidate && void restoreCandidate(currentCandidate)} onDelete={() => currentCandidate && requestPermanentDelete(currentCandidate)} onAddNote={(content) => void addNote(content)} onLinkPosition={(positionId) => void linkCandidateToPosition(positionId)} onUnlinkPosition={(positionId) => void unlinkCandidateFromPosition(positionId)} onOpenPosition={openPosition} onLinkTalentPool={(poolId) => void linkCandidateToTalentPool(poolId)} onUnlinkTalentPool={(poolId) => void unlinkCandidateFromTalentPool(poolId)} onCandidateUpdated={() => currentCandidate && void loadCandidateDetail(currentCandidate.id, sensitiveLoaded)} onCandidateCreated={() => void loadWorkspace(false)} />
@@ -1557,8 +1587,7 @@ function App() {
           </div>
         </div>
       )}
-      {importOpen && <ImportWizard onClose={() => setImportOpen(false)} onImported={(result: ImportResult) => { navigate("candidates"); void loadWorkspace(false); notify(`导入完成：${result.imported} 条成功`); }} />}
-      <AssistantDrawer open={assistantOpen} configured={agentConfigured} candidates={candidates} positions={positions} talentPools={talentPools} onClose={() => setAssistantOpen(false)} onOpenCandidateId={(candidateId) => void openCandidateById(candidateId)} onCandidatesUpdated={() => void loadWorkspace(false)} />
+      {importOpen && <ImportWizard presentation="page" onClose={() => setImportOpen(false)} onImported={(result: ImportResult) => { navigate("candidates"); void loadWorkspace(false); notify(`导入完成：${result.imported} 条成功`); }} />}
       {confirmAction && <ConfirmDialog action={confirmAction} busy={confirmBusy} onCancel={() => !confirmBusy && setConfirmAction(null)} onConfirm={async () => { setConfirmBusy(true); try { await confirmAction.run(); setConfirmAction(null); } catch (error) { notify(errorMessage(error, "操作失败")); } finally { setConfirmBusy(false); } }} />}
       {permanentDeleteRequest && <PermanentDeleteDialog entity={permanentDeleteRequest.entity} requestedCount={permanentDeleteRequest.ids.length} preview={permanentDeleteRequest.preview} loading={permanentDeleteRequest.loading} committing={permanentDeleteRequest.committing} error={permanentDeleteRequest.error} onCancel={() => !permanentDeleteRequest.loading && !permanentDeleteRequest.committing && setPermanentDeleteRequest(null)} onRetry={() => void requestPermanentDeletePreview(permanentDeleteRequest.entity, permanentDeleteRequest.ids)} onConfirm={() => void commitPermanentDelete()} />}
       {toast && <div className={`toast${toast.tone === "warning" ? " is-warning" : ""}`} role="status"><Check size={16} /><span>{toast.message}</span>{toast.action && <button type="button" onClick={() => { const action = toast.action; setToast(null); if (action) Promise.resolve(action()).catch((error) => notify(errorMessage(error, "撤销操作失败"), { tone: "warning" })); }}><Undo2 size={14} />{toast.actionLabel}</button>}</div>}

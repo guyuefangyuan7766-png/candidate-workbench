@@ -310,6 +310,180 @@ test('three-column tables preserve row-wise labels, values, and dates', async ()
   assert.deepEqual(lines.slice(0, rows.length), rows.map((row) => row.join(' ')))
 })
 
+test('timeline rows keep left dates and roles associated with right organizations', async () => {
+  const rows = [
+    ['2024.01-2024.06', 'Data Analyst', 'Anonymous Analytics'],
+    ['2023.01-2023.06', 'Test Assistant', 'Anonymous Systems'],
+    ['2022.01-2022.06', 'Research Intern', 'Anonymous Institute']
+  ]
+  const elements = rows.flatMap(([period, role, organization], index) => {
+    const y = 720 - index * 40
+    // The content stream emits the right-side organization first. Visually,
+    // each row should still read from the left timeline fields to the right.
+    return [
+      { x: 336, y, text: organization },
+      { x: 150, y, text: role },
+      { x: 72, y, text: period }
+    ]
+  })
+  const file = positionedPdfFile({ elements }, 'anonymous-timeline-layout.pdf')
+  const parsed = await parseAttachment(file, validateAttachmentFile(file), undefined, { renderVisualPages: true })
+  const lines = parsed.text.split('\n').map((line) => line.trim()).filter(Boolean)
+
+  assert.deepEqual(lines.slice(0, rows.length), rows.map((row) => row.join(' ')))
+})
+
+test('timeline date and role columns stay associated before the organization column', async () => {
+  const rows = [
+    ['2024.01-2024.06', 'Role A', 'Organization A'],
+    ['2023.01-2023.06', 'Role B', 'Organization B'],
+    ['2022.01-2022.06', 'Role C', 'Organization C']
+  ]
+  const elements = rows.flatMap(([period, role, organization], index) => {
+    const y = 720 - index * 40
+    return [
+      { x: 380, y, text: organization },
+      { x: 200, y, text: role },
+      { x: 72, y, text: period }
+    ]
+  })
+  const file = positionedPdfFile({ elements }, 'anonymous-date-role-organization-layout.pdf')
+  const parsed = await parseAttachment(file, validateAttachmentFile(file), undefined, { renderVisualPages: true })
+  const lines = parsed.text.split('\n').map((line) => line.trim()).filter(Boolean)
+
+  assert.deepEqual(lines.slice(0, rows.length), rows.map((row) => row.join(' ')))
+})
+
+test('date-only sidebars remain independent from a parallel content column', async () => {
+  const dates = ['2024.01-2024.06', '2023.01-2023.06', '2022.01-2022.06']
+  const content = ['Education details', 'Project details', 'Skill details']
+  const elements = [
+    ...content.map((text, index) => ({ x: 336, y: 720 - index * 40, text })),
+    ...dates.map((text, index) => ({ x: 72, y: 720 - index * 40, text }))
+  ]
+  const file = positionedPdfFile({ elements }, 'anonymous-date-sidebar.pdf')
+  const parsed = await parseAttachment(file, validateAttachmentFile(file), undefined, { renderVisualPages: true })
+  const lines = parsed.text.split('\n').map((line) => line.trim()).filter(Boolean)
+
+  assert.deepEqual(lines.slice(0, dates.length + content.length), [...dates, ...content])
+})
+
+test('timeline rows recognize textual date-range separators', async () => {
+  const rows = [
+    ['2024-01 to 2024-06', 'Data Analyst', 'Anonymous Analytics'],
+    ['2023-01 to 2023-06', 'Test Assistant', 'Anonymous Systems'],
+    ['2022-01 to 2022-06', 'Research Intern', 'Anonymous Institute']
+  ]
+  const elements = rows.flatMap(([period, role, organization], index) => {
+    const y = 720 - index * 40
+    return [
+      { x: 336, y, text: organization },
+      { x: 150, y, text: role },
+      { x: 72, y, text: period }
+    ]
+  })
+  const file = positionedPdfFile({ elements }, 'anonymous-textual-timeline.pdf')
+  const parsed = await parseAttachment(file, validateAttachmentFile(file), undefined, { renderVisualPages: true })
+  const lines = parsed.text.split('\n').map((line) => line.trim()).filter(Boolean)
+
+  assert.deepEqual(lines.slice(0, rows.length), rows.map((row) => row.join(' ')))
+})
+
+test('a single timeline row stays together when the page contains adjacent detail text', async () => {
+  const file = positionedPdfFile({
+    elements: [
+      { x: 336, y: 720, text: 'Anonymous Analytics' },
+      { x: 150, y: 720, text: 'Data Analyst' },
+      { x: 72, y: 720, text: '2024.01-2024.06' },
+      { x: 72, y: 680, text: 'Timeline detail remains on the left.' },
+      { x: 336, y: 680, text: 'Delivered an anonymous dashboard.' }
+    ]
+  }, 'anonymous-single-timeline-row.pdf')
+  const parsed = await parseAttachment(file, validateAttachmentFile(file), undefined, { renderVisualPages: true })
+  const lines = parsed.text.split('\n').map((line) => line.trim()).filter(Boolean)
+
+  assert.equal(lines[0], '2024.01-2024.06 Data Analyst Anonymous Analytics')
+  assert.equal(lines[1], 'Timeline detail remains on the left. Delivered an anonymous dashboard.')
+})
+
+test('single-column indentation is not promoted to a page-level column split', async () => {
+  const elements = [
+    { x: 72, y: 720, text: 'Profile heading' },
+    { x: 72, y: 680, text: 'First paragraph line' },
+    { x: 300, y: 640, text: 'Indented continuation line' },
+    { x: 300, y: 600, text: 'Indented closing line' },
+    { x: 72, y: 560, text: 'Next section heading' },
+    { x: 72, y: 520, text: 'Final paragraph line' }
+  ]
+  const file = positionedPdfFile({ elements }, 'anonymous-indented-single-column.pdf')
+  const parsed = await parseAttachment(file, validateAttachmentFile(file), undefined, { renderVisualPages: true })
+  const lines = parsed.text.split('\n').map((line) => line.trim()).filter(Boolean)
+
+  assert.deepEqual(lines.slice(0, elements.length), elements
+    .slice()
+    .sort((left, right) => right.y - left.y)
+    .map(({ text }) => text))
+})
+
+test('independent columns can be ordered when their baselines are consistently offset', async () => {
+  const left = [
+    { x: 72, y: 720, text: 'Left column heading' },
+    { x: 72, y: 680, text: 'Left column detail one' },
+    { x: 72, y: 640, text: 'Left column detail two' },
+    { x: 72, y: 600, text: 'Left column detail three' }
+  ]
+  const right = [
+    { x: 336, y: 700, text: 'Right column heading' },
+    { x: 336, y: 660, text: 'Right column detail one' },
+    { x: 336, y: 620, text: 'Right column detail two' },
+    { x: 336, y: 580, text: 'Right column detail three' }
+  ]
+  const file = positionedPdfFile({ elements: [...right, ...left] }, 'anonymous-offset-columns.pdf')
+  const parsed = await parseAttachment(file, validateAttachmentFile(file), undefined, { renderVisualPages: true })
+  const lines = parsed.text.split('\n').map((line) => line.trim()).filter(Boolean)
+
+  assert.deepEqual(lines.slice(0, left.length + right.length), [
+    ...left.map(({ text }) => text),
+    ...right.map(({ text }) => text)
+  ])
+})
+
+test('long left-column spans use the actual gutter when confirming independent columns', async () => {
+  const left = [
+    'Left column long paragraph alpha with enough content',
+    'Left column long paragraph beta with enough content',
+    'Left column long paragraph gamma with enough content'
+  ]
+  const right = ['Right heading', 'Right detail one', 'Right detail two']
+  const elements = [
+    ...right.map((text, index) => ({ x: 380, y: 720 - index * 40, text })),
+    ...left.map((text, index) => ({ x: 72, y: 720 - index * 40, text }))
+  ]
+  const file = positionedPdfFile({ elements }, 'anonymous-long-left-column.pdf')
+  const parsed = await parseAttachment(file, validateAttachmentFile(file), undefined, { renderVisualPages: true })
+  const lines = parsed.text.split('\n').map((line) => line.trim()).filter(Boolean)
+
+  assert.deepEqual(lines.slice(0, left.length + right.length), [...left, ...right])
+})
+
+test('invalid span geometry degrades locally while valid headings keep visual order', async () => {
+  const file = positionedPdfFile({
+    // The content stream starts with the lower body, then emits an out-of-page
+    // span, and finally emits the visually higher heading. A page-wide source
+    // order fallback would put the body before the heading.
+    elements: [
+      { x: 72, y: 680, text: 'Body: Anonymous details remain searchable' },
+      { x: -1, y: 740, text: 'Anonymous local fallback text' },
+      { x: 72, y: 740, text: 'Section: Anonymous heading' }
+    ]
+  }, 'anonymous-invalid-span-layout.pdf')
+  const parsed = await parseAttachment(file, validateAttachmentFile(file), undefined, { renderVisualPages: true })
+
+  assert.ok(parsed.text.indexOf('Section: Anonymous heading') < parsed.text.indexOf('Body: Anonymous details'))
+  assert.match(parsed.text, /Anonymous local fallback text/)
+  assert.match(parsed.records[0].values.raw_text, /Anonymous local fallback text/)
+})
+
 test('zero-page PDFs fail explicitly instead of being classified as text', async () => {
   const file = pdfFile([], 'anonymous-zero-page.pdf')
 

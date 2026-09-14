@@ -25,6 +25,8 @@ import type {
   PositionFacets,
   ResumeSearchResponse,
   ResumeSearchIndexStatus,
+  ResumeSearchOption,
+  ResumeSearchOptionsResponse,
   TalentPool,
 } from "./types";
 
@@ -1872,6 +1874,45 @@ export interface ResumeSearchFilters {
 
 export function getResumeSearchStatus(signal?: AbortSignal) {
   return request<ResumeSearchIndexStatus>("/api/resume-search/status", { signal });
+}
+
+/** Resolve every option page independently of the surrounding business list. */
+export async function getResumeSearchOptions(kind: "position" | "talent_pool", signal?: AbortSignal): Promise<ResumeSearchOption[]> {
+  const options = new Map<string, ResumeSearchOption>();
+  let page = 1;
+  while (true) {
+    const result = await request<ResumeSearchOptionsResponse>(
+      `/api/resume-search/options${queryString({ kind, page, page_size: 100 })}`,
+      { signal },
+    );
+    if (!result?.pagination || result.pagination.page !== page || !Array.isArray(result.items)
+      || !Number.isInteger(result.pagination.total_pages) || result.pagination.total_pages < 0
+      || typeof result.pagination.has_more !== "boolean"
+      || result.items.some((option) => !option || typeof option.id !== "string" || typeof option.name !== "string")) {
+      throw new Error("筛选选项未能完整读取，请重试。");
+    }
+    const previousCount = options.size;
+    for (const option of result.items) options.set(option.id, option);
+    if (!result.pagination.has_more) return [...options.values()];
+    if (options.size === previousCount || page >= result.pagination.total_pages) throw new Error("筛选选项分页已变化，请重试。");
+    page += 1;
+  }
+}
+
+/** Natural-language queries use a body; the original GET API remains available. */
+export function searchCandidateResumesWithPlan(
+  query: string,
+  page = 1,
+  pageSize = 20,
+  signal?: AbortSignal,
+  filters: ResumeSearchFilters = {},
+  cursor?: string | null,
+) {
+  return request<ResumeSearchResponse>("/api/resume-search", {
+    method: "POST",
+    signal,
+    body: JSON.stringify({ q: query, ...filters, page: cursor ? undefined : page, page_size: pageSize, cursor: cursor || undefined }),
+  }, { timeoutMs: 48_000 });
 }
 
 export function searchCandidateResumes(

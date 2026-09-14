@@ -1,5 +1,38 @@
 # 测试说明
 
+## 0.2.0 / V13 正式混合补充验收
+
+本次继续使用合成匿名库。新增正式维护、缓存、遮蔽、宽集合 ANN、常驻 mmap/队列/取消/换代及未知布尔逻辑测试；最新整合后的后端定向集合实际 122/122 通过（28.885 秒），记录为 `docs/evidence/search-formal-supplement-final-focused.txt`。116/116 和维护专用 24/24 是较早子集，仅保留作历史记录。随后正式回填暴露 5 秒 Embedding 超时需要独立维护预算，改为仅维护调用 30 秒上限，在线预算不变。最新维护/服务生命周期复核为 21/21。完整指标以 [补充交接](handoffs/2026-09-10-search-hybrid-formal-supplement.md) 最新实测为准，不把旧结果冒充新运行。
+
+本次 fresh 构建/类型检查通过，新的匿名预览服务在 1440×900、768×1024、390×844 上 69/69 断言通过，控制台错误/页面异常/意外 HTTP 错误均为 0。截图和完整记录保存于 `docs/evidence/search-formal-supplement-ui/`；原导航 App 指纹保持，未删除业务组件。
+
+维护使用独立子进程，新增实际子进程强杀后 PID 锁恢复用例；source readonly、网络期间无长源事务、成功批次持久缓存、归档删除与缓存 GC 均以匿名数据验证。正式回填计数和上线烟雾核验独立记录，不作真实候选人质量评测。下方历史全量失败与依赖审计问题继续保留。
+
+## 2026-09-10 人才检索与前端隔离验收
+
+本轮仅使用新建临时数据库和合成匿名数据。新增/受影响76项定向测试通过，覆盖条件/Schema/SSRF边界、双路召回证据、排除不可抵消、10,000文档截断回归、跨记录、来源筛选、模型空间隔离、归档、阶段、索引变化、400窗口之外的530人深分页、向量增量/失败回退及原Agent API。详见 `docs/evidence/search-focused-suite.txt`。
+
+已执行完整测试：661项，646通过、8失败、7跳过；8项失败在原工作树复现（55项子集，47通过、8失败）。涉及已有storage_path列政策、V11历史文档断言和缺失V12暂停服务辅助文件，未为本任务回滚用户修改。完整与基线复现日志分别为 `search-full-suite.txt`、`search-baseline-failures.txt`；该全量成绩先于最后新增定向回归，不冒称最终全量通过。
+
+复现命令：`npm run build`；`node --test tests/backend/hybrid-search*.test.mjs tests/backend/search-*.test.mjs tests/backend/agent-api-v6.test.mjs`；`node scripts/evaluate-hybrid-search.mjs`。远程匿名评测须已有网关配置，显式运行 `node scripts/evaluate-hybrid-search.mjs --remote-anonymous --concurrency=2`；脚本自己创建80人匿名库，只发送匿名查询和材料。指标脚本不按JSON键顺序判错，并保存实际/标注查询计划供复核。
+
+浏览器先运行 `node tests/browser/anonymous-hybrid-server.mjs 4397`（全新合成数据库，远程关闭），再运行 `node tests/browser/hybrid-search-qa.mjs`。已实测1440×900、768×1024、390×844，69/69断言通过，正常控制台错误/警告及页面异常0；注入503/409单列。八个入口与App基线哈希不变，没有删除组件。详情见 `docs/evidence/search-ui-acceptance.md`。
+
+构建/类型检查、服务端语法及差异检查通过。`npm audit --audit-level=low`未通过：3 high、1 moderate，均为原锁文件同版本依赖，见 `docs/evidence/search-audit.json`。60条质量指标、1万/10万本地容量、10万数值向量容量的实测与限制见 [交付记录](handoffs/2026-09-10-search-hybrid-delivery.md)。上述隔离验收阶段没有运行正式迁移、真实向量回填、正式服务重启或部署。随后按用户明确授权完成应用0.2.0正式启动，schema仍为V13；启动核验与匿名质量评测分别记录，见下方正式启动核验。
+
+## 2026-09-10 应用 0.2.0 正式启动核验（历史本地模式）
+
+- 正式库文件集约40.9GB，源与备份SHA-256逐文件匹配，备份副本SQLite `quick_check=ok`；schema在启动前后均为V1-V13。本次无新增结构迁移，未执行完整外键检查或替换正式文件的恢复演练。
+- 原启动器fresh构建通过；正式服务 `127.0.0.1:4173`、Node PID `9756`，health为200/ok，根HTML和2个静态资源逐项匹配构建，检索SPA路由200。
+- 用随机不存在的候选人ID限定匿名查询：HTTP 200、0行、规则计划及当前页游标通过。该段仅记录当时 `SEARCH_REMOTE_ENABLED=false` 的本地模式，不能代表当前正式混合启用状态。
+- 当前正式混合启用的 smoke、索引规模和维护状态见 [search-hybrid-formal-supplement-deployment.json](evidence/search-hybrid-formal-supplement-deployment.json)；匿名混合 p95 不达标、原全量 8 项失败及既有依赖审计问题继续保留。
+
+## 2026-09-11 正式混合检索收口
+
+- 正式索引 generation `generation-c5856389-ec70-4cab-90ab-64154bd9f4d4` 已发布并 ready：`429,630` documents、`630,978` chunks/vectors、`text-embedding-v4`、1024 维；维护子进程退出，writer lock 释放。
+- 正式 smoke：HTTP 200、模型计划、无降级、0 行匿名结果；服务读取当前 mmap generation，Agent 向量能力为 enabled。证据见 [部署验证](evidence/search-hybrid-formal-supplement-deployment.json)。
+- 最终相关后端定向集合新鲜执行为 122/122 通过（24,447 ms），见 [最新输出](evidence/search-formal-supplement-final-focused.txt)。浏览器匿名验收仍为 69/69；质量评测的降级与 p95 限制按补充交接记录保留。
+
 ## 测试边界
 
 自动测试覆盖个人版本地后端：
@@ -20,9 +53,9 @@
 - V12 档案与北森关系语义：三项入职字段全空时只隐藏档案“入职信息”区块；`入职职位` 只写 `candidates.hire_position`，`最后职位类投递的职位id` 才建立 `candidate_positions`，`入职雇佣关系` 只保留在来源 `raw_payload`。
 - 七份清理工作簿：`scripts/clean-hire-status-workbooks.mjs` 提供逐文件清理入口，`tests/backend/hire-status-workbooks.test.mjs` 提供生成物专项验证入口；两者检查只保留入职状态非空且不为精确文本“空”的行、表头顺序、行数守恒、日期/ID 对齐、日期格式和公式错误。该条描述验证范围，不预先宣称 fresh 通过数字。
 
-测试使用内存 SQLite、临时 SQLite 文件和临时本地 HTTP 服务，不连接北森、真实模型服务或正式数据库。
+默认自动测试使用内存 SQLite、临时 SQLite 文件和临时本地 HTTP 服务，不连接北森、真实模型服务或正式数据库。上方远程匿名评测是显式选择的例外，仅向已有网关发送合成匿名材料；正式启动烟雾核验另行记录，不把正式库用作测试数据集。
 
-当前没有提交到仓库的完整浏览器自动化套件。职位管理迭代和人才库 V2 均使用隔离数据库完成了 Playwright CLI 验收；V12 真实北森文件已完成服务端 100 人隔离预览与提交验证，但正式启动脚本双击体验、浏览器入口预览和正式数据库提交仍需真实环境验收。
+当前新增了仅覆盖本轮范围的合成匿名浏览器套件 `tests/browser/hybrid-search-qa.mjs`，不是所有业务的完整端到端套件。职位管理迭代和人才库 V2 的历史迭代使用隔离数据库完成了 Playwright CLI 验收；V12真实文件的历史成绩不作为本轮检索或前端验收结果，正式环境仅完成下方启动核验，不替代完整业务端到端验收。
 
 ## 环境要求
 
@@ -224,7 +257,7 @@ V6 测试集中在 `tests/backend/deletion-v6.test.mjs`、`position-deletion-api
 | 只读 SQLite | 文件型独立 `readOnly` 连接；`query_only` / `trusted_schema` / 禁扩展；SELECT、只读 CTE、聚合、排序、分页；INSERT/UPDATE/DELETE/DDL/ATTACH/写 PRAGMA 拒绝；多语句、注释、CTE 写入、未知表/列/函数和字段注入拒绝；100 行/1 MB/超时/页码/导出上限；审计不含结果正文 |
 | Agent 全字段 | 匿名候选人的未打码手机、邮箱、薪资、照片地址、备注、活动、raw payload、履历、评估、授权和附件正文可按需读取；18 工具白名单；不存在写/删除/附件确认工具；大结果分页/聚合/导出，模型只接收 Top-K |
 | FTS5 | 主档、工作/项目/教育/技能区块和附件文本同步；从全量匿名履历召回正确候选人；候选人级去重；得分、字段、片段、原因和分页；结构化地点/年限/关系筛选；FTS5 不可用明确失败 |
-| 附件格式 | 匿名文本 PDF、DOCX、XLSX、XLSM、BIFF8 XLS、UTF-8 CSV/TXT 正常解析；宏不执行；表格逐行记录；原文件名清洗和随机私有路径 |
+| 附件格式 | 匿名文本 PDF、DOCX、XLSX、XLSM、BIFF8 XLS、UTF-8 CSV/TXT 正常解析；宏不执行；表格逐行记录；PDF 几何重排和规则清洗结果可观察；单文件正文保留在 `records[].values.raw_text`；原文件名清洗和随机私有路径 |
 | 附件安全失败 | 伪扩展名、MIME/签名不匹配、`.doc`、加密/损坏文件、扫描/无文本 PDF、非法 UTF-8、路径穿越、ZIP bomb/ZIP64、页/表/行/列/文本/时间上限安全失败且无候选人写入 |
 | HTTP 安全边界 | 不允许的 Origin 对 JSON 和 multipart 写请求均在请求体解析前返回 `403 origin_not_allowed`；不允许的预检返回 `403`；缺少 Origin、回环/配置 Origin 兼容；正常应用响应包含 `nosniff`、禁止 framing、no-referrer、受限 Permissions Policy 和含 `frame-ancestors 'none'` 的 CSP |
 | 身份与确认 | 邮箱唯一、电话唯一、双字段一致、双字段冲突、多候选冲突、归档目标和无匹配；姓名不参与自动合并；预览不修改候选人；确认只写选择项；空值不清除；身份字段二次冲突；标签并集、履历去重/替换确认；版本/token 过期/重放；SHA-256 重复文件幂等；生产建议最多 120,000 字符/100 条记录、strict JSON Schema 且无 tools，网关失败保留本地建议；预览确认/取消/过期后擦除临时正文和记录 JSON |
@@ -695,18 +728,27 @@ node --test tests/backend/attachment-avatar.test.mjs tests/backend/attachments-v
 git diff --check
 ```
 
+本轮附件几何/清洗回归还覆盖匿名合成的时间线行、真正独立双栏、标题视觉顺序、局部无效坐标、opaque/`~` 公开清洗与 `raw_text` 审计保留。专项验证可运行：
+
+```powershell
+node --test --test-concurrency=1 tests/backend/attachment-visual-parsing.test.mjs
+node --test --test-concurrency=1 tests/backend/attachment-semantic-parsing.test.mjs
+npm test
+npm run build
+```
+
 | 场景 | 必须断言的契约 |
 | --- | --- |
 | 文本、扫描、混合 PDF | `pdf_content_type` 分类正确；视觉页仅为瞬时 PNG；扫描件在视觉可用时可保留附件记录，确定性文本为空时不伪造文本。 |
 | 视觉资源降级 | 页数、像素、PNG 字节、渲染超时或缺失 canvas renderer 触发稳定 `pdf_visual_*` code（含 `pdf_visual_renderer_unavailable`），确定性文本仍完整，视觉页清空。 |
 | 能力与配置 | 仅在显式 `image_input` 声明和本地配置完整时进入实际视觉请求；没有标准化主动探测。`disabled`、配置不完整、网络/HTTP、超时、超大响应、无效 JSON 和无效 schema 均返回安全 fallback；禁用时不渲染页也不调用视觉提供者。 |
-| 分层时间与适配器边界 | 默认适配器请求 15 秒，附件服务外层视觉调用预算 45 秒；分别注入两层超时并断言 `visual_timeout`、中止信号和瞬时页字节清理。断言适配器的 4,000,000 像素、3 MiB/页、12 MiB 总图像、8,000 字符/页、单 span 1,000 字符、100 记录和 512 KiB 响应上限；高于硬上限的 override 必须 clamp。 |
+| 分层时间与适配器边界 | 文本建议适配器请求最多 60 秒，附件服务文本外层等待窗口 15 秒；视觉适配器请求 15 秒，附件服务外层视觉调用预算 45 秒。分别注入超时并断言 `attachment_suggestion_timeout`/`visual_timeout`、中止信号和瞬时页字节清理。断言视觉适配器的 4,000,000 像素、3 MiB/页、12 MiB 总图像、8,000 字符/页、单 span 1,000 字符、100 记录和 512 KiB 响应上限；高于硬上限的 override 必须 clamp。 |
 | 网关发送边界 | 只发送有界 PNG 页、最小元数据和不可信附件数据；strict JSON Schema、`stream:false`、禁止重定向，没有 tools/tool choice；endpoint 仅允许 `http/https`，生产拒绝明文 HTTP，非生产 loopback HTTP 仅限隔离测试；私网默认拒绝，只有精确列入 `ATTACHMENT_VISUAL_TRUSTED_PRIVATE_HOSTS` 的 DNS 主机名、HTTPS 端点且（若配置）通过普通主机 allowlist 时，才允许全量 DNS 结果为 RFC1918/IPv6 ULA；IP 字面量、通配符/后缀、`.localhost`/`.internal`/`.local`/metadata 保留主机名、混合公网/私网、metadata/loopback/link-local/multicast/IPv6 未指定或组播/DNS 危险结果、URL 用户信息、未许可主机、PNG magic/IHDR 不一致和超出 `maxRecords` 均拒绝；测试替身不记录真实凭据。 |
 | 溯源与冲突 | 视觉建议具有 `source: visual`、页码、最小证据、`evidence_status` 和置信度；`unverified` 默认不勾选且不能替换确定性区块；电话/邮箱仍由确定性通道决定；字段冲突与视觉替换区块都携带稳定冲突 code。 |
 | 结构化履历关系 | 视觉区块 `structured_data` 只允许 `organization`、`role`、`start_date`、`end_date`、`period`；只有同一条文本层已核对证据逐字包含值时才接受，否则保留人工候选且不写结构化关系。 |
 | bbox | 只有受 PDF 文本 span 校验的证据可附 bbox；模型返回 bbox 或未知字段必须以 `visual_invalid_schema` 降级。 |
 | 生命周期 | 成功、失败、取消与视觉超时都会清空瞬时页字节；预览完成、取消、过期的隔离文件和临时正文遵循既有清理契约；重复确认返回稳定 replay/幂等结果，不恢复已消费正文。 |
-| 格式回归 | 非 PDF 保持视觉 `not_applicable`；文本模型未 fallback 时 `review_required=false`，文本模型 fallback 时仍必须为 `true`。文本型、双栏/三列表格/时间轴、扫描型和混合 PDF，以及 DOCX、XLSX、XLSM、BIFF8 XLS、UTF-8 CSV/TXT 的既有确定性解析、安全失败和确认流程不回归；扫描 PDF 的头像恢复路径也必须保留 `allowTextlessPdf`。三列密集行按标签、值、日期的行顺序保留，普通双栏仍按列顺序读取。 |
+| 格式回归 | 非 PDF 保持视觉 `not_applicable`；文本模型未 fallback 时 `review_required=false`，文本模型 fallback 时仍必须为 `true`。文本型、双栏/三列表格/时间线、扫描型和混合 PDF，以及 DOCX、XLSX、XLSM、BIFF8 XLS、UTF-8 CSV/TXT 的既有确定性解析、安全失败和确认流程不回归；扫描 PDF 的头像恢复路径也必须保留 `allowTextlessPdf`。三列密集行和时间线行按标签、值、日期的视觉行顺序保留，确认是真正独立双栏时才按栏顺序读取；公开规则清洗不得泄漏 opaque/`~`，`records[].values.raw_text` 仍保留完整提取正文（受上限约束），不把它当作原始文件字节副本。 |
 | 独立通道状态 | `pipeline.text`、`pipeline.text_model`、`pipeline.visual` 分别保留成功、pending、fallback、错误码、schema mode 和 retryability；扫描/混合 PDF 或视觉 fallback 必须返回 `review_required=true`，不能只显示“解析完成”。 |
 | 网关兼容配置 | `ATTACHMENT_TEXT_SCHEMA_MODE`/`ATTACHMENT_VISUAL_SCHEMA_MODE` 默认 strict；compat 仅显式开启，仍本地严格校验且不标记 strict；文本端点 invalid/insecure 错误不可重试。 |
 

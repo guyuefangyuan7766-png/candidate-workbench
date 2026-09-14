@@ -1,0 +1,29 @@
+{
+  "at": "2026-09-10T06:34:38.702Z",
+  "network_calls": 0,
+  "stored_cold_model_plans": 59,
+  "accepted": 59,
+  "regressions": 0,
+  "novel": [
+    {
+      "id": "novel-location",
+      "source": "model",
+      "warnings": []
+    },
+    {
+      "id": "novel-or",
+      "source": "model",
+      "warnings": []
+    },
+    {
+      "id": "novel-exclusion",
+      "source": "model",
+      "warnings": []
+    },
+    {
+      "id": "novel-record",
+      "source": "model",
+      "warnings": []
+    }
+  ]
+}

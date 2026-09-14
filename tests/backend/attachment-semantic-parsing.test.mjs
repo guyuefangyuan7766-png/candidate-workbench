@@ -93,6 +93,62 @@ test('scalar fields stop at their physical line and opaque parser tokens are not
   assert.equal(record.sections[0].structured_data.period, '2025.01-2025.06')
 })
 
+test('standalone parser noise is removed from sections while the source corpus stays auditable', async () => {
+  const opaque = '72162b05314733391HN_2965EFFZxIq5WP6ZWOOimf7TPxVq2w~~'
+  const text = [
+    '项目经历',
+    'Anonymous Project',
+    '~',
+    `~ ${opaque}`,
+    '负责匿名数据管道交付。',
+    '专业技能',
+    'SQL、Node.js'
+  ].join('\n')
+  const { service, db } = fixture(textParser(text))
+  const preview = await readyPreview(service)
+  const record = preview.records[0]
+  const publicText = JSON.stringify({ sections: record.sections, suggestions: record.suggestions })
+
+  assert.equal(publicText.includes(opaque), false)
+  assert.equal(publicText.includes('~'), false)
+  assert.match(record.sections.find((section) => section.section_type === 'project')?.content ?? '', /Anonymous Project/)
+  assert.match(record.sections.find((section) => section.section_type === 'skill')?.content ?? '', /SQL、Node\.js/)
+  assert.equal(text.includes(opaque), true)
+  const stored = db.prepare('SELECT extracted_text, records_json FROM attachment_update_previews WHERE id = ?').get(preview.preview_id)
+  assert.match(stored.extracted_text, new RegExp(opaque))
+  assert.match(stored.records_json, new RegExp(opaque))
+})
+
+test('sample-style Chinese headings stay in independent canonical sections', async () => {
+  const text = [
+    '教育经历',
+    '匿名大学 计算机技术 硕士 2024.09-2027.06',
+    '项目经历',
+    '匿名数据项目 2025.01-2025.03\n负责可复核的数据分析。',
+    '实习经历',
+    '匿名科技 助理测试工程师 2023.02-2023.05',
+    '发表文章及专利',
+    '匿名论文与专利成果。',
+    '相关技能',
+    'Python、SQL、PowerBI',
+    '在校经历',
+    '匿名学生组织运营。',
+    '荣誉奖励',
+    '匿名奖学金。',
+    '自我评价',
+    '具备结构化分析能力。'
+  ].join('\n')
+  const { service } = fixture(textParser(text))
+  const preview = await readyPreview(service)
+  const record = preview.records[0]
+
+  assert.deepEqual(record.sections.map((section) => section.section_type), [
+    'education', 'project', 'internship', 'publication', 'skill', 'campus', 'award'
+  ])
+  assert.equal(record.suggestions.find((suggestion) => suggestion.field === 'self_summary')?.value, '具备结构化分析能力。')
+  assert.equal(record.sections.some((section) => section.content.includes('匿名奖学金。')), true)
+})
+
 test('standalone scalar labels consume only the immediately following line', async () => {
   const text = [
     '姓名：独立标签候选人',

@@ -1,8 +1,28 @@
 # 人才库工作台运维手册
 
+## 2026-09-11 正式混合检索启用收口
+
+正式向量维护已完成并原子发布，应用仍为 `0.2.0`、数据库仍为 `V13`，没有新增迁移。当前 generation 为 `generation-c5856389-ec70-4cab-90ab-64154bd9f4d4`，包含 `429,630` 份来源文档、`630,978` 个 chunks/vectors，模型为 `text-embedding-v4`、维度 `1024`、chunk version `self-v3-600-80-redacted`。`maintenance-status.json` 为 `state=ready`，源库只读，维护子进程已退出且 writer lock 已释放。
+
+正式服务已在 `http://127.0.0.1:4173` 启用远程规划、Embedding、Rerank 和向量 worker。最新 smoke 证据 [search-hybrid-formal-supplement-deployment.json](evidence/search-hybrid-formal-supplement-deployment.json) 核对 health、V1-V13、资源指纹、mmap ready/current、Agent 状态及仅不存在候选人 ID 的匿名查询：HTTP 200、模型计划、0 行、无降级。最新定向后端测试为 122/122 通过，输出见 [search-formal-supplement-final-focused.txt](evidence/search-formal-supplement-final-focused.txt)。
+
+质量限制仍然有效：匿名冷查询记录模型计划 54/60、向量/重排各 49/60、降级查询 22/60，p95 14,821.83ms，未达到 10 秒目标；这些结果不应写成每次完整混合成功。在线 Embedding/Rerank 预算仍为 5 秒，维护专用上限为 30 秒，不通过延长在线预算掩盖上游问题。正式索引数据不用于匿名评测、截图或测试 fixture。
+
+## 2026-09-10 应用 0.2.0 / schema V13 运行记录
+
+用户明确授权应用并启动正式服务。启动前4173端口无监听，陈旧runtime锁已由现有维护协议安全接管；持锁完成 `recruitment.db/-wal/-shm` 同一时点备份、源/副本SHA-256校验与副本 `quick_check=ok`，随后释放锁并调用原 `start.ps1`。备份目录：
+
+`C:/Users/cboy/Documents/北森/backups/pre-search-2026-09-10-04-56-17-266`
+
+启动器继续加载用户级既有Agent/附件配置、检查依赖并fresh构建。显式绑定正式 `data/recruitment.db`、回环4173和 `SEARCH_REMOTE_ENABLED=false`；后台Node PID为 `9756`，启动stdout/stderr记录于 `.tmp-search-deploy/formal.stdout.log` 与 `.tmp-search-deploy/formal.stderr.log`。health为200/ok，HTML及静态资源哈希与本地构建匹配，SPA路由和仅限不存在合成ID的0行检索检查通过。
+
+无新增schema迁移；正常启动仍会运行既有V1–V13幂等兼容逻辑与本地dirty索引维护，不能解释为正式数据库零写入。未生成真实向量、未外发候选人材料、未把正式库用于匿名自动化或截图。正式启用的是本地检索改进和界面；远程混合p95门禁仍未通过。
+
+完整启动与备份清单见 [search-formal-deployment.json](evidence/search-formal-deployment.json)。备份中source快照为整合后、启动前的代码；若需撤回本次实现，应按 [整合manifest](evidence/search-integration-manifest.json) 使用整合前备份逐项恢复本次差异、保留用户原修改，并保留V13数据库。恢复数据库文件集仅在停服、另存当前文件并核对备份后进行；本次未演练破坏性替换正式文件。
+
 ## 1. 适用范围与部署边界
 
-本手册以当前 `talent-library v2 / schema V12` 代码为准，并保留旧版本升级和回退要求；代码版本不等于正式数据库已执行的版本。当前 V12 已完成代码和 100 人隔离验收，但正式库升级与导入仍须按本手册的备份、副本验证、入口预览和确认门禁执行。应用默认地址为：
+本手册以当前 `应用 0.2.0 / schema V13` 为准，并保留旧版本升级和回退要求。下方 2026-09-10 段落是正式混合索引发布前的历史启动记录；当前启用状态以本页 2026-09-11 收口段落和部署证据为准。历史版本和导入记录按各节日期理解。应用默认地址为：
 
 ```text
 http://127.0.0.1:4173
@@ -10,11 +30,11 @@ http://127.0.0.1:4173
 
 > 当前没有登录、认证、RBAC、多用户隔离或 SQLite 静态加密，并且程序拒绝非回环监听地址。它不是部门服务器，不应通过端口转发、反向代理、共享 Windows 会话或改监听地址提供给其他人。
 
-应用不是 Windows 服务。运行 `start.cmd` 后需要保留终端窗口；窗口关闭或电脑休眠后服务不可用。
+应用不是 Windows 服务。手工运行 `start.cmd` 时需要保留终端窗口；本次由隐藏的 PowerShell 后台进程调用原 `start.ps1` 启动，日志路径见本次运行记录。没有配置开机自启，电脑重启或休眠会影响可用性。
 
 ## 2. 当前版本和 schema
 
-数据库通过 `schema_migrations` 记录：
+应用版本由 `package.json` 与 `package-lock.json` 记录为 `0.2.0`；数据库独立通过 `schema_migrations` 记录，当前为 `V13`：
 
 | version | name | 当前含义 |
 | --- | --- | --- |
@@ -30,6 +50,7 @@ http://127.0.0.1:4173
 | 10 | `durable_attachment_import_batches` | 持久附件导入批次、批次项目和导入查询索引。 |
 | 11 | `candidate_hire_status_and_date` | 候选人可空 `hire_status`/`hire_date` 列及状态/日期查询索引。 |
 | 12 | `candidate_hire_information` | 候选人可空 `hire_position` 列及职位查询索引；保留 V11 状态/日期列。 |
+| 13 | `candidate_years_experience_raw` | 工作年限来源原文及可空数值投影；保留既有候选人和业务表。 |
 
 v2 新增八张表：
 
@@ -105,6 +126,7 @@ Invoke-RestMethod http://127.0.0.1:4173/api/health
 | `AGENT_BASE_URL` | 未设置 | OpenAI-compatible 基础地址或 chat completions 地址。 |
 | `AGENT_API_KEY` | 未设置 | 模型网关密钥，只在后端使用。 |
 | `AGENT_MODEL` | 未设置 | 网关接受的模型名。 |
+| `ATTACHMENT_TEXT_TRUSTED_PRIVATE_HOSTS` | 未设置 | 文本附件网关的精确 DNS 主机名例外；仅 HTTPS 且所有 DNS 地址为 RFC1918/IPv6 ULA 时允许，不接受 IP、通配符/后缀或混合结果。 |
 | `AGENT_SYNC_RESPONSE_WINDOW_MS` | `650` | 短同步等待窗口；超出后返回持久任务供轮询，允许 50-1000 ms。 |
 | `AGENT_MAX_CONCURRENT_TASKS` | `2` | 单进程 Agent 并发任务数，允许 1-8。 |
 | `AGENT_MAX_QUEUED_TASKS` | `20` | 有界排队任务数，允许 1-100；超出返回 `task_overloaded`。 |

@@ -223,11 +223,11 @@ test('Agent V6 HTTP tools expose full read-only data without exposing a write ca
 
     const candidateSearch = await requestJson(`${fixture.url}/api/agent/tools/search_candidate_resumes`, {
       method: 'POST',
-      body: { keywords: [noteText], page_size: 20, evidence_limit: 3 }
+      body: { keywords: ['2b7d'], page_size: 20, evidence_limit: 3 }
     })
     assert.equal(candidateSearch.response.status, 200)
     assert.deepEqual(candidateSearch.body.items.map((item) => item.candidate_id), [candidateId])
-    assert.ok(candidateSearch.body.items[0].evidence.some((item) => item.field_path === 'notes.content'))
+    assert.ok(candidateSearch.body.items[0].evidence.some((item) => item.source_table === 'candidate_attachments' && item.ownership === 'self'))
 
     const notes = await requestJson(`${fixture.url}/api/agent/tools/query_candidate_notes`, {
       method: 'POST',

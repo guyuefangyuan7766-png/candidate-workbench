@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shicai.local/schemas/search-plan-v1.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["version", "must", "should", "minimum_should_match", "must_not", "unresolved"],
+  "properties": {
+    "version": {"const": 1}, "must": {"type":"array","items":{"$ref":"#/$defs/expr"}},
+    "should": {"type":"array","items":{"$ref":"#/$defs/expr"}},
+    "minimum_should_match": {"type":"integer","minimum":0},
+    "must_not": {"type":"array","items":{"$ref":"#/$defs/expr"}},
+    "unresolved": {"type":"array","items":{"type":"object","additionalProperties":false,"required":["text","span","reason","impact"],"properties":{"text":{"type":"string","minLength":1,"maxLength":80},"span":{"$ref":"#/$defs/span"},"reason":{"enum":["ambiguous","unsupported","conflict"]},"impact":{"enum":["required","excluded","preference"]}}}}
+  },
+  "$defs": {
+    "span":{"type":"array","prefixItems":[{"type":"integer","minimum":0},{"type":"integer","minimum":0}],"minItems":2,"maxItems":2},
+    "expr":{"anyOf":[
+      {"type":"object","additionalProperties":false,"required":["kind","scope","children"],"properties":{"kind":{"enum":["all","any"]},"scope":{"enum":["candidate","record"]},"children":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/expr"}}}},
+      {"type":"object","additionalProperties":false,"required":["kind","child"],"properties":{"kind":{"const":"not"},"child":{"$ref":"#/$defs/expr"}}},
+      {"type":"object","additionalProperties":false,"required":["kind","text","match","evidence_scope","span"],"properties":{"kind":{"const":"term"},"text":{"type":"string","minLength":1,"maxLength":80},"match":{"enum":["exact","concept"]},"evidence_scope":{"enum":["self","linked_position","talent_pool"]},"span":{"$ref":"#/$defs/span"}}},
+      {"type":"object","additionalProperties":false,"required":["kind","field","op","value","span"],"properties":{"kind":{"const":"filter"},"field":{"enum":["years","current_location","desired_location","education","current_company","current_title","position_id","talent_pool_id","source","archived","stage"]},"op":{"enum":["eq","in","gte","lte","gt","lt"]},"value":{"anyOf":[{"type":"string"},{"type":"number"},{"type":"array","items":{"type":"string"}}]},"span":{"$ref":"#/$defs/span"}}}
+    ]}
+  }
+}

@@ -1,0 +1,1287 @@
+{
+  "anonymous": true,
+  "database_access": false,
+  "cold_queries": true,
+  "concurrency": 2,
+  "at": "2026-09-10T05:59:11.734Z",
+  "summary": [
+    {
+      "model": "gpt-5.6-luna",
+      "count": 6,
+      "model_accepted": 1,
+      "condition_correct": 6,
+      "latency_ms": {
+        "p50": 30006.167500000003,
+        "p95": 30018.958199999997,
+        "max": 30018.958199999997
+      }
+    },
+    {
+      "model": "gpt-5.6-terra",
+      "count": 6,
+      "model_accepted": 0,
+      "condition_correct": 6,
+      "latency_ms": {
+        "p50": 30005.207200000004,
+        "p95": 30014.179800000013,
+        "max": 30014.179800000013
+      }
+    },
+    {
+      "model": "gemini-3.8-flash",
+      "count": 6,
+      "model_accepted": 0,
+      "condition_correct": 6,
+      "latency_ms": {
+        "p50": 434.96430000002147,
+        "p95": 1417.1823999999906,
+        "max": 1417.1823999999906
+      }
+    },
+    {
+      "model": "qwen3.8-flash",
+      "count": 6,
+      "model_accepted": 2,
+      "condition_correct": 6,
+      "latency_ms": {
+        "p50": 16897.35620000001,
+        "p95": 19630.358200000017,
+        "max": 19630.358200000017
+      }
+    }
+  ],
+  "rows": [
+    {
+      "model": "gpt-5.6-luna",
+      "id": "q-0",
+      "query": "上海 游戏策划 战斗系统",
+      "milliseconds": 30017.831199999997,
+      "source": "rules",
+      "correct": true,
+      "error_code": "search_model_timeout",
+      "warnings": [
+        "model_planning_unavailable"
+      ],
+      "plan": {
+        "version": 1,
+        "must": [
+          {
+            "kind": "filter",
+            "field": "current_location",
+            "op": "eq",
+            "value": "上海",
+            "span": [
+              0,
+              2
+            ]
+          },
+          {
+            "kind": "term",
+            "text": "游戏策划",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              3,
+              7
+            ]
+          },
+          {
+            "kind": "term",
+            "text": "战斗系统",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              8,
+              12
+            ]
+          }
+        ],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [],
+        "unresolved": [],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_planning_unavailable"
+          ],
+          "query": "上海 游戏策划 战斗系统",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "model": "gpt-5.6-luna",
+      "id": "q-1",
+      "query": "找3到5年经验的后端工程师",
+      "milliseconds": 30018.958199999997,
+      "source": "rules",
+      "correct": true,
+      "error_code": "search_model_timeout",
+      "warnings": [
+        "model_planning_unavailable"
+      ],
+      "plan": {
+        "version": 1,
+        "must": [
+          {
+            "kind": "filter",
+            "field": "years",
+            "op": "gte",
+            "value": 3,
+            "span": [
+              1,
+              5
+            ]
+          },
+          {
+            "kind": "filter",
+            "field": "years",
+            "op": "lte",
+            "value": 5,
+            "span": [
+              1,
+              5
+            ]
+          },
+          {
+            "kind": "term",
+            "text": "后端工程师",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              8,
+              13
+            ]
+          }
+        ],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [],
+        "unresolved": [],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_planning_unavailable"
+          ],
+          "query": "找3到5年经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "model": "gpt-5.6-luna",
+      "id": "q-3",
+      "query": "Unity 或 Unreal",
+      "milliseconds": 3346.4812999999995,
+      "source": "rules",
+      "correct": true,
+      "error_code": "search_model_http_error",
+      "warnings": [
+        "model_planning_unavailable"
+      ],
+      "plan": {
+        "version": 1,
+        "must": [
+          {
+            "kind": "any",
+            "scope": "candidate",
+            "children": [
+              {
+                "kind": "term",
+                "text": "Unity",
+                "match": "concept",
+                "evidence_scope": "self",
+                "span": [
+                  0,
+                  5
+                ]
+              },
+              {
+                "kind": "term",
+                "text": "Unreal",
+                "match": "concept",
+                "evidence_scope": "self",
+                "span": [
+                  8,
+                  14
+                ]
+              }
+            ]
+          }
+        ],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [],
+        "unresolved": [],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_planning_unavailable"
+          ],
+          "query": "Unity 或 Unreal",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "model": "gpt-5.6-luna",
+      "id": "q-2",
+      "query": "找3年以下经验的后端工程师",
+      "milliseconds": 15285.253,
+      "source": "model",
+      "correct": true,
+      "error_code": null,
+      "warnings": [],
+      "plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "lte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 3
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              8,
+              13
+            ],
+            "text": "后端工程师"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "找3年以下经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "model": "gpt-5.6-luna",
+      "id": "q-5",
+      "query": "找熟悉数值策划的人",
+      "milliseconds": 1635.8531000000003,
+      "source": "rules",
+      "correct": true,
+      "error_code": "search_model_http_error",
+      "warnings": [
+        "model_planning_unavailable"
+      ],
+      "plan": {
+        "version": 1,
+        "must": [
+          {
+            "kind": "term",
+            "text": "数值策划",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              3,
+              7
+            ]
+          }
+        ],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [],
+        "unresolved": [],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_planning_unavailable"
+          ],
+          "query": "找熟悉数值策划的人",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "model": "gpt-5.6-luna",
+      "id": "q-4",
+      "query": "Unity 不要外包",
+      "milliseconds": 30006.167500000003,
+      "source": "rules",
+      "correct": true,
+      "error_code": "search_model_timeout",
+      "warnings": [
+        "model_planning_unavailable"
+      ],
+      "plan": {
+        "version": 1,
+        "must": [
+          {
+            "kind": "term",
+            "text": "Unity",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              0,
+              5
+            ]
+          }
+        ],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [
+          {
+            "kind": "term",
+            "text": "外包",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              8,
+              10
+            ]
+          }
+        ],
+        "unresolved": [],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_planning_unavailable"
+          ],
+          "query": "Unity 不要外包",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "model": "gpt-5.6-terra",
+      "id": "q-0",
+      "query": "上海 游戏策划 战斗系统",
+      "milliseconds": 30004.5423,
+      "source": "rules",
+      "correct": true,
+      "error_code": "search_model_timeout",
+      "warnings": [
+        "model_planning_unavailable"
+      ],
+      "plan": {
+        "version": 1,
+        "must": [
+          {
+            "kind": "filter",
+            "field": "current_location",
+            "op": "eq",
+            "value": "上海",
+            "span": [
+              0,
+              2
+            ]
+          },
+          {
+            "kind": "term",
+            "text": "游戏策划",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              3,
+              7
+            ]
+          },
+          {
+            "kind": "term",
+            "text": "战斗系统",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              8,
+              12
+            ]
+          }
+        ],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [],
+        "unresolved": [],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_planning_unavailable"
+          ],
+          "query": "上海 游戏策划 战斗系统",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "model": "gpt-5.6-terra",
+      "id": "q-1",
+      "query": "找3到5年经验的后端工程师",
+      "milliseconds": 30004.285800000005,
+      "source": "rules",
+      "correct": true,
+      "error_code": "search_model_timeout",
+      "warnings": [
+        "model_planning_unavailable"
+      ],
+      "plan": {
+        "version": 1,
+        "must": [
+          {
+            "kind": "filter",
+            "field": "years",
+            "op": "gte",
+            "value": 3,
+            "span": [
+              1,
+              5
+            ]
+          },
+          {
+            "kind": "filter",
+            "field": "years",
+            "op": "lte",
+            "value": 5,
+            "span": [
+              1,
+              5
+            ]
+          },
+          {
+            "kind": "term",
+            "text": "后端工程师",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              8,
+              13
+            ]
+          }
+        ],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [],
+        "unresolved": [],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_planning_unavailable"
+          ],
+          "query": "找3到5年经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "model": "gpt-5.6-terra",
+      "id": "q-2",
+      "query": "找3年以下经验的后端工程师",
+      "milliseconds": 2966.6512999999977,
+      "source": "rules",
+      "correct": true,
+      "error_code": "search_model_http_error",
+      "warnings": [
+        "model_planning_unavailable"
+      ],
+      "plan": {
+        "version": 1,
+        "must": [
+          {
+            "kind": "filter",
+            "field": "years",
+            "op": "lte",
+            "value": 3,
+            "span": [
+              1,
+              5
+            ]
+          },
+          {
+            "kind": "term",
+            "text": "后端工程师",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              8,
+              13
+            ]
+          }
+        ],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [],
+        "unresolved": [],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_planning_unavailable"
+          ],
+          "query": "找3年以下经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "model": "gpt-5.6-terra",
+      "id": "q-3",
+      "query": "Unity 或 Unreal",
+      "milliseconds": 30005.207200000004,
+      "source": "rules",
+      "correct": true,
+      "error_code": "search_model_timeout",
+      "warnings": [
+        "model_planning_unavailable"
+      ],
+      "plan": {
+        "version": 1,
+        "must": [
+          {
+            "kind": "any",
+            "scope": "candidate",
+            "children": [
+              {
+                "kind": "term",
+                "text": "Unity",
+                "match": "concept",
+                "evidence_scope": "self",
+                "span": [
+                  0,
+                  5
+                ]
+              },
+              {
+                "kind": "term",
+                "text": "Unreal",
+                "match": "concept",
+                "evidence_scope": "self",
+                "span": [
+                  8,
+                  14
+                ]
+              }
+            ]
+          }
+        ],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [],
+        "unresolved": [],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_planning_unavailable"
+          ],
+          "query": "Unity 或 Unreal",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "model": "gpt-5.6-terra",
+      "id": "q-4",
+      "query": "Unity 不要外包",
+      "milliseconds": 30009.688800000004,
+      "source": "rules",
+      "correct": true,
+      "error_code": "search_model_timeout",
+      "warnings": [
+        "model_planning_unavailable"
+      ],
+      "plan": {
+        "version": 1,
+        "must": [
+          {
+            "kind": "term",
+            "text": "Unity",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              0,
+              5
+            ]
+          }
+        ],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [
+          {
+            "kind": "term",
+            "text": "外包",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              8,
+              10
+            ]
+          }
+        ],
+        "unresolved": [],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_planning_unavailable"
+          ],
+          "query": "Unity 不要外包",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "model": "gpt-5.6-terra",
+      "id": "q-5",
+      "query": "找熟悉数值策划的人",
+      "milliseconds": 30014.179800000013,
+      "source": "rules",
+      "correct": true,
+      "error_code": "search_model_timeout",
+      "warnings": [
+        "model_planning_unavailable"
+      ],
+      "plan": {
+        "version": 1,
+        "must": [
+          {
+            "kind": "term",
+            "text": "数值策划",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              3,
+              7
+            ]
+          }
+        ],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [],
+        "unresolved": [],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_planning_unavailable"
+          ],
+          "query": "找熟悉数值策划的人",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "model": "gemini-3.8-flash",
+      "id": "q-0",
+      "query": "上海 游戏策划 战斗系统",
+      "milliseconds": 434.96430000002147,
+      "source": "rules",
+      "correct": true,
+      "error_code": "search_model_http_error",
+      "warnings": [
+        "model_planning_unavailable"
+      ],
+      "plan": {
+        "version": 1,
+        "must": [
+          {
+            "kind": "filter",
+            "field": "current_location",
+            "op": "eq",
+            "value": "上海",
+            "span": [
+              0,
+              2
+            ]
+          },
+          {
+            "kind": "term",
+            "text": "游戏策划",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              3,
+              7
+            ]
+          },
+          {
+            "kind": "term",
+            "text": "战斗系统",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              8,
+              12
+            ]
+          }
+        ],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [],
+        "unresolved": [],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_planning_unavailable"
+          ],
+          "query": "上海 游戏策划 战斗系统",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "model": "gemini-3.8-flash",
+      "id": "q-2",
+      "query": "找3年以下经验的后端工程师",
+      "milliseconds": 423.83069999999134,
+      "source": "rules",
+      "correct": true,
+      "error_code": "search_model_http_error",
+      "warnings": [
+        "model_planning_unavailable"
+      ],
+      "plan": {
+        "version": 1,
+        "must": [
+          {
+            "kind": "filter",
+            "field": "years",
+            "op": "lte",
+            "value": 3,
+            "span": [
+              1,
+              5
+            ]
+          },
+          {
+            "kind": "term",
+            "text": "后端工程师",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              8,
+              13
+            ]
+          }
+        ],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [],
+        "unresolved": [],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_planning_unavailable"
+          ],
+          "query": "找3年以下经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "model": "gemini-3.8-flash",
+      "id": "q-1",
+      "query": "找3到5年经验的后端工程师",
+      "milliseconds": 1417.1823999999906,
+      "source": "rules",
+      "correct": true,
+      "error_code": "search_model_http_error",
+      "warnings": [
+        "model_planning_unavailable"
+      ],
+      "plan": {
+        "version": 1,
+        "must": [
+          {
+            "kind": "filter",
+            "field": "years",
+            "op": "gte",
+            "value": 3,
+            "span": [
+              1,
+              5
+            ]
+          },
+          {
+            "kind": "filter",
+            "field": "years",
+            "op": "lte",
+            "value": 5,
+            "span": [
+              1,
+              5
+            ]
+          },
+          {
+            "kind": "term",
+            "text": "后端工程师",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              8,
+              13
+            ]
+          }
+        ],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [],
+        "unresolved": [],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_planning_unavailable"
+          ],
+          "query": "找3到5年经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "model": "gemini-3.8-flash",
+      "id": "q-3",
+      "query": "Unity 或 Unreal",
+      "milliseconds": 562.4184999999998,
+      "source": "rules",
+      "correct": true,
+      "error_code": "search_model_http_error",
+      "warnings": [
+        "model_planning_unavailable"
+      ],
+      "plan": {
+        "version": 1,
+        "must": [
+          {
+            "kind": "any",
+            "scope": "candidate",
+            "children": [
+              {
+                "kind": "term",
+                "text": "Unity",
+                "match": "concept",
+                "evidence_scope": "self",
+                "span": [
+                  0,
+                  5
+                ]
+              },
+              {
+                "kind": "term",
+                "text": "Unreal",
+                "match": "concept",
+                "evidence_scope": "self",
+                "span": [
+                  8,
+                  14
+                ]
+              }
+            ]
+          }
+        ],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [],
+        "unresolved": [],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_planning_unavailable"
+          ],
+          "query": "Unity 或 Unreal",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "model": "gemini-3.8-flash",
+      "id": "q-5",
+      "query": "找熟悉数值策划的人",
+      "milliseconds": 420.70079999999143,
+      "source": "rules",
+      "correct": true,
+      "error_code": "search_model_http_error",
+      "warnings": [
+        "model_planning_unavailable"
+      ],
+      "plan": {
+        "version": 1,
+        "must": [
+          {
+            "kind": "term",
+            "text": "数值策划",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              3,
+              7
+            ]
+          }
+        ],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [],
+        "unresolved": [],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_planning_unavailable"
+          ],
+          "query": "找熟悉数值策划的人",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "model": "gemini-3.8-flash",
+      "id": "q-4",
+      "query": "Unity 不要外包",
+      "milliseconds": 424.9817000000039,
+      "source": "rules",
+      "correct": true,
+      "error_code": "search_model_http_error",
+      "warnings": [
+        "model_planning_unavailable"
+      ],
+      "plan": {
+        "version": 1,
+        "must": [
+          {
+            "kind": "term",
+            "text": "Unity",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              0,
+              5
+            ]
+          }
+        ],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [
+          {
+            "kind": "term",
+            "text": "外包",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              8,
+              10
+            ]
+          }
+        ],
+        "unresolved": [],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_planning_unavailable"
+          ],
+          "query": "Unity 不要外包",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "model": "qwen3.8-flash",
+      "id": "q-1",
+      "query": "找3到5年经验的后端工程师",
+      "milliseconds": 5820.7184000000125,
+      "source": "rules",
+      "correct": true,
+      "error_code": null,
+      "warnings": [
+        "model_plan_constraints_changed"
+      ],
+      "plan": {
+        "version": 1,
+        "must": [
+          {
+            "kind": "filter",
+            "field": "years",
+            "op": "gte",
+            "value": 3,
+            "span": [
+              1,
+              5
+            ]
+          },
+          {
+            "kind": "filter",
+            "field": "years",
+            "op": "lte",
+            "value": 5,
+            "span": [
+              1,
+              5
+            ]
+          },
+          {
+            "kind": "term",
+            "text": "后端工程师",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              8,
+              13
+            ]
+          }
+        ],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [],
+        "unresolved": [],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_plan_constraints_changed"
+          ],
+          "query": "找3到5年经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "model": "qwen3.8-flash",
+      "id": "q-0",
+      "query": "上海 游戏策划 战斗系统",
+      "milliseconds": 16897.35620000001,
+      "source": "rules",
+      "correct": true,
+      "error_code": null,
+      "warnings": [
+        "model_plan_constraints_changed"
+      ],
+      "plan": {
+        "version": 1,
+        "must": [
+          {
+            "kind": "filter",
+            "field": "current_location",
+            "op": "eq",
+            "value": "上海",
+            "span": [
+              0,
+              2
+            ]
+          },
+          {
+            "kind": "term",
+            "text": "游戏策划",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              3,
+              7
+            ]
+          },
+          {
+            "kind": "term",
+            "text": "战斗系统",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              8,
+              12
+            ]
+          }
+        ],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [],
+        "unresolved": [],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_plan_constraints_changed"
+          ],
+          "query": "上海 游戏策划 战斗系统",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "model": "qwen3.8-flash",
+      "id": "q-2",
+      "query": "找3年以下经验的后端工程师",
+      "milliseconds": 16761.015199999994,
+      "source": "model",
+      "correct": true,
+      "error_code": null,
+      "warnings": [],
+      "plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              8,
+              13
+            ],
+            "text": "后端工程师"
+          },
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "lte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 3
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "找3年以下经验的后端工程师",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "model": "qwen3.8-flash",
+      "id": "q-3",
+      "query": "Unity 或 Unreal",
+      "milliseconds": 6419.0476999999955,
+      "source": "rules",
+      "correct": true,
+      "error_code": null,
+      "warnings": [
+        "model_plan_constraints_changed"
+      ],
+      "plan": {
+        "version": 1,
+        "must": [
+          {
+            "kind": "any",
+            "scope": "candidate",
+            "children": [
+              {
+                "kind": "term",
+                "text": "Unity",
+                "match": "concept",
+                "evidence_scope": "self",
+                "span": [
+                  0,
+                  5
+                ]
+              },
+              {
+                "kind": "term",
+                "text": "Unreal",
+                "match": "concept",
+                "evidence_scope": "self",
+                "span": [
+                  8,
+                  14
+                ]
+              }
+            ]
+          }
+        ],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [],
+        "unresolved": [],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_plan_constraints_changed"
+          ],
+          "query": "Unity 或 Unreal",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "model": "qwen3.8-flash",
+      "id": "q-4",
+      "query": "Unity 不要外包",
+      "milliseconds": 19630.358200000017,
+      "source": "rules",
+      "correct": true,
+      "error_code": "search_planner_invalid",
+      "warnings": [
+        "model_planning_unavailable"
+      ],
+      "plan": {
+        "version": 1,
+        "must": [
+          {
+            "kind": "term",
+            "text": "Unity",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              0,
+              5
+            ]
+          }
+        ],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [
+          {
+            "kind": "term",
+            "text": "外包",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              8,
+              10
+            ]
+          }
+        ],
+        "unresolved": [],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_planning_unavailable"
+          ],
+          "query": "Unity 不要外包",
+          "schemaVersion": 1
+        }
+      }
+    },
+    {
+      "model": "qwen3.8-flash",
+      "id": "q-5",
+      "query": "找熟悉数值策划的人",
+      "milliseconds": 18924.090999999986,
+      "source": "model",
+      "correct": true,
+      "error_code": null,
+      "warnings": [],
+      "plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              3,
+              7
+            ],
+            "text": "数值策划"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "找熟悉数值策划的人",
+          "schemaVersion": 1
+        }
+      }
+    }
+  ]
+}

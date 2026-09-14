@@ -728,6 +728,21 @@ test('text model failures are visible as an independent retryable pipeline chann
   assert.doesNotMatch(JSON.stringify(preview), /gateway details must stay private/)
 })
 
+test('text suggestions that finish within the adapter budget are not cut off by the attachment wrapper', async () => {
+  const suggestionProvider = () => new Promise((resolve) => {
+    setTimeout(() => resolve({ records: [], status: 'ready', schema_mode: 'strict' }), 6_000)
+  })
+  const { service } = createFixture({ suggestionProvider, visualSuggestionProvider: null })
+  const pending = service.createPreview({
+    file: pdfFile([['Email: delayed-text@example.test']], 'anonymous-delayed-text.pdf')
+  })
+  const preview = await service.waitForPreview(pending.preview_id)
+
+  assert.equal(preview.status, 'ready')
+  assert.equal(preview.pipeline.text_model.status, 'ready')
+  assert.equal(preview.pipeline.text_model.schema_mode, 'strict')
+})
+
 test('text model endpoint policy failures remain explicit and non-retryable', async () => {
   const suggestionProvider = () => {
     const error = new Error('private endpoint details must stay out of the preview')

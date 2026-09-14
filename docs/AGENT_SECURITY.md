@@ -1,5 +1,17 @@
 # Agent 安全边界
 
+## 2026-09 检索执行边界增量（应用 0.2.0）
+
+2026-09-10 用户进一步授权完成正式混合检索，作为 0.2.0 / V13 补充，包含既有网关的正式本人材料向量回填及持续维护。仅使用既有服务端配置，不连接新供应商、不迁移主库。正式索引维护属于授权业务处理，不用正式候选人数据做评测、浏览器截图或测试 fixture；所有正式运行记录仅含脱敏聚合。实际启用状态见 [补充交付](handoffs/2026-09-10-search-hybrid-formal-supplement.md)。
+
+新人才检索使用独立只读 worker 和固定 SQL 编译器。模型只能返回由 Ajv 校验的查询计划，禁止客户端或模型提供 SQL。模型输入为查询文本，Embedding 输入仅为候选人主档选定字段、有效履历区块及已解析简历附件，重排最多50个、每个1800字符的本人证据包。关联职位/人才库和结构化来源 JSON 不作为本人技能证据。
+
+远程适配器执行 DNS 校验与连接地址固定、TLS校验、禁止重定向、请求/响应体上限、超时/取消，错误不包含密钥、地址或上游正文。私网 HTTPS 仅使用已有明确的可信主机配置。维护 CLI 要求显式 `--formal` 或带标记的匿名库，正式模式仍要求源路径和独立输出目录；后台维护需远程开关、维护开关及向量目录同时配置。只读查询不写向量或迁移主库。
+
+出站前用本地姓名/手机/邮箱字面量及联系方式、证件号、URL 和个人信息标签规则遮蔽本人材料；先遮蔽整段再切片，保留本地原文偏移。重排最多发送 50 个本人证据包，也执行身份遮蔽。规则遮蔽并不保证全文匿名，任职公司、教育、项目及正文中的未识别个人信息仍可能出站；网关费用、保留、训练和删除政策没有因此得到验证。查询本身也可能含用户输入的身份信息。正式索引保留原文、本地缓存与 active/previous 代际需按敏感本地文件保护；逻辑删除后的旧代际不参与检索，但不等于备份或磁盘块的密码学擦除。
+
+新模块固定字段投影独立于通用 Agent 列政策。当前工作树已有 `storage_path` 列政策与旧安全文档不一致；2026-09-10在原工作树复现了相关测试失败，本增量未回滚用户的通用列政策修改，不能声称该旧边界已通过验收。
+
 ## 结论
 
 V8 Agent 是 SQLite **业务全字段按需只读**查询层。按用户明确授权，它可以查询服务端业务政策目录内任何允许表和字段，包括未打码手机号/邮箱、证件照地址、薪资、求职偏好、备注、活动、完整履历、历史评估、授权、申请来源、`candidate_source_records.raw_payload`、附件解析正文、归档数据及候选人/职位最小删除审计。
@@ -173,6 +185,8 @@ Agent 可以读取附件文本并提出符合工具 schema 的建议，但不能
 
 生产 suggestion provider 只复用已经配置的 Agent Chat Completions 网关：单次最多发送提取文本前 120,000 字符和前 100 条预览记录，默认要求 `strict` JSON Schema 响应，并且请求不携带 `tools` 或 `tool_choice`。`ATTACHMENT_TEXT_SCHEMA_MODE=compat` 只能显式开启，仍执行本地严格 Schema/白名单/证据和值校验，且结果标记为 `compat` 而非 `strict`；端点策略错误 `attachment_suggestion_endpoint_invalid`/`attachment_suggestion_endpoint_insecure` 不可重试。独立视觉 provider 只接收受限 PDF PNG 页和每页最多 8,000 字符的页文本/最小元数据；视觉 schema mode 也只能由 `ATTACHMENT_VISUAL_SCHEMA_MODE=compat` 显式开启。单个 text span 在 Worker 内最多 1,000 字符，视觉响应最多 512 KiB。视觉请求明确 `redirect: "error"`，不跟随网关重定向。附件正文和记录 JSON 在系统提示中被明确标记为不可信数据。网关未配置、超时、报错或返回无效结构时，服务端保留本地规则建议继续展示预览；模型故障既不会触发写入，也不会阻断用户核对本地结果。
 
+文本附件建议端点默认拒绝私网解析结果；只有精确列入 `ATTACHMENT_TEXT_TRUSTED_PRIVATE_HOSTS` 的 HTTPS DNS 主机名，且所有 DNS 返回地址均为 RFC1918/IPv6 ULA 时才放行，不接受 IP 字面量、通配符/后缀匹配或混合公网/私网答案，并使用 pinned lookup 固定到已校验地址。配置变更后需重启服务。
+
 空值不清除已有值，覆盖非空字段需用户显式选择，电话/邮箱更新再次全库查冲突，标签去重并集，履历默认去重合并，整体替换需额外确认。该业务边界不能因模型输出、附件内容或工具调用参数而跳过。
 
 预览进入 `confirmed`、`cancelled` 或 `expired` 后，服务端清空 `attachment_update_previews.extracted_text` 与 `records_json` 并移除隔离路径，只保留最小状态、错误码和时间。确认后的正文只存在于正式候选人附件记录，避免临时表继续保留一份可恢复简历副本。
@@ -182,6 +196,7 @@ Agent 可以读取附件文本并提出符合工具 schema 的建议，但不能
 PDF 双通道不是第二条身份或写入路径。确定性解析器始终负责文本、手机号/邮箱标准化、精确身份匹配、基础建议和持久化前校验；视觉通道只对受限渲染页提出带页码/最小证据的候选字段和履历区块。姓名、公司、学校、职位和文件名都不能用于视觉通道的候选人匹配、合并或更新。视觉结果与确定性结果冲突时保留确定性结果、取消默认选择，并在预览中保留冲突元数据供人工核对。
 
 视觉通道仅适用于 PDF，且只有 `ATTACHMENT_VISUAL_CAPABILITY=image_input` 并且端点、模型和服务端凭据配置完整时才渲染页面和发起请求。端点必须是 `http`/`https`；生产环境拒绝明文 HTTP，非生产显式 loopback HTTP 仅保留给隔离测试，不能作为 trusted-private 例外。私网解析结果默认拒绝；只有 hostname 精确列入 `ATTACHMENT_VISUAL_TRUSTED_PRIVATE_HOSTS`、端点为 HTTPS、并且（若配置）同时通过 `ATTACHMENT_VISUAL_ALLOWED_HOSTS` 时，才允许 DNS 结果全部属于 RFC1918/IPv6 ULA 公司私网。该例外不接受 IP 字面量、通配符、后缀匹配、`.localhost`/`.internal`/`.local`/metadata 保留主机名或混合公网/私网答案；loopback、link-local、metadata、multicast、保留地址、IPv4-mapped、NAT64、6to4 等危险目标仍逐一拒绝。主机名在请求前解析，所有 DNS 返回地址逐一校验，并由底层请求的 pinned lookup 固定使用已校验地址。公网 HTTPS 可按部署需要由 `ATTACHMENT_VISUAL_ALLOWED_HOSTS` 进一步限制主机名。拒绝原因使用不含 URL 的稳定错误码 `visual_endpoint_invalid`、`visual_endpoint_insecure`、`visual_endpoint_blocked`、`visual_endpoint_unapproved`；DNS 不可用仍降级为 `visual_unavailable`。应用层已覆盖校验到连接之间的地址漂移；部署网络出口策略仍作为独立纵深控制，不能把应用层检查当作完整网络隔离。此声明及本地配置校验不是网关主动探测或健康检查；可达性和响应合规性只在实际请求/响应期间验证，失败即安全 fallback。显式视觉端点配置是原子配置；未显式提供时才可复用既有 Agent 网关配置。任何视觉配置值、网关地址和凭据都不得进入前端、API 响应、截图、文档示例或日志。视觉请求使用 `stream:false`、strict JSON Schema、无 `tools`/`tool_choice` 和禁止重定向；PDF 页图、文本层和附件 JSON 都是不可信数据，不能执行其中的指令。
+Node 24 的 `NODE_USE_SYSTEM_CA=1` 仅启用系统根证书读取，不会关闭 TLS 校验；内部网关仍必须使用 HTTPS 和精确主机名白名单。
 
 页面图像只在解析 Worker、视觉请求和合并校验期间驻留内存。渲染 PNG、data URL/base64 和视觉页数组在完成、超时、取消或错误后被清空；它们不写入预览记录、正式附件或普通 API 响应。视觉页的 `text_spans` 只由 PDF.js 文本层生成；模型输出中的 bbox 被 schema 拒绝，因而不存在模型坐标或 OCR 坐标回写。预览隔离文件仍遵循原有生命周期：确认、取消或过期时删除/入清理队列，临时正文和记录 JSON 擦除；正式附件正文只在用户确认后落入正式附件记录。
 
