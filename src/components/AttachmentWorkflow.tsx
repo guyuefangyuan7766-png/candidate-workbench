@@ -3,7 +3,6 @@ import {
   AlertTriangle,
   Check,
   CheckCircle2,
-  Download,
   FileSpreadsheet,
   FileText,
   ImageIcon,
@@ -65,14 +64,14 @@ const READY_STATUSES = new Set(["ready", "parsed"]);
 function AttachmentConflictNotice({ conflict }: { conflict?: AttachmentSuggestionConflict }) {
   if (!conflict) return null;
   const evidenceStatus = attachmentEvidenceStatusLabel(conflict.evidence_status);
-  return <small className="attachment-conflict">
+  return <small className="tw-ats-conflict">
     <AlertTriangle size={12} />
     <span>
       <span>{conflict.message}</span>
-      {conflict.existing_value !== undefined && <span className="attachment-conflict-value">{attachmentProvenanceLabel(conflict.existing_source)}：{attachmentConflictValueText(conflict.existing_value)}</span>}
-      {conflict.proposed_value !== undefined && <span className="attachment-conflict-value">{attachmentProvenanceLabel(conflict.source)}建议：{attachmentConflictValueText(conflict.proposed_value)}</span>}
-      {evidenceStatus && <span className={`attachment-evidence-status is-${conflict.evidence_status}`}>{evidenceStatus}</span>}
-      {attachmentSuggestionEvidenceRefs(conflict).map((reference, index) => <span className="attachment-conflict-evidence" key={`${reference.page ?? "none"}-${index}`}>{reference.page ? `第 ${reference.page} 页：` : "证据："}{reference.text}</span>)}
+      {conflict.existing_value !== undefined && <span className="tw-ats-conflict-value">{attachmentProvenanceLabel(conflict.existing_source)}：{attachmentConflictValueText(conflict.existing_value)}</span>}
+      {conflict.proposed_value !== undefined && <span className="tw-ats-conflict-value">{attachmentProvenanceLabel(conflict.source)}建议：{attachmentConflictValueText(conflict.proposed_value)}</span>}
+      {evidenceStatus && <span className={`tw-ats-evidence-status is-${conflict.evidence_status}`}>{evidenceStatus}</span>}
+      {attachmentSuggestionEvidenceRefs(conflict).map((reference, index) => <span className="tw-ats-conflict-evidence" key={`${reference.page ?? "none"}-${index}`}>{reference.page ? `第 ${reference.page} 页：` : "证据："}{reference.text}</span>)}
     </span>
   </small>;
 }
@@ -727,9 +726,9 @@ export function AttachmentWorkflow({
 
   if (state === "idle" || (state === "error" && !preview)) {
     return (
-      <div className="attachment-workflow">
+      <div className="tw-ats-flow">
         <button
-          className={`attachment-drop-zone${dragActive ? " is-dragging" : ""}`}
+          className={`tw-ats-drop${dragActive ? " is-dragging" : ""}`}
           type="button"
           disabled={disabled}
           onClick={() => inputRef.current?.click()}
@@ -748,10 +747,10 @@ export function AttachmentWorkflow({
           <span>PDF、DOCX、XLSX、XLSM、XLS、CSV、TXT · 最大 15 MB</span>
         </button>
         <input ref={inputRef} className="sr-only" type="file" accept={ACCEPT} disabled={disabled} onChange={(event) => event.target.files?.[0] && void upload(event.target.files[0])} />
-        {error && <div className="attachment-error" role="alert"><AlertTriangle size={15} /><span>{error}</span><button className="icon-button compact-icon-button" type="button" onClick={() => { setError(""); setErrorRecovery("none"); setState("idle"); }} aria-label="关闭错误"><X size={14} /></button></div>}
-        {state === "error" && !disabled && <div className="attachment-error-actions">
-          {errorRecovery === "upload" && lastFileRef.current && <button className="button secondary-button" type="button" onClick={() => void retryCurrentFile()}><RefreshCw size={15} />重试当前文件</button>}
-          <button className="button secondary-button" type="button" onClick={() => inputRef.current?.click()}><UploadCloud size={15} />重新选择文件</button>
+        {error && <div className="tw-att-error" role="alert"><AlertTriangle size={15} /><span>{error}</span><button className="tw-icon-plain" type="button" onClick={() => { setError(""); setErrorRecovery("none"); setState("idle"); }} aria-label="关闭错误"><X size={14} /></button></div>}
+        {state === "error" && !disabled && <div className="tw-att-error-actions">
+          {errorRecovery === "upload" && lastFileRef.current && <button className="tw-btn" type="button" onClick={() => void retryCurrentFile()}><RefreshCw size={15} />重试当前文件</button>}
+          <button className="tw-btn" type="button" onClick={() => inputRef.current?.click()}><UploadCloud size={15} />重新选择文件</button>
         </div>}
       </div>
     );
@@ -759,11 +758,11 @@ export function AttachmentWorkflow({
 
   if ((state === "uploading" || state === "parsing") && !preview?.records.length) {
     return (
-      <div className="attachment-processing" role="status" aria-live="polite">
+      <div className="tw-att-processing" role="status" aria-live="polite">
         <input ref={inputRef} className="sr-only" type="file" accept={ACCEPT} disabled={disabled} onChange={(event) => event.target.files?.[0] && void upload(event.target.files[0])} />
         <LoaderCircle className="spin" size={22} />
         <div><strong>{state === "uploading" ? "正在安全上传" : "正在本地解析简历"}</strong><span>校验文件签名并提取身份字段与履历内容...</span></div>
-        {preview && <button className="button secondary-button" type="button" onClick={() => void discard()}>取消</button>}
+        {preview && <button className="tw-btn" type="button" onClick={() => void discard()}>取消</button>}
       </div>
     );
   }
@@ -776,44 +775,44 @@ export function AttachmentWorkflow({
 
   return (
     <>
-    <div className="attachment-workflow attachment-preview-workflow">
+    <div className="tw-ats-flow tw-ats-flow-preview">
       <input ref={inputRef} className="sr-only" type="file" accept={ACCEPT} disabled={disabled} onChange={(event) => event.target.files?.[0] && void upload(event.target.files[0])} />
-      <div className="attachment-preview-file">
+      <div className="tw-att-preview-file">
         {preview.file.format.includes("xls") || preview.file.format === "csv" ? <FileSpreadsheet size={18} /> : <FileText size={18} />}
         <div><strong title={preview.file.original_filename}>{preview.file.original_filename}</strong><span>{preview.file.format.toLocaleUpperCase()} · {fileSize(preview.file.file_size)} · {preview.records.length} 条记录</span></div>
-        {state !== "done" && <button className="icon-button compact-icon-button" type="button" onClick={() => void discard()} disabled={state === "confirming"} aria-label="取消并清理临时附件" title="取消上传"><Trash2 size={15} /></button>}
+        {state !== "done" && <button className="tw-icon-plain" type="button" onClick={() => void discard()} disabled={state === "confirming"} aria-label="取消并清理临时附件" title="取消上传"><Trash2 size={15} /></button>}
       </div>
-      <div className="attachment-parser-status" aria-live="polite">
+      <div className="tw-ats-parser-status" aria-live="polite">
         <span>{attachmentParserPipelineLabel(preview.pipeline?.text?.content_type)}</span>
         <span>解析器：{preview.parser_version ?? "未提供"}</span>
-        <span className={`attachment-pipeline-channel ${attachmentPipelineChannelTone(preview.pipeline?.text_model)}`}>
+        <span className={`tw-ats-channel ${attachmentPipelineChannelTone(preview.pipeline?.text_model)}`}>
           文本模型：{attachmentPipelineChannelLabel(preview.pipeline?.text_model)}
           {attachmentPipelineChannelDetail(preview.pipeline?.text_model) && <small>{attachmentPipelineChannelDetail(preview.pipeline?.text_model)}</small>}
         </span>
-        <span className={`attachment-pipeline-channel ${attachmentPipelineChannelTone(preview.pipeline?.visual)}`}>
+        <span className={`tw-ats-channel ${attachmentPipelineChannelTone(preview.pipeline?.visual)}`}>
           视觉通道：{attachmentPipelineChannelLabel(preview.pipeline?.visual)}
           {attachmentPipelineChannelDetail(preview.pipeline?.visual) && <small>{attachmentPipelineChannelDetail(preview.pipeline?.visual)}</small>}
         </span>
         {preview.pipeline?.visual?.used_fallback && <span className="is-warning">视觉解析已降级，已保留文本解析结果{preview.pipeline?.visual?.error_code ? `（${preview.pipeline.visual.error_code}）` : ""}</span>}
         {preview.pipeline?.text_model?.status === "fallback" && <span className="is-warning">文本模型已降级，当前结果仍需人工核对{preview.pipeline.text_model.error_code ? `（${preview.pipeline.text_model.error_code}）` : ""}</span>}
-        {pipelineRetryable && lastFileRef.current && state === "ready" && <button className="button secondary-button attachment-channel-retry" type="button" onClick={() => void retryCurrentFile()}><RefreshCw size={14} />重新运行解析通道</button>}
+        {pipelineRetryable && lastFileRef.current && state === "ready" && <button className="tw-btn tw-ats-channel-retry" type="button" onClick={() => void retryCurrentFile()}><RefreshCw size={14} />重新运行解析通道</button>}
       </div>
 
       {state === "error" ? (
-        <div className="attachment-failure" role="alert">
+        <div className="tw-att-failure" role="alert">
           <AlertTriangle size={23} />
           <div><strong>附件处理未完成</strong><span>{error || "附件处理失败，请重试。"}</span></div>
-          <div className="attachment-failure-actions">
-            {errorRecovery === "status" && <button className="button secondary-button" type="button" onClick={retryStatus}><RefreshCw size={15} />重新获取状态</button>}
-            {errorRecovery === "upload" && lastFileRef.current && <button className="button secondary-button" type="button" onClick={() => void retryCurrentFile()}><RefreshCw size={15} />重试当前文件</button>}
-            <button className="button secondary-button" type="button" onClick={() => void chooseAnotherFile()}><UploadCloud size={15} />重新选择文件</button>
+          <div className="tw-att-failure-actions">
+            {errorRecovery === "status" && <button className="tw-btn" type="button" onClick={retryStatus}><RefreshCw size={15} />重新获取状态</button>}
+            {errorRecovery === "upload" && lastFileRef.current && <button className="tw-btn" type="button" onClick={() => void retryCurrentFile()}><RefreshCw size={15} />重试当前文件</button>}
+            <button className="tw-btn" type="button" onClick={() => void chooseAnotherFile()}><UploadCloud size={15} />重新选择文件</button>
           </div>
         </div>
       ) : state === "done" ? (
-        <div className="attachment-complete"><CheckCircle2 size={25} /><div><strong>附件已保存，所选字段已更新</strong><span>重复提交不会再次写入附件、字段或活动。</span></div><button className="button secondary-button" type="button" onClick={resetCompletedWorkflow}>继续上传</button></div>
+        <div className="tw-att-complete"><CheckCircle2 size={25} /><div><strong>附件已保存，所选字段已更新</strong><span>重复提交不会再次写入附件、字段或活动。</span></div><button className="tw-btn" type="button" onClick={resetCompletedWorkflow}>继续上传</button></div>
       ) : (
         <>
-          <div className="attachment-record-list">
+          <div className="tw-att-record-list">
             {preview.records.map((record) => {
               const matchCopy = MATCH_COPY[record.match.status];
               const selection = selections[record.record_id] ?? { candidateId: "", fields: new Set<string>(), sections: new Set<string>() };
@@ -826,21 +825,21 @@ export function AttachmentWorkflow({
               const parsedName = parsedCandidateName(record);
               const visibleSections = record.sections.filter((section) => !isAttachmentSelfSummarySection(section));
               return (
-                <article className="attachment-record" key={record.record_id}>
+                <article className="tw-att-record-card" key={record.record_id}>
                   <header>
-                    <div><strong>{rowLabel}</strong><span className={`match-badge is-${matchCopy.tone}`}>{matchCopy.label}</span></div>
+                    <div><strong>{rowLabel}</strong><span className={`tw-att-match-badge is-${matchCopy.tone}`}>{matchCopy.label}</span></div>
                     <small>{record.match.reason}</small>
                   </header>
-                  <div className="attachment-identity-line">
+                  <div className="tw-att-identity">
                     <span>手机：{record.identity.phone || "未提取"}</span><span>邮箱：{record.identity.email || "未提取"}</span>
                   </div>
-                  {record.avatar?.available && <div className="attachment-avatar-detection is-ready"><ImageIcon size={15} /><span>{record.avatar.source === "explicit_url" ? "已识别外部头像地址，创建时需确认是否使用" : "已识别附件头像，创建候选人时默认使用"}</span></div>}
-                  {record.avatar?.status === "ambiguous" && <div className="attachment-avatar-detection is-warning"><AlertTriangle size={15} /><span>检测到多张可能的头像，已停止自动选择</span></div>}
+                  {record.avatar?.available && <div className="tw-att-avatar-note is-ready"><ImageIcon size={15} /><span>{record.avatar.source === "explicit_url" ? "已识别外部头像地址，创建时需确认是否使用" : "已识别附件头像，创建候选人时默认使用"}</span></div>}
+                  {record.avatar?.status === "ambiguous" && <div className="tw-att-avatar-note is-warning"><AlertTriangle size={15} /><span>检测到多张可能的头像，已停止自动选择</span></div>}
                   {matchedCandidate && record.match.status !== "not_found" && (
-                    <div className="attachment-match-candidate"><UserRoundCheck size={16} /><span>匹配到 <strong>{matchedCandidate.name}</strong></span></div>
+                    <div className="tw-att-match"><UserRoundCheck size={16} /><span>匹配到 <strong>{matchedCandidate.name}</strong></span></div>
                   )}
                   {record.match.status === "not_found" && (
-                    <div className="attachment-match-fallback">
+                    <div className="tw-att-match-fallback">
                       <div>
                         <strong>{matchedCandidate ? `已选择 ${matchedCandidate.name}` : "需要确认候选人"}</strong>
                         <span>{matchedCandidate
@@ -848,15 +847,15 @@ export function AttachmentWorkflow({
                           : `手机号和邮箱均未匹配${parsedName ? `，可按“${parsedName}”搜索` : ""}`}</span>
                       </div>
                       <div>
-                        <button className="button secondary-button" type="button" onClick={() => openCandidateSearch(record.record_id)}><Search size={15} />按姓名搜索</button>
-                        <button className="button secondary-button" type="button" onClick={() => openCandidateCreate(record.record_id)}><UserPlus size={15} />创建新候选人</button>
+                        <button className="tw-btn" type="button" onClick={() => openCandidateSearch(record.record_id)}><Search size={15} />按姓名搜索</button>
+                        <button className="tw-btn" type="button" onClick={() => openCandidateCreate(record.record_id)}><UserPlus size={15} />创建新候选人</button>
                       </div>
                     </div>
                   )}
-                  {hasDuplicateCandidate && <div className="attachment-blocked"><AlertTriangle size={15} /><span>同一批附件记录不能重复关联同一候选人，请为每条记录选择不同候选人。</span></div>}
-                  {["identity_conflict", "multiple_matches"].includes(record.match.status) && <div className="attachment-blocked"><AlertTriangle size={15} /><span>身份冲突已阻断，不能猜测或覆盖候选人。</span></div>}
+                  {hasDuplicateCandidate && <div className="tw-att-blocked"><AlertTriangle size={15} /><span>同一批附件记录不能重复关联同一候选人，请为每条记录选择不同候选人。</span></div>}
+                  {["identity_conflict", "multiple_matches"].includes(record.match.status) && <div className="tw-att-blocked"><AlertTriangle size={15} /><span>身份冲突已阻断，不能猜测或覆盖候选人。</span></div>}
 
-                  {record.suggestions.length > 0 && <div className="attachment-diff-list"><h4>字段更新</h4>{record.suggestions.map((suggestion) => {
+                  {record.suggestions.length > 0 && <div className="tw-ats-diff-list"><h4>字段更新</h4>{record.suggestions.map((suggestion) => {
                     const currentValue = candidateBaseline
                       ? candidateFieldValue(candidateBaseline, suggestion.field)
                       : suggestion.current_value;
@@ -867,29 +866,29 @@ export function AttachmentWorkflow({
                       ? attachmentSuggestionEvidence(suggestion.field, suggestion.evidence, suggestion.value)
                       : "与现有档案一致，不会提交更新";
                     return (
-                      <label className={`attachment-diff${selected ? " is-selected" : ""}${hasRealChange ? "" : " is-unchanged"}`} key={suggestion.field}>
+                      <label className={`tw-ats-diff${selected ? " is-selected" : ""}${hasRealChange ? "" : " is-unchanged"}`} key={suggestion.field}>
                         <input type="checkbox" checked={selected} onChange={() => toggleField(record.record_id, suggestion.field)} disabled={!selection.candidateId || !hasRealChange} />
-                        <span className="attachment-diff-main"><span><strong>{attachmentFieldLabel(suggestion.field)}</strong><span className="attachment-suggestion-meta"><em className="attachment-provenance">{attachmentProvenanceLabel(suggestion.source)}</em>{attachmentEvidenceStatusLabel(suggestion.evidence_status) && <em className={`attachment-evidence-status is-${suggestion.evidence_status}`}>{attachmentEvidenceStatusLabel(suggestion.evidence_status)}</em>}<em className={`confidence is-${suggestion.confidence}`}>{suggestion.confidence === "high" ? "高" : suggestion.confidence === "medium" ? "中" : "低"}置信</em></span></span><span className="attachment-values"><del>{attachmentValueText(currentValue)}</del><b>→</b><ins>{attachmentValueText(suggestion.value)}</ins></span>{evidence && <small>{evidence}</small>}{attachmentSuggestionEvidenceRefs(suggestion).map((reference, index) => <small className="attachment-evidence-ref" key={`${reference.page ?? "none"}-${index}`}>{reference.page ? `第 ${reference.page} 页：` : "证据："}{reference.text}</small>)}<AttachmentConflictNotice conflict={suggestion.conflict} /></span>
+                        <span className="tw-ats-diff-main"><span><strong>{attachmentFieldLabel(suggestion.field)}</strong><span className="tw-att-meta"><em className="tw-att-provenance">{attachmentProvenanceLabel(suggestion.source)}</em>{attachmentEvidenceStatusLabel(suggestion.evidence_status) && <em className={`tw-ats-evidence-status is-${suggestion.evidence_status}`}>{attachmentEvidenceStatusLabel(suggestion.evidence_status)}</em>}<em className={`confidence is-${suggestion.confidence}`}>{suggestion.confidence === "high" ? "高" : suggestion.confidence === "medium" ? "中" : "低"}置信</em></span></span><span className="tw-att-values"><del>{attachmentValueText(currentValue)}</del><b>→</b><ins>{attachmentValueText(suggestion.value)}</ins></span>{evidence && <small>{evidence}</small>}{attachmentSuggestionEvidenceRefs(suggestion).map((reference, index) => <small className="tw-att-evidence-ref" key={`${reference.page ?? "none"}-${index}`}>{reference.page ? `第 ${reference.page} 页：` : "证据："}{reference.text}</small>)}<AttachmentConflictNotice conflict={suggestion.conflict} /></span>
                       </label>
                     );
                   })}</div>}
 
-                  {visibleSections.length > 0 && <div className="attachment-section-suggestions"><h4>履历区块</h4>{visibleSections.map((section) => {
+                  {visibleSections.length > 0 && <div className="tw-att-section-list"><h4>履历区块</h4>{visibleSections.map((section) => {
                     const selected = selection.sections.has(section.section_id);
                     return <label className={selected ? "is-selected" : ""} key={section.section_id}>
                       <input type="checkbox" checked={selected} onChange={() => toggleSection(record.record_id, section.section_id)} disabled={!selection.candidateId} />
-                      <span><strong>{section.title || section.section_type}</strong><span className="attachment-suggestion-meta"><em className="attachment-provenance">{attachmentProvenanceLabel(section.source)}</em>{attachmentEvidenceStatusLabel(section.evidence_status) && <em className={`attachment-evidence-status is-${section.evidence_status}`}>{attachmentEvidenceStatusLabel(section.evidence_status)}</em>}<em className={`confidence is-${section.confidence}`}>{section.confidence === "high" ? "高" : section.confidence === "medium" ? "中" : "低"}置信</em></span><small>{section.content || section.evidence}</small>{attachmentSuggestionEvidenceRefs(section).map((reference, index) => <small className="attachment-evidence-ref" key={`${reference.page ?? "none"}-${index}`}>{reference.page ? `第 ${reference.page} 页：` : "证据："}{reference.text}</small>)}<AttachmentConflictNotice conflict={section.conflict} /></span>
+                      <span><strong>{section.title || section.section_type}</strong><span className="tw-att-meta"><em className="tw-att-provenance">{attachmentProvenanceLabel(section.source)}</em>{attachmentEvidenceStatusLabel(section.evidence_status) && <em className={`tw-ats-evidence-status is-${section.evidence_status}`}>{attachmentEvidenceStatusLabel(section.evidence_status)}</em>}<em className={`confidence is-${section.confidence}`}>{section.confidence === "high" ? "高" : section.confidence === "medium" ? "中" : "低"}置信</em></span><small>{section.content || section.evidence}</small>{attachmentSuggestionEvidenceRefs(section).map((reference, index) => <small className="tw-att-evidence-ref" key={`${reference.page ?? "none"}-${index}`}>{reference.page ? `第 ${reference.page} 页：` : "证据："}{reference.text}</small>)}<AttachmentConflictNotice conflict={section.conflict} /></span>
                     </label>
                   })}</div>}
                 </article>
               );
             })}
           </div>
-          {error && <div className="attachment-error" role="alert"><AlertTriangle size={15} /><span>{error}</span></div>}
-          <div className="attachment-confirm-bar">
+          {error && <div className="tw-att-error" role="alert"><AlertTriangle size={15} /><span>{error}</span></div>}
+          <div className="tw-att-confirm-bar">
             <span>{blockedRecordCount ? `${blockedRecordCount} 条记录尚未解决匹配` : `将保存 ${confirmRecords.length} 条记录`}</span>
             <button
-              className="button primary-button"
+              className="tw-btn tw-btn-primary"
               type="button"
               disabled={state === "confirming" || (!confirmOutcomeUnknown && !canConfirm)}
               onClick={() => void (confirmOutcomeUnknown ? recoverConfirmOutcome() : confirm())}
@@ -918,13 +917,13 @@ export function AttachmentWorkflow({
       onClose={() => { if (!searchBusy) { setSearchRecordId(null); setSearchError(""); } }}
       onConfirm={(candidateIds) => void selectExistingCandidate(candidateIds)}
     />
-    {createRecord && createInitialDraft && <div className="modal-layer attachment-candidate-create-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !createBusy && closeCandidateCreate()}>
-      <section className="modal attachment-candidate-create-dialog" role="dialog" aria-modal="true" aria-label="创建候选人并关联附件" aria-busy={createBusy || undefined}>
-        <header className="modal-header">
-          <div><p className="drawer-kicker">附件候选人匹配</p><h2>创建新候选人</h2></div>
-          <button className="icon-button" type="button" onClick={closeCandidateCreate} disabled={createBusy} aria-label="关闭" title="关闭"><X size={19} /></button>
+    {createRecord && createInitialDraft && <div className="tw-modal-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !createBusy && closeCandidateCreate()}>
+      <section className="tw-modal tw-modal-lg" role="dialog" aria-modal="true" aria-label="创建候选人并关联附件" aria-busy={createBusy || undefined}>
+        <header className="tw-modal-head">
+          <div><h2>创建新候选人</h2><p className="tw-modal-sub">附件候选人匹配 · 创建后仍需确认字段与履历区块</p></div>
+          <button className="tw-icon-plain" type="button" onClick={closeCandidateCreate} disabled={createBusy} aria-label="关闭" title="关闭"><X size={19} /></button>
         </header>
-        {createError && <div className="attachment-create-error" role="alert"><AlertTriangle size={15} /><span>{createError}</span></div>}
+        {createError && <div className="tw-alert tw-alert-inline is-danger" role="alert"><AlertTriangle size={15} /><span>{createError}</span></div>}
         <CandidateForm
           initialDraft={createInitialDraft}
           attachmentAvatar={createRecord.avatar}
@@ -942,6 +941,26 @@ export function AttachmentWorkflow({
   );
 }
 
+function attachmentExtensionLabel(attachment: CandidateAttachment) {
+  const name = attachment.original_filename ?? "";
+  const dot = name.lastIndexOf(".");
+  const extension = dot > 0 ? name.slice(dot + 1).trim().toUpperCase() : "";
+  if (extension) return extension.slice(0, 4);
+  const subtype = (attachment.mime_type ?? "").split("/")[1];
+  return subtype ? subtype.slice(0, 4).toUpperCase() : "FILE";
+}
+function attachmentKindTone(attachment: CandidateAttachment) {
+  const label = attachmentExtensionLabel(attachment);
+  if (label === "PDF") return " is-pdf";
+  if (["DOC", "DOCX", "RTF"].includes(label)) return " is-doc";
+  if (["XLS", "XLSX", "XLSM", "CSV"].includes(label)) return " is-sheet";
+  return "";
+}
+function attachmentParseLabel(status: string) {
+  if (["ready", "parsed"].includes(status)) return "";
+  return status === "failed" ? "解析失败" : "解析中";
+}
+
 interface CandidateAttachmentsPanelProps {
   candidate: Candidate;
   disabled?: boolean;
@@ -957,6 +976,7 @@ export function CandidateAttachmentsPanel({ candidate, disabled = false, onCandi
   const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState("");
   const [deletedAttachment, setDeletedAttachment] = useState<Pick<CandidateAttachment, "id" | "sha256"> | null>(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -975,6 +995,7 @@ export function CandidateAttachmentsPanel({ candidate, disabled = false, onCandi
     setDeletingAttachmentId(null);
     setDeleteError("");
     setDeletedAttachment(null);
+    setUploadOpen(false);
     void load();
   }, [candidate.id]);
 
@@ -1016,65 +1037,82 @@ export function CandidateAttachmentsPanel({ candidate, disabled = false, onCandi
   }
 
   const deleteBusy = Boolean(deleteTarget && deletingAttachmentId === deleteTarget.id);
-
+  const cancelDeleteRef = useRef<HTMLButtonElement | null>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!deleteTarget) return;
+    previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    return () => { if (previousFocusRef.current?.isConnected) previousFocusRef.current.focus(); };
+  }, [deleteTarget]);
+  useEffect(() => {
+    if (deleteTarget && !deleteBusy) cancelDeleteRef.current?.focus();
+  }, [deleteTarget, deleteBusy]);
   return (
-    <section className="detail-section candidate-attachment-section">
-      <div className="detail-section-heading"><h4>简历附件</h4><span>{attachments.length} 个文件</span></div>
-      {!disabled && <AttachmentWorkflow
-        candidateId={candidate.id}
-        candidates={[candidate]}
-        deletedAttachment={deletedAttachment}
-        onCandidateCreated={(candidateId) => onCandidateCreated?.(candidateId)}
-        onCommitted={(candidateIds) => {
-          setDeletedAttachment(null);
-          if (candidateIds.includes(candidate.id)) void load();
-          onCandidateUpdated?.();
-        }}
-      />}
-      {loading ? <div className="attachment-list-state"><LoaderCircle className="spin" size={17} /><span>正在加载附件...</span></div> : error ? <div className="attachment-error" role="alert"><AlertTriangle size={15} /><span>{error}</span><button className="icon-button compact-icon-button" type="button" onClick={() => void load()} aria-label="重试"><RefreshCw size={14} /></button></div> : attachments.length ? <div className="candidate-attachment-list">{attachments.map((attachment) => (
-        <article key={attachment.id}>
-          <span className="attachment-file-icon"><FileText size={17} /></span>
-          <div><strong title={attachment.original_filename}>{attachment.original_filename}</strong><span>{attachment.mime_type || attachment.attachment_type} · {fileSize(attachment.file_size)} · {formatDateTime(attachment.created_at)}</span></div>
-          <span className={`attachment-status is-${attachment.parse_status}`}>{["ready", "parsed"].includes(attachment.parse_status) ? "解析完成" : attachment.parse_status === "failed" ? "解析失败" : "处理中"}</span>
-          <span className="linked-position-actions attachment-file-actions">
-            <a className="icon-button compact-icon-button" href={attachmentApi.downloadUrl(attachment)} download aria-label={`下载 ${attachment.original_filename}`} title="下载附件"><Download size={15} /></a>
-            <button
-              className="icon-button compact-icon-button danger-quiet-button"
-              type="button"
-              onClick={() => requestAttachmentDelete(attachment)}
-              disabled={disabled || deletingAttachmentId !== null}
-              aria-label={`删除 ${attachment.original_filename}`}
-              title={disabled ? "已归档候选人的附件不可删除" : "删除附件"}
-            >{deletingAttachmentId === attachment.id ? <LoaderCircle className="spin" size={15} /> : <Trash2 size={15} />}</button>
-          </span>
+    <section className="tw-section tw-att-section" aria-labelledby="tw-att-section-title">
+      <div className="tw-section-head tw-att-section-head">
+        <h4 id="tw-att-section-title">相关附件</h4>
+        <span>{attachments.length} 个文件</span>
+        {!disabled && <button className="tw-btn tw-btn-sm tw-att-upload-toggle" type="button" onClick={() => setUploadOpen((current) => !current)} aria-expanded={uploadOpen} aria-controls="tw-att-upload-panel"><UploadCloud size={15} />{uploadOpen ? "收起上传" : "上传附件"}</button>}
+      </div>
+      {!disabled && uploadOpen && <div className="tw-att-upload-panel" id="tw-att-upload-panel">
+        <AttachmentWorkflow
+          candidateId={candidate.id}
+          candidates={[candidate]}
+          deletedAttachment={deletedAttachment}
+          onCandidateCreated={(candidateId) => onCandidateCreated?.(candidateId)}
+          onCommitted={(candidateIds) => {
+            setDeletedAttachment(null);
+            if (candidateIds.includes(candidate.id)) void load();
+            onCandidateUpdated?.();
+          }}
+        />
+      </div>}
+      {loading ? <div className="tw-att-list-state"><LoaderCircle className="spin" size={16} /><span>正在加载附件…</span></div> : error ? <div className="tw-att-error" role="alert"><AlertTriangle size={15} /><span>{error}</span><button className="tw-icon-plain" type="button" onClick={() => void load()} aria-label="重试加载附件" title="重试"><RefreshCw size={14} /></button></div> : attachments.length ? <div className="tw-att-list">{attachments.map((attachment) => { const parseLabel = attachmentParseLabel(attachment.parse_status); return (
+        <article className="tw-att-card" key={attachment.id}>
+          <span className={`tw-att-file-icon${attachmentKindTone(attachment)}`}>{attachmentExtensionLabel(attachment)}</span>
+          <div className="tw-att-card-copy">
+            <strong title={attachment.original_filename}>{attachment.original_filename}</strong>
+            <span>{fileSize(attachment.file_size)} · {formatDateTime(attachment.created_at)}{parseLabel ? ` · ${parseLabel}` : ""}</span>
+          </div>
+          <a className="tw-att-view" href={attachmentApi.downloadUrl(attachment)} download>查看</a>
+          <button
+            className="tw-icon-plain tw-icon-danger"
+            type="button"
+            onClick={() => requestAttachmentDelete(attachment)}
+            disabled={disabled || deletingAttachmentId !== null}
+            aria-label={`删除 ${attachment.original_filename}`}
+            title={disabled ? "已归档候选人的附件不可删除" : "删除附件"}
+          >{deletingAttachmentId === attachment.id ? <LoaderCircle className="spin" size={15} /> : <Trash2 size={15} />}</button>
         </article>
-      ))}</div> : <div className="section-empty"><FileText size={21} /><span>暂无简历附件</span></div>}
+      ); })}</div> : <div className="tw-empty-sm"><FileText size={21} /><span>暂无相关附件</span></div>}
       {deleteTarget && (
-        <div className="modal-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && cancelAttachmentDelete()}>
-          <div
-            className="modal confirm-modal attachment-delete-dialog"
+        <div className="tw-modal-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && cancelAttachmentDelete()}>
+          <section
+            className="tw-modal tw-modal-md tw-delete"
             role="alertdialog"
             aria-modal="true"
             aria-labelledby="attachment-delete-title"
             aria-describedby="attachment-delete-description"
             aria-busy={deleteBusy || undefined}
           >
-            <header className="modal-header">
-              <div><p className="drawer-kicker danger-kicker">删除附件</p><h2 id="attachment-delete-title">确认删除“{deleteTarget.original_filename}”？</h2></div>
-              <button className="icon-button" type="button" onClick={cancelAttachmentDelete} disabled={deleteBusy} aria-label="关闭附件删除确认" title="关闭"><X size={19} /></button>
+            <header className="tw-modal-head">
+              <div><p className="tw-modal-kicker">删除附件</p><h2 id="attachment-delete-title">确认删除“{deleteTarget.original_filename}”？</h2></div>
+              <button className="tw-icon-plain" type="button" onClick={cancelAttachmentDelete} disabled={deleteBusy} aria-label="关闭附件删除确认" title="关闭"><X size={19} /></button>
             </header>
-            <div className="modal-body confirm-body">
-              <span className="confirm-icon danger">{deleteBusy ? <LoaderCircle className="spin" size={22} /> : <Trash2 size={22} />}</span>
-              <div>
-                <p id="attachment-delete-description">附件记录、正文索引和物理文件将被清理。候选人不会被删除，已经确认写入的字段和履历也不会回滚。</p>
-                {deleteError && <div className="attachment-error" role="alert"><AlertTriangle size={15} /><span>{deleteError}</span></div>}
+            <div className="tw-modal-body tw-delete-body">
+              <div className="tw-delete-banner">
+                <span className="tw-delete-icon">{deleteBusy ? <LoaderCircle className="spin" size={20} /> : <Trash2 size={20} />}</span>
+                <div className="tw-delete-banner-copy">
+                  <strong id="attachment-delete-description">附件记录、正文索引和物理文件将被清理。候选人不会被删除，已经确认写入的字段和履历也不会回滚。</strong>
+                </div>
               </div>
+              {deleteError && <div className="tw-delete-error" role="alert"><AlertTriangle size={15} /><span>{deleteError}</span></div>}
             </div>
-            <footer className="modal-footer">
-              <button className="button secondary-button" type="button" onClick={cancelAttachmentDelete} disabled={deleteBusy}>取消</button>
-              <button className="button danger-button" type="button" onClick={() => void deleteAttachment()} disabled={deleteBusy || disabled}><Trash2 size={16} />{deleteBusy ? "正在删除..." : deleteError ? "重试删除" : "确认删除附件"}</button>
+            <footer className="tw-modal-foot">
+              <button ref={cancelDeleteRef} className="tw-btn" type="button" onClick={cancelAttachmentDelete} disabled={deleteBusy}>取消</button>
+              <button className="tw-btn tw-btn-danger" type="button" onClick={() => void deleteAttachment()} disabled={deleteBusy || disabled}><Trash2 size={16} />{deleteBusy ? "正在删除…" : deleteError ? "重试删除" : "确认删除附件"}</button>
             </footer>
-          </div>
+          </section>
         </div>
       )}
     </section>

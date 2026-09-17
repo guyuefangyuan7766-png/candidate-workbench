@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  AlertTriangle,
   Archive,
   Bot,
   BriefcaseBusiness,
   Check,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Download,
   FileDown,
   FileSpreadsheet,
@@ -56,27 +55,36 @@ import {
   type TalentPool,
 } from "./types";
 import { AssistantDrawer } from "./components/AssistantDrawer";
-import { CandidateDrawer, type DrawerMode } from "./components/CandidateDrawer";
-import { CandidateGroupedView } from "./components/CandidateGroupedView";
+import { CandidateDrawer, type DetailTab, type DrawerMode } from "./components/CandidateDrawer";
 import { CandidatePickerDialog } from "./components/CandidatePickerDialog";
-import { CandidateTable } from "./components/CandidateTable";
 import { hasRecoverableImportTask, ImportWizard } from "./components/ImportWizard";
 import { Overview } from "./components/Overview";
 import { PositionDetailPage } from "./components/PositionDetailPage";
 import { PositionFormDrawer, type PositionFormMode } from "./components/PositionFormDrawer";
-import { PositionStatusBadge } from "./components/PositionStatusBadge";
-import { PositionTable } from "./components/PositionTable";
+import { PositionsView } from "./views/PositionsView";
 import { PermanentDeleteDialog, type PermanentDeleteEntity } from "./components/PermanentDeleteDialog";
 import { TalentPoolPage } from "./components/TalentPoolPage";
+import { AppShell } from "./views/AppShell";
+import { CandidatesView, type CandidateListView } from "./views/CandidatesView";
 
 type Page = "dashboard" | "candidates" | "talent-pools" | "positions" | "position-detail";
 type ToolPage = "assistant" | "resume-search" | "attachment-parser";
+
+/* 第十二轮：导航表面（主页面 / 工具页 / 导入页）是互斥的单一状态。
+   URL 与表面一一对应，禁止再用并列布尔量表达「哪个表面打开」。 */
+type Surface =
+  | { kind: "page" }
+  | { kind: "tool"; tool: ToolPage }
+  | { kind: "import" };
+
+function toolPath(tool: ToolPage) {
+  return tool === "assistant" ? "/assistant" : tool === "resume-search" ? "/resume-search" : "/attachment-parser";
+}
 type CandidateView = "list" | "grouped";
 type ArchiveFilter = "active" | "archived" | "all";
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "candidate-workbench.sidebar-collapsed";
-const PAGE_SIZES = [20, 50, 100] as const;
-type PageSize = (typeof PAGE_SIZES)[number];
+type PageSize = 20 | 50 | 100;
 const EMPTY_PAGINATION: PaginationState = { page: 1, page_size: 20, total: 0, total_pages: 0, has_next: false };
 const EMPTY_CANDIDATE_FACETS: CandidateFacets = {
   sources: [], owners: [], tags: [], education: [], schools: [], genders: [], job_seeking_statuses: [],
@@ -136,16 +144,17 @@ const pageMeta: Record<Exclude<Page, "position-detail">, { label: string; icon: 
   positions: { label: "职位管理", icon: BriefcaseBusiness },
 };
 
-function initialRoute(): { page: Page; positionId: string | null; toolPage: ToolPage | null } {
+function initialRoute(): { page: Page; positionId: string | null; surface: Surface } {
   const positionMatch = window.location.pathname.match(/^\/positions\/([^/]+)$/);
-  if (positionMatch) return { page: "position-detail", positionId: decodeURIComponent(positionMatch[1]), toolPage: null };
-  if (window.location.pathname === "/candidates") return { page: "candidates", positionId: null, toolPage: null };
-  if (window.location.pathname === "/talent-pools") return { page: "talent-pools", positionId: null, toolPage: null };
-  if (window.location.pathname === "/positions") return { page: "positions", positionId: null, toolPage: null };
-  if (window.location.pathname === "/assistant") return { page: "dashboard", positionId: null, toolPage: "assistant" };
-  if (window.location.pathname === "/resume-search") return { page: "dashboard", positionId: null, toolPage: "resume-search" };
-  if (window.location.pathname === "/attachment-parser") return { page: "dashboard", positionId: null, toolPage: "attachment-parser" };
-  return { page: "dashboard", positionId: null, toolPage: null };
+  if (positionMatch) return { page: "position-detail", positionId: decodeURIComponent(positionMatch[1]), surface: { kind: "page" } };
+  if (window.location.pathname === "/candidates") return { page: "candidates", positionId: null, surface: { kind: "page" } };
+  if (window.location.pathname === "/talent-pools") return { page: "talent-pools", positionId: null, surface: { kind: "page" } };
+  if (window.location.pathname === "/positions") return { page: "positions", positionId: null, surface: { kind: "page" } };
+  if (window.location.pathname === "/assistant") return { page: "dashboard", positionId: null, surface: { kind: "tool", tool: "assistant" } };
+  if (window.location.pathname === "/resume-search") return { page: "dashboard", positionId: null, surface: { kind: "tool", tool: "resume-search" } };
+  if (window.location.pathname === "/attachment-parser") return { page: "dashboard", positionId: null, surface: { kind: "tool", tool: "attachment-parser" } };
+  if (window.location.pathname === "/import") return { page: "dashboard", positionId: null, surface: { kind: "import" } };
+  return { page: "dashboard", positionId: null, surface: { kind: "page" } };
 }
 
 function errorMessage(error: unknown, fallback: string) {
@@ -204,6 +213,7 @@ function App() {
   const [selectedPositionIds, setSelectedPositionIds] = useState<Set<string>>(new Set());
 
   const [drawerMode, setDrawerMode] = useState<DrawerMode>(null);
+  const [drawerInitialTab, setDrawerInitialTab] = useState<DetailTab>("profile");
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const [candidateDetail, setCandidateDetail] = useState<CandidateDetail | null>(null);
   const [sensitiveLoaded, setSensitiveLoaded] = useState(false);
@@ -230,10 +240,17 @@ function App() {
   const [linkTargetPositionId, setLinkTargetPositionId] = useState("");
   const [linkDialogBusy, setLinkDialogBusy] = useState(false);
 
-  const [importOpen, setImportOpen] = useState(hasRecoverableImportTask);
-  const [assistantOpen, setAssistantOpen] = useState(Boolean(initial.toolPage));
-  const [toolPage, setToolPage] = useState<ToolPage | null>(initial.toolPage);
-  const [exportOpen, setExportOpen] = useState(false);
+  const [surface, setSurface] = useState<Surface>(() => {
+    if (initial.surface.kind !== "page") return initial.surface;
+    if (hasRecoverableImportTask()) {
+      window.history.replaceState({}, "", "/import");
+      return { kind: "import" };
+    }
+    return initial.surface;
+  });
+  const importOpen = surface.kind === "import";
+  const toolOpen = surface.kind === "tool";
+  const toolPage = surface.kind === "tool" ? surface.tool : null;
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readSidebarCollapsedPreference);
   const [agentConfigured, setAgentConfigured] = useState(false);
@@ -428,16 +445,6 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!exportOpen) return;
-    const closeMenu = (event: PointerEvent) => {
-      const target = event.target;
-      if (target instanceof Element && !target.closest(".menu-wrap")) setExportOpen(false);
-    };
-    document.addEventListener("pointerdown", closeMenu);
-    return () => document.removeEventListener("pointerdown", closeMenu);
-  }, [exportOpen]);
-
-  useEffect(() => {
     const overlayOpen = Boolean(
       drawerMode
       || positionFormMode
@@ -449,7 +456,7 @@ function App() {
     );
     document.body.classList.toggle("has-overlay", overlayOpen);
     return () => document.body.classList.remove("has-overlay");
-  }, [assistantOpen, candidatePickerOpen, confirmAction, drawerMode, importOpen, linkTargetCandidateIds.length, permanentDeleteRequest, positionFormMode]);
+  }, [toolOpen, candidatePickerOpen, confirmAction, drawerMode, importOpen, linkTargetCandidateIds.length, permanentDeleteRequest, positionFormMode]);
 
   useEffect(() => {
     const closeTopLayer = (event: KeyboardEvent) => {
@@ -460,22 +467,21 @@ function App() {
       if (candidatePickerOpen && !candidatePickerBusy) return setCandidatePickerOpen(false);
       if (positionFormMode && !positionFormBusy) return setPositionFormMode(null);
       if (drawerMode && !candidateBusy) return setDrawerMode(null);
-      if (assistantOpen) return closeToolPage();
-      if (exportOpen) return setExportOpen(false);
+      if (toolOpen) return closeToolPage();
+      if (importOpen) return closeImport();
       if (candidateFiltersOpen) return setCandidateFiltersOpen(false);
       if (positionFiltersOpen) setPositionFiltersOpen(false);
     };
     window.addEventListener("keydown", closeTopLayer);
     return () => window.removeEventListener("keydown", closeTopLayer);
-  }, [assistantOpen, candidateBusy, candidateFiltersOpen, candidatePickerBusy, candidatePickerOpen, confirmAction, confirmBusy, drawerMode, exportOpen, linkDialogBusy, linkTargetCandidateIds.length, permanentDeleteRequest, positionFiltersOpen, positionFormBusy, positionFormMode, page, activePositionId]);
+  }, [toolOpen, importOpen, candidateBusy, candidateFiltersOpen, candidatePickerBusy, candidatePickerOpen, confirmAction, confirmBusy, drawerMode, linkDialogBusy, linkTargetCandidateIds.length, permanentDeleteRequest, positionFiltersOpen, positionFormBusy, positionFormMode, page, activePositionId]);
 
   useEffect(() => {
     const handlePopState = () => {
       const route = initialRoute();
       setPage(route.page);
       setActivePositionId(route.positionId);
-      setToolPage(route.toolPage);
-      setAssistantOpen(Boolean(route.toolPage));
+      setSurface(route.surface);
       setSidebarOpen(false);
     };
     window.addEventListener("popstate", handlePopState);
@@ -634,31 +640,62 @@ function App() {
     setSelectedPositionIds(new Set(compatibleIds));
   }
 
+  function currentPagePath() {
+    if (page === "position-detail" && activePositionId) return `/positions/${encodeURIComponent(activePositionId)}`;
+    return page === "dashboard" ? "/" : `/${page}`;
+  }
+
+  /* 导航动作先落地新 surface，再清理抽屉/弹层，避免两个表面同时可见。 */
+  function closeTransientLayers() {
+    setDrawerMode(null);
+    setPositionFormMode(null);
+    setCandidatePickerOpen(false);
+    setLinkTargetCandidateIds([]);
+    setCandidateFiltersOpen(false);
+    setPositionFiltersOpen(false);
+  }
+
   function navigate(next: Exclude<Page, "position-detail">, replace = false) {
-    setAssistantOpen(false);
-    setToolPage(null);
     const path = next === "dashboard" ? "/" : `/${next}`;
+    setSurface({ kind: "page" });
+    closeTransientLayers();
     window.history[replace ? "replaceState" : "pushState"]({}, "", path);
     setPage(next);
     setActivePositionId(null);
     setSidebarOpen(false);
-    setExportOpen(false);
   }
 
+  /* 点击已激活入口 = 关闭并回到进入前的页面；点击其他入口 = 切换，不叠加。 */
   function openTool(next: ToolPage) {
-    const path = next === "assistant" ? "/assistant" : next === "resume-search" ? "/resume-search" : "/attachment-parser";
-    window.history.pushState({}, "", path);
-    setToolPage(next);
-    setAssistantOpen(true);
+    if (surface.kind === "tool" && surface.tool === next) {
+      closeToolPage();
+      return;
+    }
+    setSurface({ kind: "tool", tool: next });
     setSidebarOpen(false);
+    const path = toolPath(next);
+    if (window.location.pathname !== path) window.history.pushState({}, "", path);
   }
 
   function closeToolPage() {
-    setAssistantOpen(false);
-    setToolPage(null);
-    const returnPath = page === "position-detail" && activePositionId
-      ? `/positions/${encodeURIComponent(activePositionId)}`
-      : page === "dashboard" ? "/" : `/${page}`;
+    const returnPath = currentPagePath();
+    setSurface({ kind: "page" });
+    if (window.location.pathname !== returnPath) window.history.pushState({}, "", returnPath);
+  }
+
+  function openImport() {
+    if (surface.kind === "import") {
+      closeImport();
+      return;
+    }
+    setSurface({ kind: "import" });
+    setSidebarOpen(false);
+    if (window.location.pathname !== "/import") window.history.pushState({}, "", "/import");
+  }
+
+  function closeImport() {
+    const returnPath = currentPagePath();
+    setSurface({ kind: "page" });
     if (window.location.pathname !== returnPath) window.history.pushState({}, "", returnPath);
   }
 
@@ -671,7 +708,8 @@ function App() {
     setDrawerMode(null);
   }
 
-  function openCandidate(candidate: Candidate) {
+  function openCandidate(candidate: Candidate, tab: DetailTab = "profile") {
+    setDrawerInitialTab(tab);
     setSensitiveLoaded(false);
     setSelectedCandidateId(candidate.id);
     setCandidateDetail(candidate as CandidateDetail);
@@ -679,15 +717,15 @@ function App() {
     void loadCandidateDetail(candidate.id);
   }
 
-  async function openCandidateById(candidateId: string) {
-    setAssistantOpen(false);
+  async function openCandidateById(candidateId: string, tab: DetailTab = "profile") {
     const currentPageCandidate = candidates.find((candidate) => candidate.id === candidateId);
     if (currentPageCandidate) {
-      openCandidate(currentPageCandidate);
+      openCandidate(currentPageCandidate, tab);
       return;
     }
     try {
       const detail = await candidateApi.get(candidateId);
+      setDrawerInitialTab(tab);
       setSensitiveLoaded(false);
       setSelectedCandidateId(candidateId);
       setCandidateDetail(detail);
@@ -761,7 +799,7 @@ function App() {
         await Promise.all([loadCandidateDetail(created.id, true), loadWorkspace(false)]);
         if (activePositionId) await loadPositionDetail(activePositionId, false);
         if (!createForPositionId || linkedToRequestedPosition) {
-          notify(linkedToRequestedPosition ? "候选人已创建并关联当前职位" : "候选人档案已创建");
+          notify(linkedToRequestedPosition ? "候选人已创建并关联该招聘职位" : "候选人档案已创建");
         }
       } else if (selectedCandidateId) {
         const existingCandidate = candidates.find((candidate) => candidate.id === selectedCandidateId);
@@ -827,10 +865,9 @@ function App() {
       return;
     }
     setConfirmAction({
-      title: "批量归档候选人",
-      message: `确认将选中的 ${candidateIds.length} 位候选人移入归档？候选人资料和全部关系都会保留，可逐一恢复。`,
-      confirmLabel: `归档 ${candidateIds.length} 人`,
-      tone: "danger",
+      title: `归档 ${candidateIds.length} 位候选人`,
+      message: "归档后将从在库列表隐藏，候选人资料和全部关系都会保留，可在已归档中逐一恢复。",
+      confirmLabel: "确认归档",
       run: async () => {
         try {
           const result = await candidateApi.archiveMany(candidateIds);
@@ -1224,7 +1261,7 @@ function App() {
     try {
       await positionApi.unlinkCandidate(position.id, candidate.id);
       await Promise.all([loadPositionDetail(position.id, false), loadWorkspace(false)]);
-      notify("已从当前职位解除关联");
+      notify("已从该招聘职位解除关联");
     } catch (error) {
       notify(errorMessage(error, "解除关联失败"));
     } finally {
@@ -1258,7 +1295,7 @@ function App() {
         archived: "include",
       });
       anchor.click();
-      notify("当前职位候选人导出文件正在生成");
+      notify("该招聘职位候选人导出文件正在生成");
       return;
     }
 
@@ -1281,7 +1318,6 @@ function App() {
     const anchor = document.createElement("a");
     anchor.href = url;
     anchor.click();
-    setExportOpen(false);
     notify("导出文件正在生成");
   }
 
@@ -1317,6 +1353,8 @@ function App() {
 
   const candidateFilterCount = [candidateSource, candidateOwner, candidateTag, candidatePosition, candidatePool, candidateEducation, candidateSchool, candidateGender, candidateJobStatus]
     .filter((value) => value !== "all").length + (candidateArchive !== "active" ? 1 : 0);
+  const candidateAdvancedFilterCount = [candidateOwner, candidateTag, candidateSchool, candidateGender, candidateJobStatus]
+    .filter((value) => value !== "all").length;
   const positionFilterCount = [positionStatus, positionDepartment, positionOwner, positionLocation]
     .filter((value) => value !== "all").length + (positionArchive !== "active" ? 1 : 0);
 
@@ -1332,52 +1370,27 @@ function App() {
       : "位在库候选人";
 
   return (
-    <div className={`app-shell preview-workbench${sidebarCollapsed ? " is-sidebar-collapsed" : ""}${assistantOpen ? " assistant-page-open" : ""}`}>
-      <aside className={`sidebar ${sidebarOpen ? "is-open" : ""}`}>
-        <div className="brand">
-          <button className="icon-button sidebar-collapse-button" type="button" onClick={toggleDesktopSidebar} aria-label={sidebarCollapsed ? "展开侧边栏" : "收起侧边栏"} title={sidebarCollapsed ? "展开侧边栏" : "收起侧边栏"} aria-expanded={!sidebarCollapsed}>{sidebarCollapsed ? <PanelLeftOpen size={19} /> : <PanelLeftClose size={19} />}</button>
-          <div><strong>拾才工作台</strong><small>Talent Workspace</small></div>
-        </div>
-        <nav className="primary-nav" aria-label="主导航">
-          {(Object.entries(pageMeta) as Array<[Exclude<Page, "position-detail">, typeof pageMeta.dashboard]>).map(([id, item]) => {
-            const Icon = item.icon;
-            const active = !assistantOpen && (page === id || (id === "positions" && page === "position-detail"));
-            return <button className={active ? "active" : ""} type="button" key={id} onClick={() => navigate(id)} aria-label={item.label} title={sidebarCollapsed ? item.label : undefined}><Icon size={18} /><span>{item.label}</span></button>;
-          })}
-          <span className="nav-divider" />
-          <button type="button" onClick={() => { setImportOpen(true); setSidebarOpen(false); }} aria-label="导入候选人" title={sidebarCollapsed ? "导入候选人" : undefined}><Upload size={18} /><span>导入候选人</span></button>
-          <button className={`preview-assistant-entry${toolPage === "assistant" ? " active" : ""}`} type="button" onClick={() => openTool("assistant")} aria-label="AI 助手" title="AI 助手"><Sparkles size={18} /><span>AI 助手</span><small className={`nav-status-dot ${agentConfigured ? "is-online" : ""}`} /></button>
-          <button type="button" onClick={() => openTool("resume-search")} aria-label="履历检索" title="履历检索"><Search size={18} /><span>履历检索</span></button>
-          <button type="button" onClick={() => openTool("attachment-parser")} aria-label="附件解析" title="附件解析"><Paperclip size={18} /><span>附件解析</span></button>
-        </nav>
-        <div className="sidebar-context" title={sidebarCollapsed ? "本地工作区：数据仅保存在本机" : undefined}>
-          <span className="context-icon"><Check size={14} /></span>
-          <div><strong>本地工作区</strong><small>人才库工作台</small></div>
-        </div>
-      </aside>
 
-      <div className="main-shell">
-        <header className="topbar">
-          <button
-            className="icon-button mobile-menu-button"
-            type="button"
-            onClick={() => setSidebarOpen((current) => !current)}
-            aria-label={sidebarOpen ? "关闭导航" : "打开导航"}
-            aria-expanded={sidebarOpen}
-            title={sidebarOpen ? "关闭导航" : "打开导航"}
-          >
-            {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
-          </button>
-          <div className="topbar-title"><strong>{title}</strong><span>{page === "position-detail" ? "职位工作台" : "人才资料管理"}</span></div>
-          <div className="topbar-spacer" />
-          <button className="agent-entry" type="button" onClick={() => openTool("assistant")}>
-            <span className="agent-entry-icon"><Bot size={16} /></span><span>AI 助手</span><small>{agentConfigured ? "全量只读" : "未配置"}</small>
-          </button>
-        </header>
 
-        <main className={`content${page === "candidates" ? " candidate-content" : ""}`} hidden={assistantOpen}>
+    <>
+      <AppShell
+        page={page}
+        toolPage={toolPage}
+        toolOpen={toolOpen}
+        importOpen={importOpen}
+        collapsed={sidebarCollapsed}
+        mobileOpen={sidebarOpen}
+        agentConfigured={agentConfigured}
+        title={title}
+        onNavigate={navigate}
+        onOpenTool={openTool}
+        onOpenImport={openImport}
+        onToggleCollapse={toggleDesktopSidebar}
+        onToggleMobile={() => setSidebarOpen((current) => !current)}
+      >
+        <div className="tw-content-stack" hidden={surface.kind !== "page"}>
           {workspaceError && (
-            <div className="workspace-error" role="alert"><span>{workspaceError}</span><button className="button secondary-button" type="button" onClick={() => void loadWorkspace()}>重新加载</button></div>
+            <div className="tw-alert" role="alert"><span>{workspaceError}</span><button className="tw-btn tw-btn-sm" type="button" onClick={() => void loadWorkspace()}>重新加载</button></div>
           )}
 
           {page === "dashboard" && (
@@ -1392,7 +1405,7 @@ function App() {
               onOpenTalentPools={() => navigate("talent-pools")}
               onCreateCandidate={() => createCandidate()}
               onCreatePosition={() => openPositionForm("create")}
-              onImport={() => setImportOpen(true)}
+              onImport={openImport}
             />
           )}
 
@@ -1408,127 +1421,114 @@ function App() {
           )}
 
           {page === "candidates" && (
-            <section className="candidate-page" aria-label="候选人库">
-              <div className="candidate-top-row">
-                <div className="candidate-scope-tabs" aria-label="候选人档案范围">
-                  <button className={candidateArchive === "active" ? "active" : ""} type="button" onClick={() => setCandidateArchive("active")}><span>在库候选人</span><strong>{activeCandidateTotal}</strong></button>
-                  <button className={candidateArchive === "archived" ? "active" : ""} type="button" onClick={() => { setCandidateArchive("archived"); setCandidateView("list"); }}><span>已归档</span><strong>{archivedCandidateTotal}</strong></button>
-                  <button className={candidateArchive === "all" ? "active" : ""} type="button" onClick={() => setCandidateArchive("all")}><span>全部档案</span><strong>{candidateFacets.totals.total}</strong></button>
-                </div>
-                <div className="page-actions">
-                  <button className="button secondary-button desktop-action" type="button" onClick={() => setImportOpen(true)}><Upload size={16} />导入</button>
-                  <div className="menu-wrap">
-                    <button className="button secondary-button" type="button" onClick={() => setExportOpen((current) => !current)} aria-expanded={exportOpen}><Download size={16} /><span className="desktop-action-label">导出</span><ChevronDown size={14} /></button>
-                    {exportOpen && <ExportMenu count={candidatePagination.total} onExport={exportCandidates} />}
-                  </div>
-                  <button className="button primary-button" type="button" onClick={() => createCandidate()}><Plus size={17} />新增候选人</button>
-                </div>
-              </div>
-
-              <div className="workspace-toolbar candidate-toolbar">
-                <label className="workspace-search"><Search size={17} /><input value={candidateSearch} onChange={(event) => setCandidateSearch(event.target.value)} placeholder="搜索姓名、公司、职位、学校或标签" />{candidateSearch && <button type="button" onClick={() => setCandidateSearch("")} aria-label="清除搜索" title="清除"><X size={15} /></button>}</label>
-                <button className={`button filter-toggle ${candidateFiltersOpen || candidateFilterCount ? "is-active" : ""}`} type="button" onClick={() => setCandidateFiltersOpen((current) => !current)}><Filter size={16} />筛选{candidateFilterCount ? <span>{candidateFilterCount}</span> : null}</button>
-                <div className="toolbar-spacer" />
-                <label className="compact-select"><span className="sr-only">排序方式</span><select value={candidateSort} onChange={(event) => setCandidateSort(event.target.value)}><option value="updated_desc">最近更新</option><option value="created_desc">最近创建</option><option value="name_asc">姓名 A-Z</option><option value="experience_desc">工作年限</option></select></label>
-                <div className="segmented-control" aria-label="候选人视图">
-                  <button className={candidateView === "list" ? "active" : ""} type="button" onClick={() => setCandidateView("list")} title="列表视图"><List size={16} /><span>列表</span></button>
-                  <button className={candidateView === "grouped" ? "active" : ""} type="button" onClick={() => setCandidateView("grouped")} title="按职位分组"><BriefcaseBusiness size={16} /><span>按职位</span></button>
-                </div>
-              </div>
-
-              <div className={`filter-panel ${candidateFiltersOpen ? "is-open" : ""}`}>
-                <label><span>人才库</span><select value={candidatePool} onChange={(event) => setCandidatePool(event.target.value)}><option value="all">全部人才库</option><option value="unassigned">未加入人才库</option>{talentPools.map((pool) => <option value={pool.id} key={pool.id}>{pool.name}{pool.archived_at ? "（已归档）" : ""}</option>)}</select></label>
-                <label><span>关联职位</span><select value={candidatePosition} onChange={(event) => setCandidatePosition(event.target.value)}><option value="all">全部职位</option><option value="unassigned">未分配职位</option>{positionLookup.map((position) => <option value={position.id} key={position.id}>{position.title}{position.archived_at ? "（已归档）" : ""}</option>)}</select></label>
-                <label><span>最高学历</span><select value={candidateEducation} onChange={(event) => setCandidateEducation(event.target.value)}><option value="all">全部学历</option>{availableEducation.map((value) => <option key={value}>{value}</option>)}</select></label>
-                <label><span>学校</span><select value={candidateSchool} onChange={(event) => setCandidateSchool(event.target.value)}><option value="all">全部学校</option>{availableSchools.map((value) => <option key={value}>{value}</option>)}</select></label>
-                <label><span>性别</span><select value={candidateGender} onChange={(event) => setCandidateGender(event.target.value)}><option value="all">全部性别</option>{availableGenders.map((value) => <option key={value}>{value}</option>)}</select></label>
-                <label><span>求职状态</span><select value={candidateJobStatus} onChange={(event) => setCandidateJobStatus(event.target.value)}><option value="all">全部状态</option>{availableJobStatuses.map((value) => <option key={value}>{value}</option>)}</select></label>
-                <label><span>来源</span><select value={candidateSource} onChange={(event) => setCandidateSource(event.target.value)}><option value="all">全部来源</option>{availableSources.map((source) => <option key={source}>{source}</option>)}</select></label>
-                <label><span>负责人</span><select value={candidateOwner} onChange={(event) => setCandidateOwner(event.target.value)}><option value="all">全部负责人</option>{availableCandidateOwners.map((owner) => <option key={owner}>{owner}</option>)}</select></label>
-                <label><span>标签</span><select value={candidateTag} onChange={(event) => setCandidateTag(event.target.value)}><option value="all">全部标签</option>{availableTags.map((tag) => <option key={tag}>{tag}</option>)}</select></label>
-                <label><span>档案状态</span><select value={candidateArchive} onChange={(event) => { const value = event.target.value as ArchiveFilter; setCandidateArchive(value); if (value === "archived") setCandidateView("list"); }}><option value="active">在库候选人</option><option value="archived">已归档</option><option value="all">全部档案</option></select></label>
-              </div>
-
-              <ActiveCandidateFilters
-                search={candidateSearch}
-                source={candidateSource}
-                owner={candidateOwner}
-                tag={candidateTag}
-                positionId={candidatePosition}
-                poolId={candidatePool}
-                education={candidateEducation}
-                school={candidateSchool}
-                gender={candidateGender}
-                jobStatus={candidateJobStatus}
-                archive={candidateArchive}
-                positions={positionLookup}
-                talentPools={talentPools}
-                onClearSearch={() => setCandidateSearch("")}
-                onClearSource={() => setCandidateSource("all")}
-                onClearOwner={() => setCandidateOwner("all")}
-                onClearTag={() => setCandidateTag("all")}
-                onClearPosition={() => setCandidatePosition("all")}
-                onClearPool={() => setCandidatePool("all")}
-                onClearEducation={() => setCandidateEducation("all")}
-                onClearSchool={() => setCandidateSchool("all")}
-                onClearGender={() => setCandidateGender("all")}
-                onClearJobStatus={() => setCandidateJobStatus("all")}
-                onClearArchive={() => setCandidateArchive("active")}
-                onClearAll={clearCandidateFilters}
-              />
-
-              {candidateListError && <div className="workspace-error candidate-filter-error" role="alert"><span>{candidateListError}</span><button className="button secondary-button" type="button" onClick={() => setRefreshVersion((value) => value + 1)}>重新加载</button></div>}
-
-              {selectedCandidateIds.size > 0 && (
-                <div className="bulk-action-bar"><span><Check size={16} />已选择 {selectedCandidateIds.size} 位{selectedCandidateKind === "archived" ? "已归档" : "活动"}候选人</span><div><button className="button secondary-button" type="button" onClick={() => setSelectedCandidateIds(new Set())}>取消选择</button>{selectedCandidateKind === "archived" ? <button className="button danger-button" type="button" onClick={requestBulkPermanentDeleteCandidates}><Trash2 size={16} />批量永久删除</button> : <><button className="button danger-quiet-button" type="button" onClick={requestBulkArchive}><Archive size={16} />批量归档</button><button className="button primary-button" type="button" onClick={() => openBulkLink([...selectedCandidateIds])}><BriefcaseBusiness size={16} />关联职位</button></>}</div></div>
-              )}
-
-              <div className="candidate-list-region" aria-busy={candidateListLoading}>
-                {candidateListLoading && candidates.length === 0 ? <CandidateListSkeleton /> : candidateView === "grouped" ? (
-                  <CandidateGroupedView candidates={filteredCandidates} archived={candidateArchive === "archived"} selectedIds={selectedCandidateIds} selectionKind={selectedCandidateKind} onToggle={toggleCandidateSelection} onOpen={openCandidate} onEdit={editCandidate} onArchive={(candidate) => void archiveCandidate(candidate)} onRestore={(candidate) => void restoreCandidate(candidate)} onLinkPositions={openBulkLink} onOpenPosition={openPosition} />
-                ) : (
-                  <CandidateTable candidates={filteredCandidates} archived={candidateArchive === "archived"} selectedIds={selectedCandidateIds} selectionKind={selectedCandidateKind} onToggle={toggleCandidateSelection} onToggleAll={toggleAllCandidateSelection} onLinkPositions={openBulkLink} onOpen={openCandidate} onEdit={editCandidate} onArchive={(candidate) => void archiveCandidate(candidate)} onRestore={(candidate) => void restoreCandidate(candidate)} onDelete={requestPermanentDelete} />
-                )}
-              </div>
-              <Pagination pagination={candidatePagination} pageSize={candidatePageSize} entityLabel="位候选人" loading={candidateListLoading} onPageChange={setCandidatePage} onPageSizeChange={setCandidatePageSize} />
-            </section>
+            <CandidatesView
+              candidates={filteredCandidates}
+              loading={candidateListLoading}
+              error={candidateListError}
+              scope={candidateArchive}
+              scopeCounts={{ active: activeCandidateTotal, archived: archivedCandidateTotal, total: candidateFacets.totals.total }}
+              search={candidateSearch}
+              filters={{
+                source: candidateSource,
+                owner: candidateOwner,
+                tag: candidateTag,
+                position: candidatePosition,
+                pool: candidatePool,
+                education: candidateEducation,
+                school: candidateSchool,
+                gender: candidateGender,
+                jobStatus: candidateJobStatus,
+              }}
+              facets={candidateFacets}
+              positions={positionLookup}
+              talentPools={talentPools}
+              sort={candidateSort}
+              view={candidateView}
+              pageSize={candidatePageSize}
+              pagination={candidatePagination}
+              selection={selectedCandidateIds}
+              selectionKind={selectedCandidateKind}
+              onScopeChange={(next) => { setCandidateArchive(next); if (next === "archived") setCandidateView("list"); }}
+              onSearchChange={setCandidateSearch}
+              onFilterChange={(key, value) => {
+                if (key === "source") setCandidateSource(value);
+                else if (key === "owner") setCandidateOwner(value);
+                else if (key === "tag") setCandidateTag(value);
+                else if (key === "position") setCandidatePosition(value);
+                else if (key === "pool") setCandidatePool(value);
+                else if (key === "education") setCandidateEducation(value);
+                else if (key === "school") setCandidateSchool(value);
+                else if (key === "gender") setCandidateGender(value);
+                else if (key === "jobStatus") setCandidateJobStatus(value);
+              }}
+              onClearFilters={clearCandidateFilters}
+              onSortChange={setCandidateSort}
+              onViewChange={setCandidateView}
+              onPageChange={setCandidatePage}
+              onPageSizeChange={setCandidatePageSize}
+              onReload={() => setRefreshVersion((value) => value + 1)}
+              onToggleSelection={toggleCandidateSelection}
+              onToggleAllSelection={toggleAllCandidateSelection}
+              onOpenCandidate={openCandidate}
+              onEditCandidate={editCandidate}
+              onArchiveCandidate={(candidate) => void archiveCandidate(candidate)}
+              onRestoreCandidate={(candidate) => void restoreCandidate(candidate)}
+              onDeleteCandidate={requestPermanentDelete}
+              onLinkPositions={openBulkLink}
+              onOpenPosition={openPosition}
+              onClearSelection={() => setSelectedCandidateIds(new Set())}
+              onBulkArchive={requestBulkArchive}
+              onBulkDelete={requestBulkPermanentDeleteCandidates}
+              onBulkLink={() => openBulkLink([...selectedCandidateIds])}
+              onImport={openImport}
+              onExport={exportCandidates}
+              onCreate={() => createCandidate()}
+            />
           )}
 
           {page === "positions" && (
-            <section className="positions-page">
-              <header className="page-heading">
-                <div><p className="eyebrow">招聘职位</p><h1>职位管理</h1><p className="page-description">把候选人按真实招聘职位归类和维护</p></div>
-                <button className="button primary-button" type="button" onClick={() => openPositionForm("create")}><Plus size={17} />新增职位</button>
-              </header>
-
-              <div className="position-summary-strip" aria-label="职位状态统计">
-                <button className={positionStatus === "all" && positionArchive === "active" ? "active" : ""} type="button" onClick={() => { setPositionStatus("all"); setPositionArchive("active"); }}><span>活跃职位</span><strong>{positionFacets.totals.active}</strong></button>
-                {POSITION_STATUSES.map((status) => <button className={positionStatus === status && positionArchive === "active" ? "active" : ""} type="button" key={status} onClick={() => { setPositionStatus(status); setPositionArchive("active"); }}><span>{POSITION_STATUS_LABELS[status]}</span><strong>{positionFacets.status_counts[status] ?? 0}</strong></button>)}
-                <button className={positionArchive === "archived" ? "active" : ""} type="button" onClick={() => { setPositionArchive("archived"); setPositionStatus("all"); }}><span>已归档</span><strong>{positionFacets.totals.archived}</strong></button>
-              </div>
-
-              <div className="workspace-toolbar">
-                <label className="workspace-search"><Search size={17} /><input value={positionSearch} onChange={(event) => setPositionSearch(event.target.value)} placeholder="搜索职位名称、部门或地点" />{positionSearch && <button type="button" onClick={() => setPositionSearch("")} aria-label="清除搜索" title="清除"><X size={15} /></button>}</label>
-                <button className={`button filter-toggle ${positionFiltersOpen || positionFilterCount ? "is-active" : ""}`} type="button" onClick={() => setPositionFiltersOpen((current) => !current)}><Filter size={16} />筛选{positionFilterCount ? <span>{positionFilterCount}</span> : null}</button>
-                <button className="position-create-inline button primary-button" type="button" onClick={() => openPositionForm("create")}><Plus size={16} />新增职位</button>
-                <div className="toolbar-spacer" /><label className="compact-select"><span className="sr-only">职位排序</span><select value={positionSort} onChange={(event) => setPositionSort(event.target.value)}><option value="updated_desc">最近更新</option><option value="title_asc">职位名称</option><option value="candidates_desc">候选人数</option><option value="headcount_desc">计划人数</option></select></label>
-              </div>
-              <div className={`filter-panel position-filter-panel ${positionFiltersOpen ? "is-open" : ""}`}>
-                <label><span>职位状态</span><select value={positionStatus} onChange={(event) => setPositionStatus(event.target.value as "all" | PositionStatus)}><option value="all">全部状态</option>{POSITION_STATUSES.map((status) => <option value={status} key={status}>{POSITION_STATUS_LABELS[status]}</option>)}</select></label>
-                <label><span>部门</span><select value={positionDepartment} onChange={(event) => setPositionDepartment(event.target.value)}><option value="all">全部部门</option>{availableDepartments.map((value) => <option key={value}>{value}</option>)}</select></label>
-                <label><span>负责人</span><select value={positionOwner} onChange={(event) => setPositionOwner(event.target.value)}><option value="all">全部负责人</option>{availablePositionOwners.map((value) => <option key={value}>{value}</option>)}</select></label>
-                <label><span>工作地点</span><select value={positionLocation} onChange={(event) => setPositionLocation(event.target.value)}><option value="all">全部地点</option>{availableLocations.map((value) => <option key={value}>{value}</option>)}</select></label>
-                <label><span>归档状态</span><select value={positionArchive} onChange={(event) => setPositionArchive(event.target.value as ArchiveFilter)}><option value="active">未归档</option><option value="archived">已归档</option><option value="all">全部职位</option></select></label>
-              </div>
-              {(positionSearch || positionFilterCount > 0) && <div className="active-filter-bar"><span>{positionPagination.total} 个结果</span><button type="button" onClick={clearPositionFilters}>清除全部筛选<X size={13} /></button></div>}
-
-              {selectedPositionIds.size > 0 && <div className="bulk-action-bar position-delete-bulk-bar"><span><Check size={16} />已选择 {selectedPositionIds.size} 个{selectedPositionKind === "archived" ? "已归档" : "活动"}职位{selectedPositionIds.size > 100 ? "，单批上限为 100" : ""}</span><div><button className="button secondary-button" type="button" onClick={() => setSelectedPositionIds(new Set())}>取消选择</button>{selectedPositionKind === "archived" ? <button className="button danger-button" type="button" disabled={selectedPositionIds.size > 100} onClick={requestBulkPermanentDeletePositions}><Trash2 size={16} />批量永久删除</button> : <button className="button danger-quiet-button" type="button" disabled={selectedPositionIds.size > 100} onClick={requestBulkArchivePositions}><Archive size={16} />批量归档</button>}</div></div>}
-              {positionListError && <div className="workspace-error" role="alert"><span>{positionListError}</span><button className="button secondary-button" type="button" onClick={() => setRefreshVersion((value) => value + 1)}>重新加载</button></div>}
-              <PositionTable positions={visiblePositions} loading={positionListLoading} busyPositionId={busyPositionId} selectedIds={selectedPositionIds} selectionKind={selectedPositionKind} onToggle={togglePositionSelection} onToggleAll={toggleAllPositionSelection} onOpen={openPosition} onEdit={(position) => openPositionForm("edit", position)} onArchive={requestArchivePosition} onRestore={(position) => void restorePosition(position)} onDelete={requestPermanentDeletePosition} />
-              <Pagination pagination={positionPagination} pageSize={positionPageSize} entityLabel="个职位" loading={positionListLoading} onPageChange={setPositionPage} onPageSizeChange={setPositionPageSize} />
-            </section>
+            <PositionsView
+              positions={visiblePositions}
+              loading={positionListLoading}
+              error={positionListError}
+              facets={positionFacets}
+              search={positionSearch}
+              filters={{ status: positionStatus, archive: positionArchive, department: positionDepartment, owner: positionOwner, location: positionLocation }}
+              sort={positionSort}
+              pageSize={positionPageSize}
+              pagination={positionPagination}
+              selection={selectedPositionIds}
+              selectionKind={selectedPositionKind}
+              busyPositionId={busyPositionId}
+              departments={availableDepartments}
+              owners={availablePositionOwners}
+              locations={availableLocations}
+              onSearchChange={setPositionSearch}
+              onFilterChange={(key, value) => {
+                if (key === "status") setPositionStatus(value as "all" | PositionStatus);
+                else if (key === "archive") setPositionArchive(value as ArchiveFilter);
+                else if (key === "department") setPositionDepartment(value);
+                else if (key === "owner") setPositionOwner(value);
+                else if (key === "location") setPositionLocation(value);
+              }}
+              onSortChange={setPositionSort}
+              onPageChange={setPositionPage}
+              onPageSizeChange={setPositionPageSize}
+              onReload={() => setRefreshVersion((value) => value + 1)}
+              onClearFilters={clearPositionFilters}
+              onToggleSelection={togglePositionSelection}
+              onToggleAllSelection={toggleAllPositionSelection}
+              onClearSelection={() => setSelectedPositionIds(new Set())}
+              onBulkArchive={requestBulkArchivePositions}
+              onBulkDelete={requestBulkPermanentDeletePositions}
+              onOpen={openPosition}
+              onEdit={(position) => openPositionForm("edit", position)}
+              onArchive={requestArchivePosition}
+              onRestore={(position) => void restorePosition(position)}
+              onDelete={requestPermanentDeletePosition}
+              onCreate={() => openPositionForm("create")}
+            />
           )}
-
           {page === "position-detail" && positionDetail && (
             <PositionDetailPage
               position={positionDetail}
@@ -1555,44 +1555,44 @@ function App() {
           )}
           {page === "position-detail" && !positionDetail && (
             positionDetailError ? (
-              <div className="workspace-error position-detail-error" role="alert"><span>{positionDetailError}</span><div><button className="button secondary-button" type="button" onClick={() => navigate("positions")}>返回职位列表</button>{activePositionId && <button className="button primary-button" type="button" onClick={() => void loadPositionDetail(activePositionId)}>重新加载</button>}</div></div>
+              <div className="tw-alert tw-alert-inline is-danger" role="alert"><span>{positionDetailError}</span><div><button className="tw-btn" type="button" onClick={() => navigate("positions")}>返回职位列表</button>{activePositionId && <button className="tw-btn tw-btn-primary" type="button" onClick={() => void loadPositionDetail(activePositionId)}>重新加载</button>}</div></div>
             ) : (
               <div className="position-detail-loading" aria-busy="true"><div className="page-title-skeleton skeleton-block" /><div className="overview-panel skeleton-block" /></div>
             )
           )}
-        </main>
-        {assistantOpen && <AssistantDrawer
-          open
-          configured={agentConfigured}
-          candidates={candidates}
-          positions={positions}
-          talentPools={talentPools}
-          presentation="page"
-          initialTab={toolPage === "resume-search" ? "resume-search" : toolPage === "attachment-parser" ? "attachment" : "chat"}
-          onOpenCandidateId={(candidateId) => void openCandidateById(candidateId)}
-          onCandidatesUpdated={() => void loadWorkspace(false)}
-          onClose={closeToolPage}
-        />}
-      </div>
+        </div>
+        {importOpen && <ImportWizard presentation="page" onClose={closeImport} onImported={(result: ImportResult) => { setPage("candidates"); setActivePositionId(null); void loadWorkspace(false); notify(`导入完成：${result.imported} 条成功`); }} />}
+        {toolOpen && toolPage && <AssistantDrawer
+            open
+            configured={agentConfigured}
+            candidates={candidates}
+            positions={positions}
+            talentPools={talentPools}
+            presentation="page"
+            initialTab={toolPage === "resume-search" ? "resume-search" : toolPage === "attachment-parser" ? "attachment" : "chat"}
+            onOpenCandidateId={(candidateId, tab) => void openCandidateById(candidateId, tab ?? "profile")}
+            onCandidatesUpdated={() => void loadWorkspace(false)}
+            onClose={closeToolPage}
+            onToolChange={openTool}
+          />}
+      </AppShell>
 
-      <CandidateDrawer mode={drawerMode} candidate={currentCandidate} notes={candidateDetail?.notes ?? []} activities={candidateDetail?.activities ?? []} positions={activePositionOptions} talentPools={talentPools.filter((pool) => !pool.archived_at)} busy={candidateBusy} pendingProfileSave={Boolean(pendingCreatedCandidateId)} positionBusy={candidateBusy} sensitiveBusy={sensitiveBusy} sensitiveLoaded={sensitiveLoaded} onRevealSensitive={() => void revealCandidateSensitive()} onClose={() => { if (!candidateBusy) { setDrawerMode(null); setCreateForPositionId(null); setPendingCreatedCandidateId(null); setSensitiveLoaded(false); } }} onEdit={() => currentCandidate && editCandidate(currentCandidate)} onSave={(draft) => void saveCandidate(draft)} onArchive={() => currentCandidate && void archiveCandidate(currentCandidate)} onRestore={() => currentCandidate && void restoreCandidate(currentCandidate)} onDelete={() => currentCandidate && requestPermanentDelete(currentCandidate)} onAddNote={(content) => void addNote(content)} onLinkPosition={(positionId) => void linkCandidateToPosition(positionId)} onUnlinkPosition={(positionId) => void unlinkCandidateFromPosition(positionId)} onOpenPosition={openPosition} onLinkTalentPool={(poolId) => void linkCandidateToTalentPool(poolId)} onUnlinkTalentPool={(poolId) => void unlinkCandidateFromTalentPool(poolId)} onCandidateUpdated={() => currentCandidate && void loadCandidateDetail(currentCandidate.id, sensitiveLoaded)} onCandidateCreated={() => void loadWorkspace(false)} />
+      <CandidateDrawer mode={drawerMode} initialTab={drawerInitialTab} candidate={currentCandidate} notes={candidateDetail?.notes ?? []} activities={candidateDetail?.activities ?? []} positions={activePositionOptions} talentPools={talentPools.filter((pool) => !pool.archived_at)} busy={candidateBusy} pendingProfileSave={Boolean(pendingCreatedCandidateId)} positionBusy={candidateBusy} sensitiveBusy={sensitiveBusy} sensitiveLoaded={sensitiveLoaded} onRevealSensitive={() => void revealCandidateSensitive()} onClose={() => { if (!candidateBusy) { setDrawerMode(null); setCreateForPositionId(null); setPendingCreatedCandidateId(null); setSensitiveLoaded(false); } }} onEdit={() => currentCandidate && editCandidate(currentCandidate)} onSave={(draft) => void saveCandidate(draft)} onArchive={() => currentCandidate && void archiveCandidate(currentCandidate)} onRestore={() => currentCandidate && void restoreCandidate(currentCandidate)} onDelete={() => currentCandidate && requestPermanentDelete(currentCandidate)} onAddNote={(content) => void addNote(content)} onLinkPosition={(positionId) => void linkCandidateToPosition(positionId)} onUnlinkPosition={(positionId) => void unlinkCandidateFromPosition(positionId)} onOpenPosition={openPosition} onLinkTalentPool={(poolId) => void linkCandidateToTalentPool(poolId)} onUnlinkTalentPool={(poolId) => void unlinkCandidateFromTalentPool(poolId)} onCandidateUpdated={() => currentCandidate && void loadCandidateDetail(currentCandidate.id, sensitiveLoaded)} onCandidateCreated={() => void loadWorkspace(false)} />
       <PositionFormDrawer mode={positionFormMode} position={editingPosition} ownerOptions={Array.from(new Set([...availableCandidateOwners, ...availablePositionOwners]))} busy={positionFormBusy} submitError={positionFormError} onClose={() => !positionFormBusy && setPositionFormMode(null)} onSubmit={(draft) => void savePosition(draft)} />
       <CandidatePickerDialog open={candidatePickerOpen} excludePositionId={activePositionId ?? undefined} busy={candidatePickerBusy} onClose={() => !candidatePickerBusy && setCandidatePickerOpen(false)} onConfirm={(ids) => void addCandidatesToActivePosition(ids)} />
       {linkTargetCandidateIds.length > 0 && (
-        <div className="modal-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !linkDialogBusy && setLinkTargetCandidateIds([])}>
-          <div className="modal compact-modal" role="dialog" aria-modal="true" aria-label="关联职位">
-            <header className="modal-header"><div><p className="drawer-kicker">批量整理</p><h2>关联招聘职位</h2></div><button className="icon-button" type="button" onClick={() => setLinkTargetCandidateIds([])} disabled={linkDialogBusy} aria-label="关闭" title="关闭"><X size={19} /></button></header>
-            <div className="modal-body link-position-body"><span className="modal-icon"><BriefcaseBusiness size={22} /></span><p>将 {linkTargetCandidateIds.length} 位候选人关联到：</p><label className="field"><span>选择职位</span><select value={linkTargetPositionId} onChange={(event) => setLinkTargetPositionId(event.target.value)}><option value="">请选择职位</option>{activePositionOptions.filter((position) => position.status !== "closed").map((position) => <option value={position.id} key={position.id}>{position.title} · {POSITION_STATUS_LABELS[position.status]}</option>)}</select></label></div>
-            <footer className="modal-footer"><button className="button secondary-button" type="button" onClick={() => setLinkTargetCandidateIds([])} disabled={linkDialogBusy}>取消</button><button className="button primary-button" type="button" onClick={() => void confirmBulkLink()} disabled={!linkTargetPositionId || linkDialogBusy}>{linkDialogBusy ? "正在关联..." : "确认关联"}</button></footer>
-          </div>
+        <div className="tw-modal-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !linkDialogBusy && setLinkTargetCandidateIds([])}>
+          <section className="tw-modal tw-modal-md" role="dialog" aria-modal="true" aria-label="关联职位">
+            <header className="tw-modal-head"><div><p className="tw-modal-kicker">批量整理</p><h2>关联招聘职位</h2></div><button className="tw-icon-plain" type="button" onClick={() => setLinkTargetCandidateIds([])} disabled={linkDialogBusy} aria-label="关闭" title="关闭"><X size={19} /></button></header>
+            <div className="tw-modal-body tw-link-body"><span className="tw-object-icon"><BriefcaseBusiness size={22} /></span><p>将 {linkTargetCandidateIds.length} 位候选人关联到：</p><label className="tw-field"><span className="tw-field-label">选择职位</span><select value={linkTargetPositionId} onChange={(event) => setLinkTargetPositionId(event.target.value)}><option value="">请选择职位</option>{activePositionOptions.filter((position) => position.status !== "closed").map((position) => <option value={position.id} key={position.id}>{position.title} · {POSITION_STATUS_LABELS[position.status]}</option>)}</select></label></div>
+            <footer className="tw-modal-foot"><button className="tw-btn" type="button" onClick={() => setLinkTargetCandidateIds([])} disabled={linkDialogBusy}>取消</button><button className="tw-btn tw-btn-primary" type="button" onClick={() => void confirmBulkLink()} disabled={!linkTargetPositionId || linkDialogBusy}>{linkDialogBusy ? "正在关联..." : "确认关联"}</button></footer>
+          </section>
         </div>
       )}
-      {importOpen && <ImportWizard presentation="page" onClose={() => setImportOpen(false)} onImported={(result: ImportResult) => { navigate("candidates"); void loadWorkspace(false); notify(`导入完成：${result.imported} 条成功`); }} />}
       {confirmAction && <ConfirmDialog action={confirmAction} busy={confirmBusy} onCancel={() => !confirmBusy && setConfirmAction(null)} onConfirm={async () => { setConfirmBusy(true); try { await confirmAction.run(); setConfirmAction(null); } catch (error) { notify(errorMessage(error, "操作失败")); } finally { setConfirmBusy(false); } }} />}
       {permanentDeleteRequest && <PermanentDeleteDialog entity={permanentDeleteRequest.entity} requestedCount={permanentDeleteRequest.ids.length} preview={permanentDeleteRequest.preview} loading={permanentDeleteRequest.loading} committing={permanentDeleteRequest.committing} error={permanentDeleteRequest.error} onCancel={() => !permanentDeleteRequest.loading && !permanentDeleteRequest.committing && setPermanentDeleteRequest(null)} onRetry={() => void requestPermanentDeletePreview(permanentDeleteRequest.entity, permanentDeleteRequest.ids)} onConfirm={() => void commitPermanentDelete()} />}
-      {toast && <div className={`toast${toast.tone === "warning" ? " is-warning" : ""}`} role="status"><Check size={16} /><span>{toast.message}</span>{toast.action && <button type="button" onClick={() => { const action = toast.action; setToast(null); if (action) Promise.resolve(action()).catch((error) => notify(errorMessage(error, "撤销操作失败"), { tone: "warning" })); }}><Undo2 size={14} />{toast.actionLabel}</button>}</div>}
-      {sidebarOpen && <button className="mobile-scrim" type="button" onClick={() => setSidebarOpen(false)} aria-label="关闭导航" />}
-    </div>
+      {toast && <div className={`tw-toast${toast.tone === "warning" ? " is-warning" : ""}`} role="status"><Check size={16} /><span>{toast.message}</span>{toast.action && <button type="button" onClick={() => { const action = toast.action; setToast(null); if (action) Promise.resolve(action()).catch((error) => notify(errorMessage(error, "撤销操作失败"), { tone: "warning" })); }}><Undo2 size={14} />{toast.actionLabel}</button>}</div>}
+    </>
   );
 }
 
@@ -1605,92 +1605,32 @@ function ExportMenu({ count, onExport }: { count: number; onExport: (format: "xl
   );
 }
 
-function ActiveCandidateFilters(props: {
-  search: string;
-  source: string;
-  owner: string;
-  tag: string;
-  positionId: string;
-  poolId: string;
-  education: string;
-  school: string;
-  gender: string;
-  jobStatus: string;
-  archive: ArchiveFilter;
-  positions: Position[];
-  talentPools: TalentPool[];
-  onClearSearch: () => void;
-  onClearSource: () => void;
-  onClearOwner: () => void;
-  onClearTag: () => void;
-  onClearPosition: () => void;
-  onClearPool: () => void;
-  onClearEducation: () => void;
-  onClearSchool: () => void;
-  onClearGender: () => void;
-  onClearJobStatus: () => void;
-  onClearArchive: () => void;
-  onClearAll: () => void;
-}) {
-  const chips: Array<{ key: string; label: string; clear: () => void }> = [];
-  if (props.search) chips.push({ key: "search", label: `搜索：${props.search}`, clear: props.onClearSearch });
-  if (props.positionId !== "all") chips.push({ key: "position", label: props.positionId === "unassigned" ? "职位：未分配" : `职位：${props.positions.find((item) => item.id === props.positionId)?.title ?? "未知"}`, clear: props.onClearPosition });
-  if (props.poolId !== "all") chips.push({ key: "pool", label: props.poolId === "unassigned" ? "人才库：未分组" : `人才库：${props.talentPools.find((item) => item.id === props.poolId)?.name ?? "未知"}`, clear: props.onClearPool });
-  if (props.education !== "all") chips.push({ key: "education", label: `学历：${props.education}`, clear: props.onClearEducation });
-  if (props.school !== "all") chips.push({ key: "school", label: `学校：${props.school}`, clear: props.onClearSchool });
-  if (props.gender !== "all") chips.push({ key: "gender", label: `性别：${props.gender}`, clear: props.onClearGender });
-  if (props.jobStatus !== "all") chips.push({ key: "job-status", label: `求职状态：${props.jobStatus}`, clear: props.onClearJobStatus });
-  if (props.source !== "all") chips.push({ key: "source", label: `来源：${props.source}`, clear: props.onClearSource });
-  if (props.owner !== "all") chips.push({ key: "owner", label: `负责人：${props.owner}`, clear: props.onClearOwner });
-  if (props.tag !== "all") chips.push({ key: "tag", label: `标签：${props.tag}`, clear: props.onClearTag });
-  if (props.archive !== "active") chips.push({ key: "archive", label: props.archive === "archived" ? "仅已归档" : "含已归档", clear: props.onClearArchive });
-  if (!chips.length) return null;
-  return <div className="active-filter-bar"><div className="filter-chips">{chips.map((chip) => <button type="button" key={chip.key} onClick={chip.clear}>{chip.label}<X size={13} /></button>)}</div><button className="clear-all-filters" type="button" onClick={props.onClearAll}>清除全部</button></div>;
-}
-
-function Pagination({
-  pagination,
-  pageSize,
-  entityLabel,
-  loading,
-  onPageChange,
-  onPageSizeChange,
-}: {
-  pagination: PaginationState;
-  pageSize: PageSize;
-  entityLabel: string;
-  loading?: boolean;
-  onPageChange: (page: number) => void;
-  onPageSizeChange: (pageSize: PageSize) => void;
-}) {
-  const page = pagination.total ? pagination.page : 1;
-  const pageCount = Math.max(1, pagination.total_pages);
-  const hasNext = pagination.has_next ?? page < pageCount;
+function ConfirmDialog({ action, busy, onCancel, onConfirm }: { action: ConfirmAction; busy: boolean; onCancel: () => void; onConfirm: () => Promise<void> }) {
+  const danger = action.tone === "danger";
+  const cancelRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    cancelRef.current?.focus();
+    return () => { if (previous?.isConnected) previous.focus(); };
+  }, []);
   return (
-    <div className="pagination">
-      <div className="pagination-summary">
-        <span>共 {pagination.total} {entityLabel}</span>
-        <label>每页
-          <select value={pageSize} disabled={loading} onChange={(event) => onPageSizeChange(Number(event.target.value) as PageSize)}>
-            {PAGE_SIZES.map((size) => <option value={size} key={size}>{size}</option>)}
-          </select>
-        </label>
-      </div>
-      <div>
-        <button className="icon-button" type="button" disabled={loading || pagination.total === 0 || page <= 1} onClick={() => onPageChange(page - 1)} aria-label="上一页" title="上一页"><ChevronLeft size={17} /></button>
-        <strong>{pagination.total ? `${page} / ${pageCount}` : "0 / 0"}</strong>
-        <button className="icon-button" type="button" disabled={loading || pagination.total === 0 || !hasNext} onClick={() => onPageChange(page + 1)} aria-label="下一页" title="下一页"><ChevronRight size={17} /></button>
+    <div className="tw-modal-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onCancel()}>
+      <div className="tw-modal tw-confirm" role="alertdialog" aria-modal="true" aria-labelledby="tw-confirm-title" aria-describedby="tw-confirm-message">
+        <header className="tw-modal-head">
+          <h2 id="tw-confirm-title">{action.title}</h2>
+          <button className="tw-icon-plain" type="button" onClick={onCancel} disabled={busy} aria-label="关闭" title="关闭"><X size={18} /></button>
+        </header>
+        <div className="tw-confirm-body">
+          <span className={`tw-confirm-icon${danger ? " is-danger" : ""}`}><AlertTriangle size={20} /></span>
+          <p id="tw-confirm-message">{action.message}</p>
+        </div>
+        <footer className="tw-modal-foot">
+          <button ref={cancelRef} className="tw-btn" type="button" onClick={onCancel} disabled={busy}>取消</button>
+          <button className={`tw-btn ${danger ? "tw-btn-danger" : "tw-btn-primary"}`} type="button" onClick={() => void onConfirm()} disabled={busy}>{busy ? "正在处理…" : action.confirmLabel}</button>
+        </footer>
       </div>
     </div>
   );
-}
-
-function CandidateListSkeleton() {
-  return <div className="list-skeleton" aria-label="正在加载候选人" aria-busy="true">{[0, 1, 2, 3, 4, 5].map((item) => <div className="skeleton-row" key={item}><span className="skeleton-avatar skeleton-block" /><span className="skeleton-line skeleton-block" /><span className="skeleton-line short skeleton-block" /></div>)}</div>;
-}
-
-function ConfirmDialog({ action, busy, onCancel, onConfirm }: { action: ConfirmAction; busy: boolean; onCancel: () => void; onConfirm: () => Promise<void> }) {
-  return <div className="modal-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onCancel()}><div className="modal confirm-modal" role="alertdialog" aria-modal="true" aria-label={action.title}><header className="modal-header"><div><p className="drawer-kicker">操作确认</p><h2>{action.title}</h2></div><button className="icon-button" type="button" onClick={onCancel} disabled={busy} aria-label="关闭" title="关闭"><X size={19} /></button></header><div className="modal-body confirm-body"><span className={`confirm-icon ${action.tone === "danger" ? "danger" : ""}`}><Archive size={22} /></span><p>{action.message}</p></div><footer className="modal-footer"><button className="button secondary-button" type="button" onClick={onCancel} disabled={busy}>取消</button><button className={`button ${action.tone === "danger" ? "danger-button" : "primary-button"}`} type="button" onClick={() => void onConfirm()} disabled={busy}>{busy ? "正在处理..." : action.confirmLabel}</button></footer></div></div>;
 }
 
 export default App;

@@ -1,8 +1,8 @@
 # 项目文档索引
 
-2026-09-10 已按用户授权应用并启动正式本机服务，当前为应用 `0.2.0` / 数据库 schema `V13`。本地检索改进和新界面已生效，`SEARCH_REMOTE_ENABLED=false`；未生成真实简历向量，远程混合检索尚未启用。当前证据见 [正式部署记录](evidence/search-formal-deployment.json)，完整实现与匿名验收见 [检索交付](handoffs/2026-09-10-search-hybrid-delivery.md)。
+2026-09-10 已按用户授权应用并启动正式本机服务，当时版本为应用 `0.2.0` / 数据库 schema `V13`；随后正式混合检索补充已启用并留下独立部署证据。当前工作区为应用 `0.4.0`（开发中，未发布），第十二轮响应式适配与导航表面隔离、第十三轮检索性能与增量索引维护均已完成实现与验证，数据库保持 `V13`（本轮无主库迁移）。正式部署历史见 [正式部署记录](evidence/search-formal-deployment.json)，第十二轮实现与 G1–G6 结果见 [第十二轮验收](evidence/talent-redesign/acceptance.md)，第十三轮的范围、实测数字与已知未解决项见 [运维记录](OPERATIONS.md) 与 [变更日志](../CHANGELOG.md)。
 
-本文档集对应招聘工作台应用 `0.2.0` 个人版、schema `V13`，并保留此前工作年限、导入等迭代的历史记录。当前代码基线为 schema V13：`years_experience` 是可空数值投影，`years_experience_raw` 是 `TEXT NOT NULL DEFAULT ''` 的来源原文，`years_experience_display` 为计算展示文本。明确 `0`、未知文本和真实空值必须分别显示为 `0`、原文和空白；导入格式本身不拒绝行，电话/邮箱冲突仍阻断。Task 7 已完成最多 100 条历史只读样本预览，脱敏证据见 [v13-years-experience-import-20260825.json](evidence/v13-years-experience-import-20260825.json)；正式库已完成 V13 加法迁移，schema 为 V1-V13。历史 V11 候选人入职信息迭代引入 `hire_status`（入职状态）和 `hire_date`（入职日期）；V12 增加 `hire_position`（入职职位），日期有值而状态为空时使用精确文本 `不确定`，三项全空时详情隐藏入职信息区块。V12 历史正式 HTTP 记录不构成本轮批量导入证据。代码行为是事实来源，文档与实现不一致时，应先修正文档或通过技术决策记录明确变更。
+本文档集对应招聘工作台应用 `0.4.0`（开发中；上一次发布为 `0.2.0`）个人版、schema `V13`，并保留此前工作年限、导入等迭代的历史记录。当前代码基线为 schema V13：`years_experience` 是可空数值投影，`years_experience_raw` 是 `TEXT NOT NULL DEFAULT ''` 的来源原文，`years_experience_display` 为计算展示文本。明确 `0`、未知文本和真实空值必须分别显示为 `0`、原文和空白；导入格式本身不拒绝行，电话/邮箱冲突仍阻断。Task 7 已完成最多 100 条历史只读样本预览，脱敏证据见 [v13-years-experience-import-20260825.json](evidence/v13-years-experience-import-20260825.json)；正式库已完成 V13 加法迁移，schema 为 V1-V13。历史 V11 候选人入职信息迭代引入 `hire_status`（入职状态）和 `hire_date`（入职日期）；V12 增加 `hire_position`（入职职位），日期有值而状态为空时使用精确文本 `不确定`，三项全空时详情隐藏入职信息区块。V12 历史正式 HTTP 记录不构成本轮批量导入证据。代码行为是事实来源，文档与实现不一致时，应先修正文档或通过技术决策记录明确变更。
 
 | 文档 | 主要用途 |
 | --- | --- |
@@ -30,6 +30,9 @@
 | [superpowers/specs/2026-08-25-years-experience-tolerant-import-design.md](superpowers/specs/2026-08-25-years-experience-tolerant-import-design.md) | V13 工作年限原文保留、数值投影和兼容迁移设计 |
 | [superpowers/plans/2026-08-25-years-experience-tolerant-import.md](superpowers/plans/2026-08-25-years-experience-tolerant-import.md) | V13 实施、测试与最多 100 条只读验证计划 |
 | [evidence/v13-years-experience-import-20260825.json](evidence/v13-years-experience-import-20260825.json) | V13 Task 7 的历史只读工作簿预览脱敏聚合证据；不代表本轮正式批量导入结果 |
+| [superpowers/specs/2026-09-15-responsive-scale-and-surface-isolation-design.md](superpowers/specs/2026-09-15-responsive-scale-and-surface-isolation-design.md) | 第十二轮断点尺度分档、列优先级与导航表面状态机设计（已完成） |
+| [superpowers/plans/2026-09-15-responsive-scale-and-surface-isolation.md](superpowers/plans/2026-09-15-responsive-scale-and-surface-isolation.md) | 第十二轮分阶段实施计划与 G1–G6 验收门禁（阶段 0–6 已完成） |
+| [evidence/talent-redesign/acceptance.md](evidence/talent-redesign/acceptance.md) | 第十二轮实现、G1–G6 结果、93 张截图矩阵与已知偏离 |
 | [../SECURITY.md](../SECURITY.md) | 安全假设、数据保护要求和漏洞处理 |
 | [../CHANGELOG.md](../CHANGELOG.md) | 面向版本的新增、变更、修复和限制 |
 | [../CONTRIBUTING.md](../CONTRIBUTING.md) | 开发、测试、数据安全和文档维护规范 |

@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
-  Archive,
+  ArrowLeft,
   Check,
   CheckCircle2,
   FileText,
+  FileUp,
   FolderOpen,
   ImageIcon,
+  Info,
   LoaderCircle,
+  Minus,
+  Plus,
   RefreshCw,
   RotateCcw,
   Search,
@@ -47,10 +51,13 @@ import type {
   AttachmentConfirmRecord,
   AttachmentAvatarSuggestion,
   AttachmentPreviewRecord,
+  AttachmentSectionSuggestion,
   AttachmentSuggestionConflict,
   Candidate,
   CandidateDraft,
 } from "../types";
+import { formatDateTime, maskEmail, maskPhone } from "../utils";
+import { TwAvatar } from "../views/TwAvatar";
 import { CandidateForm, type CandidateFormSubmitOptions } from "./CandidateForm";
 import { CandidatePickerDialog } from "./CandidatePickerDialog";
 
@@ -64,14 +71,14 @@ const MAX_CLIENT_FILES = 100;
 function AttachmentConflictNotice({ conflict }: { conflict?: AttachmentSuggestionConflict }) {
   if (!conflict) return null;
   const evidenceStatus = attachmentEvidenceStatusLabel(conflict.evidence_status);
-  return <small className="attachment-conflict">
+  return <small className="tw-att-conflict">
     <AlertTriangle size={12} />
     <span>
       <span>{conflict.message}</span>
-      {conflict.existing_value !== undefined && <span className="attachment-conflict-value">{attachmentProvenanceLabel(conflict.existing_source)}：{attachmentConflictValueText(conflict.existing_value)}</span>}
-      {conflict.proposed_value !== undefined && <span className="attachment-conflict-value">{attachmentProvenanceLabel(conflict.source)}建议：{attachmentConflictValueText(conflict.proposed_value)}</span>}
-      {evidenceStatus && <span className={`attachment-evidence-status is-${conflict.evidence_status}`}>{evidenceStatus}</span>}
-      {attachmentSuggestionEvidenceRefs(conflict).map((reference, index) => <span className="attachment-conflict-evidence" key={`${reference.page ?? "none"}-${index}`}>{reference.page ? `第 ${reference.page} 页：` : "证据："}{reference.text}</span>)}
+      {conflict.existing_value !== undefined && <span className="tw-att-conflict-value">{attachmentProvenanceLabel(conflict.existing_source)}：{attachmentConflictValueText(conflict.existing_value)}</span>}
+      {conflict.proposed_value !== undefined && <span className="tw-att-conflict-value">{attachmentProvenanceLabel(conflict.source)}建议：{attachmentConflictValueText(conflict.proposed_value)}</span>}
+      {evidenceStatus && <span className={`tw-att-evidence-status is-${conflict.evidence_status}`}>{evidenceStatus}</span>}
+      {attachmentSuggestionEvidenceRefs(conflict).map((reference, index) => <span className="tw-att-conflict-evidence" key={`${reference.page ?? "none"}-${index}`}>{reference.page ? `第 ${reference.page} 页：` : "证据："}{reference.text}</span>)}
     </span>
   </small>;
 }
@@ -94,6 +101,7 @@ interface AttachmentBatchWorkflowProps {
   disabled?: boolean;
   onCommitted?: (candidateIds: string[]) => void;
   onCandidateCreated?: (candidateId: string) => void;
+  onExit?: () => void;
 }
 
 interface CandidateCreateContext {
@@ -112,35 +120,6 @@ interface LegacyFileEntry {
     readEntries: (success: (entries: LegacyFileEntry[]) => void, failure?: (error: DOMException) => void) => void;
   };
 }
-
-const STATUS_COPY: Record<string, string> = {
-  queued: "排队中",
-  extracting: "解压中",
-  identifying: "识别中",
-  parsing: "解析中",
-  matching: "匹配中",
-  awaiting_confirmation: "待确认",
-  confirmed: "已确认",
-  failed: "失败",
-  skipped: "已跳过",
-  cancelled: "已取消",
-};
-
-const MATCH_COPY: Record<string, string> = {
-  high_confidence: "手机号与邮箱一致",
-  single_identity: "单一身份字段匹配",
-  identity_conflict: "身份字段冲突",
-  multiple_matches: "存在多个匹配",
-  not_found: "未匹配候选人",
-};
-
-const MATCH_TONE: Record<string, string> = {
-  high_confidence: "success",
-  single_identity: "notice",
-  identity_conflict: "danger",
-  multiple_matches: "danger",
-  not_found: "warning",
-};
 
 function newOpaqueId(prefix: string) {
   try {
@@ -273,11 +252,85 @@ async function getCandidateWithRetry(candidateId: string, attempts = 4): Promise
   throw lastError;
 }
 
+const ITEM_STATUS_COPY: Record<string, { label: string; tone: string; hint: string }> = {
+  queued: { label: "排队中", tone: "pending", hint: "等待解析" },
+  extracting: { label: "解析中", tone: "pending", hint: "正在提取文件内容" },
+  identifying: { label: "解析中", tone: "pending", hint: "正在识别身份信息" },
+  parsing: { label: "解析中", tone: "pending", hint: "正在解析文件内容" },
+  matching: { label: "解析中", tone: "pending", hint: "正在匹配候选人" },
+  awaiting_confirmation: { label: "待确认", tone: "warning", hint: "已生成匹配建议" },
+  confirmed: { label: "已确认", tone: "ok", hint: "已更新候选人资料" },
+  failed: { label: "解析失败", tone: "error", hint: "文件内容无法识别" },
+  skipped: { label: "已跳过", tone: "muted", hint: "未写入任何资料" },
+  cancelled: { label: "已取消", tone: "muted", hint: "未写入任何资料" },
+};
+
+const FILE_TYPE_LABELS: Record<string, string> = {
+  pdf: "PDF", doc: "DOC", docx: "DOC", xls: "XLS", xlsx: "XLS", xlsm: "XLS", csv: "CSV", txt: "TXT", zip: "ZIP",
+};
+
+const ATTACHMENT_SECTION_LABELS: Record<string, string> = {
+  summary: "个人简介", work_experience: "工作经历", education: "教育背景", skills: "专业技能",
+  projects: "项目经历", certificates: "证书", languages: "语言能力",
+};
+
+function fileExtensionOf(name: string): string {
+  const index = name.lastIndexOf(".");
+  return index > 0 ? name.slice(index + 1).toLowerCase() : "";
+}
+
+function fileTypeLabel(name: string): string {
+  return FILE_TYPE_LABELS[fileExtensionOf(name)] ?? "FILE";
+}
+
+function fileTypeTone(name: string): string {
+  const extension = fileExtensionOf(name);
+  if (extension === "pdf") return "pdf";
+  if (extension === "doc" || extension === "docx") return "doc";
+  if (["xls", "xlsx", "xlsm", "csv"].includes(extension)) return "xls";
+  if (extension === "zip") return "zip";
+  return "muted";
+}
+
+function itemStatusDisplay(item: AttachmentBatchItem) {
+  const copy = ITEM_STATUS_COPY[item.status] ?? { label: item.status, tone: "muted", hint: "" };
+  const record = item.preview?.records[0];
+  if (item.status === "awaiting_confirmation" && record?.match.status === "not_found") {
+    return { label: "待定位", tone: "muted", hint: "未找到匹配的候选人" };
+  }
+  if (item.status === "awaiting_confirmation" && (record?.match.status === "identity_conflict" || record?.match.status === "multiple_matches")) {
+    return { ...copy, hint: "需要人工核对身份" };
+  }
+  if (item.status === "failed") return { ...copy, hint: item.error?.message || copy.hint };
+  return copy;
+}
+
+function recordMatchSource(record: AttachmentPreviewRecord | null | undefined) {
+  if (!record) return { label: "—", value: "" };
+  const reason = record.match.reason ?? "";
+  const phoneUsed = reason.includes("手机号");
+  const emailUsed = reason.includes("邮箱");
+  if (phoneUsed && !emailUsed) return { label: "手机号", value: record.identity.phone ? maskPhone(record.identity.phone) : "" };
+  if (emailUsed && !phoneUsed) return { label: "邮箱", value: record.identity.email ? maskEmail(record.identity.email) : "" };
+  if (record.identity.phone) return { label: "手机号", value: maskPhone(record.identity.phone) };
+  if (record.identity.email) return { label: "邮箱", value: maskEmail(record.identity.email) };
+  return { label: "—", value: "" };
+}
+
+function attachmentConfidenceLabel(confidence: string): string {
+  return confidence === "high" ? "高置信" : confidence === "medium" ? "中置信" : "低置信";
+}
+
+function attachmentSectionLabel(section: AttachmentSectionSuggestion): string {
+  return section.title || ATTACHMENT_SECTION_LABELS[section.section_type] || "履历区块";
+}
+
 export function AttachmentBatchWorkflow({
   candidates,
   disabled = false,
   onCommitted,
   onCandidateCreated,
+  onExit,
 }: AttachmentBatchWorkflowProps) {
   const filesRef = useRef<HTMLInputElement>(null);
   const folderRef = useRef<HTMLInputElement>(null);
@@ -299,6 +352,7 @@ export function AttachmentBatchWorkflow({
   const [pendingCreateWarning, setPendingCreateWarning] = useState("");
   const [pending, setPending] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [docZoom, setDocZoom] = useState(1);
   const [error, setError] = useState("");
   const [pickerError, setPickerError] = useState("");
 
@@ -411,7 +465,8 @@ export function AttachmentBatchWorkflow({
     setCandidateBaselines({});
     setPickerRecordId(null);
     setPickerError("");
-  }, [selectedItem?.item_id, preview?.preview_id]);
+    // 批次解析会先创建预览、稍后补齐记录，记录数变化同样需要重新初始化选择。
+  }, [selectedItem?.item_id, preview?.preview_id, preview?.status, preview?.records.length]);
 
   useEffect(() => {
     if (!createdCandidateResolutions.length) return;
@@ -716,9 +771,10 @@ export function AttachmentBatchWorkflow({
     }
   }
 
-  async function mutate(action: "skip" | "retry" | "cancelItem" | "cancel") {
+  async function mutate(action: "skip" | "retry" | "cancelItem" | "cancel", target: AttachmentBatchItem | null = null) {
     const stored = storedRef.current;
-    if (!stored || pending || (action !== "cancel" && !selectedItem)) return;
+    const item = target ?? selectedItem;
+    if (!stored || pending || (action !== "cancel" && !item)) return;
     setPending(true);
     setError("");
     const controller = new AbortController();
@@ -728,15 +784,15 @@ export function AttachmentBatchWorkflow({
       const next = action === "cancel"
         ? await attachmentBatchApi.cancel(stored.batchId, stored.batchToken, controller.signal)
         : action === "skip"
-        ? await attachmentBatchApi.skip(stored.batchId, selectedItem!.item_id, stored.batchToken, controller.signal)
+        ? await attachmentBatchApi.skip(stored.batchId, item!.item_id, stored.batchToken, controller.signal)
         : action === "retry"
-        ? await attachmentBatchApi.retry(stored.batchId, selectedItem!.item_id, stored.batchToken, controller.signal)
-        : await attachmentBatchApi.cancelItem(stored.batchId, selectedItem!.item_id, stored.batchToken, controller.signal);
+        ? await attachmentBatchApi.retry(stored.batchId, item!.item_id, stored.batchToken, controller.signal)
+        : await attachmentBatchApi.cancelItem(stored.batchId, item!.item_id, stored.batchToken, controller.signal);
       acceptBatch(next);
       if (action === "skip" || action === "cancelItem") {
         setSelectedItemId(next.items.find((item) => item.status === "awaiting_confirmation")?.item_id
           ?? next.items.find((item) => item.status === "failed")?.item_id
-          ?? selectedItem!.item_id);
+          ?? item!.item_id);
       }
     } catch (requestError) {
       if (!controller.signal.aborted) setError(requestError instanceof Error ? requestError.message : "批次操作失败。");
@@ -761,23 +817,53 @@ export function AttachmentBatchWorkflow({
     setError("");
   }
 
-  if (!batch) {
-    return (
-      <div className={`attachment-batch-drop ${dragActive ? "is-dragging" : ""}`} onDragEnter={(event) => { event.preventDefault(); setDragActive(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={(event) => { if (event.currentTarget === event.target) setDragActive(false); }} onDrop={(event) => {
-        event.preventDefault();
-        setDragActive(false);
-        void filesFromDrop(event.dataTransfer).then(upload).catch((dropError) => setError(dropError instanceof Error ? dropError.message : "无法读取拖放目录。"));
-      }}>
+  const todayLabel = new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "long", day: "numeric" }).format(new Date());
+
+  const dropPanel = (
+    <div className="tw-att-drop-panel">
+      <div
+        className={`tw-att-drop${dragActive ? " is-dragging" : ""}`}
+        onDragEnter={(event) => { event.preventDefault(); setDragActive(true); }}
+        onDragOver={(event) => event.preventDefault()}
+        onDragLeave={(event) => { if (event.currentTarget === event.target) setDragActive(false); }}
+        onDrop={(event) => {
+          event.preventDefault();
+          setDragActive(false);
+          void filesFromDrop(event.dataTransfer).then(upload).catch((dropError) => setError(dropError instanceof Error ? dropError.message : "无法读取拖放目录。"));
+        }}
+      >
         <input ref={filesRef} className="sr-only" type="file" accept={ACCEPT} multiple disabled={disabled || pending} onChange={(event) => void upload(Array.from(event.target.files ?? []))} />
         <input ref={(node) => { folderRef.current = node; node?.setAttribute("webkitdirectory", ""); }} className="sr-only" type="file" multiple disabled={disabled || pending} onChange={(event) => void upload(Array.from(event.target.files ?? []))} />
-        {pending ? <LoaderCircle className="spin" size={25} /> : <UploadCloud size={25} />}
-        <strong>{pending ? "正在创建持久批次" : "拖入文件或文件夹"}</strong>
-        <span>PDF、Word、Excel、CSV、ZIP</span>
-        <div>
-          <button className="button secondary-button" type="button" disabled={disabled || pending} onClick={() => filesRef.current?.click()}><FileText size={15} />选择文件</button>
-          <button className="button secondary-button" type="button" disabled={disabled || pending} onClick={() => folderRef.current?.click()}><FolderOpen size={15} />选择文件夹</button>
+        <span className="tw-att-drop-icon">{pending ? <LoaderCircle className="spin" size={26} /> : <FileUp size={26} />}</span>
+        <strong>{pending ? "正在创建持久批次" : "拖拽文件到此处，或点击上传"}</strong>
+        <span className="tw-att-drop-formats">支持 PDF、DOCX、Excel、CSV</span>
+        <p className="tw-att-drop-note">我们会解析文件内容以生成匹配建议，不会自动写入档案，确认后才会更新。</p>
+        {batch && <p className="tw-att-drop-hint">上传新文件会开启新的解析批次，不会改动当前结果。</p>}
+        <div className="tw-att-drop-actions">
+          <button className="tw-btn" type="button" disabled={disabled || pending} onClick={() => filesRef.current?.click()}><FileText size={15} />选择文件</button>
+          <button className="tw-btn" type="button" disabled={disabled || pending} onClick={() => folderRef.current?.click()}><FolderOpen size={15} />选择文件夹</button>
         </div>
-        {error && <div className="attachment-error" role="alert"><AlertTriangle size={15} /><span>{error}</span>{lastFilesRef.current.length > 0 && <button className="button secondary-button" type="button" disabled={pending} onClick={() => void upload(lastFilesRef.current, true)}><RefreshCw size={14} />重试上传</button>}</div>}
+        {error && <div className="tw-alert tw-alert-inline" role="alert"><AlertTriangle size={15} /><span>{error}</span>{lastFilesRef.current.length > 0 && <button className="tw-btn tw-btn-sm" type="button" disabled={pending} onClick={() => void upload(lastFilesRef.current, true)}><RefreshCw size={14} />重试上传</button>}</div>}
+      </div>
+    </div>
+  );
+
+  if (!batch) {
+    return (
+      <div className="tw-page tw-att-page">
+        <header className="tw-page-head">
+          <div>
+            <h1>解析并更新候选人</h1>
+            <p className="tw-sub">上传简历附件，核对匹配结果后更新档案。</p>
+          </div>
+          <div className="tw-page-actions">
+            <span className="tw-page-date">{todayLabel}</span>
+            {onExit && <button className="tw-btn" type="button" onClick={onExit}><ArrowLeft size={16} />返回人才库</button>}
+          </div>
+        </header>
+        <div className="tw-scroll-body tw-att-body">
+          {dropPanel}
+        </div>
       </div>
     );
   }
@@ -788,97 +874,372 @@ export function AttachmentBatchWorkflow({
     ? Math.round(completedCount / Math.max(1, summary.total) * 100)
     : Math.max(0, Math.min(100, Math.round(batch.progress * 100)));
   const canConfirm = Boolean(preview?.records.length && confirmRecords.length === preview.records.length);
+  const reviewItem = selectedItem && selectedItem.preview && selectedItem.status === "awaiting_confirmation" ? selectedItem : null;
+  const reviewPreview = reviewItem?.preview ?? null;
+  const reviewRecords = reviewPreview?.records ?? [];
+  const inspectedItem = selectedItem && !reviewItem ? selectedItem : null;
+  const selectedCount = reviewRecords.reduce((total, record) => {
+    const selection = selections[record.record_id];
+    return total + (selection ? selection.fields.size + selection.sections.size : 0);
+  }, 0);
+  const suggestionCount = reviewRecords.reduce((total, record) => (
+    total + record.suggestions.length + record.sections.filter((section) => !isAttachmentSelfSummarySection(section)).length
+  ), 0);
+  const firstReviewRecord = reviewRecords[0] ?? null;
+  const firstReviewFull = firstReviewRecord
+    ? knownCandidates.find((item) => item.id === (firstReviewRecord.match.candidate_id ?? firstReviewRecord.match.candidate?.id)) ?? null
+    : null;
+  const firstReviewFallback = firstReviewRecord?.match.candidate ?? null;
+  const firstReviewAvatar = firstReviewFull ?? (firstReviewFallback ? { ...firstReviewFallback, has_photo: false } : null);
+  const firstReviewSource = recordMatchSource(firstReviewRecord);
 
   return (
-    <div className="attachment-batch-workflow">
-      <div className="attachment-batch-header">
-        <div><strong>批次进度</strong><span>{completedCount} / {summary.total} 已处理</span></div>
-        <div className="attachment-batch-header-actions">
-          {!TERMINAL_BATCH_STATUSES.has(batch.status) && <button className="icon-button compact-icon-button" type="button" disabled={pending} onClick={() => void mutate("cancel")} aria-label="取消整个批次" title="取消批次"><Trash2 size={15} /></button>}
-          <button className="icon-button compact-icon-button" type="button" disabled={pending} onClick={() => void refresh()} aria-label="刷新批次" title="刷新"><RefreshCw className={batchNeedsPolling(batch) ? "spin-slow" : ""} size={15} /></button>
-          {TERMINAL_BATCH_STATUSES.has(batch.status) && <button className="button secondary-button" type="button" onClick={startNewBatch}><UploadCloud size={15} />新批次</button>}
+    <div className="tw-page tw-att-page">
+      <header className="tw-page-head">
+        <div>
+          <h1>{reviewItem ? "核对解析建议" : "解析并更新候选人"}</h1>
+          <p className="tw-sub">{reviewItem ? "请核对解析结果，选择需要更新到候选人资料的内容。" : "上传简历附件，核对匹配结果后更新档案。"}</p>
         </div>
-      </div>
-      <div className="attachment-batch-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={computedProgress}><span style={{ width: `${computedProgress}%` }} /></div>
-      <div className="attachment-batch-summary">
-        <span>待确认 <strong>{summary.awaiting_confirmation}</strong></span>
-        <span>已确认 <strong>{summary.confirmed}</strong></span>
-        <span>失败 <strong>{summary.failed}</strong></span>
-        <span>跳过 <strong>{summary.skipped}</strong></span>
-      </div>
-      {error && <div className="attachment-error" role="alert"><AlertTriangle size={15} /><span>{error}</span><button className="icon-button compact-icon-button" type="button" onClick={() => setError("")} aria-label="关闭错误"><X size={14} /></button></div>}
+        <div className="tw-page-actions">
+          {!reviewItem && <span className="tw-page-date">{todayLabel}</span>}
+          {!reviewItem && onExit && <button className="tw-btn" type="button" onClick={onExit}><ArrowLeft size={16} />返回导入候选人</button>}
+        </div>
+      </header>
 
-      <div className="attachment-batch-layout">
-        <div className="attachment-batch-items" aria-label="批次文件">
-          {batch.items.map((item) => <button className={`attachment-batch-item ${item.item_id === selectedItemId ? "is-active" : ""} is-${item.status}`} type="button" key={item.item_id} onClick={() => setSelectedItemId(item.item_id)}>
-            <span className="attachment-batch-item-icon">{item.kind === "archive" ? <Archive size={16} /> : item.status === "confirmed" ? <CheckCircle2 size={16} /> : POLLING_STATUSES.has(item.status) ? <LoaderCircle className="spin" size={16} /> : <FileText size={16} />}</span>
-            <span><strong title={displayFilename(item)}>{displayFilename(item)}</strong><small>{STATUS_COPY[item.status] ?? item.status}{item.attempts > 1 ? ` · 第 ${item.attempts} 次` : ""}</small></span>
-            {item.error && <AlertTriangle size={15} />}
-          </button>)}
-        </div>
+      {reviewItem && reviewPreview ? (
+        <>
+          <div className="tw-scroll-body tw-att-body">
+            <div className="tw-att-review-head">
+              <div className="tw-att-review-cell">
+                <span className={`tw-att-ext is-${fileTypeTone(reviewPreview.file.original_filename)}`}>{fileTypeLabel(reviewPreview.file.original_filename)}</span>
+                <span className="tw-att-cell-main">
+                  <strong>{reviewPreview.file.original_filename}</strong>
+                  <small>{fileSize(reviewPreview.file.file_size)} · 上传于 {formatDateTime(batch.created_at)}</small>
+                </span>
+              </div>
+              <span className="tw-att-review-divider" aria-hidden="true" />
+              <div className="tw-att-review-cell">
+                {firstReviewAvatar
+                  ? <>
+                    <TwAvatar candidate={firstReviewAvatar} size={40} />
+                    <span className="tw-att-cell-main">
+                      <strong>{firstReviewAvatar.name}</strong>
+                      <small>{[firstReviewFull?.current_title, firstReviewFull?.current_company].filter(Boolean).join(" · ") || firstReviewFallback?.email || firstReviewFallback?.phone || "候选人档案"}</small>
+                    </span>
+                  </>
+                  : <>
+                    <span className="tw-att-ext is-muted">—</span>
+                    <span className="tw-att-cell-main">
+                      <strong>{parsedAttachmentCandidateName(firstReviewRecord!) || "未匹配到候选人"}</strong>
+                      <small>{firstReviewRecord?.match.reason ?? "手机号和邮箱均未匹配，请手工选择候选人"}</small>
+                    </span>
+                  </>}
+              </div>
+              <span className="tw-att-review-divider" aria-hidden="true" />
+              <div className="tw-att-review-cell tw-att-review-source">
+                <span className="tw-att-review-label">匹配方式</span>
+                <span>{firstReviewSource.label === "—" ? "未匹配" : `通过${firstReviewSource.label}`}</span>
+                {firstReviewSource.value && <small>{firstReviewSource.value}</small>}
+              </div>
+            </div>
 
-        <div className="attachment-batch-detail">
-          {!selectedItem ? <div className="attachment-batch-empty">批次中暂无文件</div> : POLLING_STATUSES.has(selectedItem.status) ? <div className="attachment-processing"><LoaderCircle className="spin" size={22} /><div><strong>{STATUS_COPY[selectedItem.status]}</strong><span>{displayFilename(selectedItem)}</span></div><button className="button secondary-button" type="button" disabled={pending} onClick={() => void mutate("cancelItem")}>取消此文件</button></div> : selectedItem.status === "failed" ? <div className="attachment-failure" role="alert"><AlertTriangle size={22} /><div><strong>{selectedItem.error?.code ?? "处理失败"}</strong><span>{selectedItem.error?.message ?? "文件未能完成处理。"}</span></div><div className="attachment-failure-actions"><button className="button secondary-button" type="button" disabled={pending || selectedItem.error?.retryable === false} onClick={() => void mutate("retry")}><RotateCcw size={15} />重试</button><button className="button secondary-button" type="button" disabled={pending} onClick={() => void mutate("skip")}><SkipForward size={15} />跳过</button></div></div> : selectedItem.status === "confirmed" ? <div className="attachment-complete"><CheckCircle2 size={24} /><div><strong>此文件已确认</strong><span>重复确认不会新增附件、活动或候选人更新。</span></div></div> : selectedItem.status === "skipped" || selectedItem.status === "cancelled" ? <div className="attachment-batch-empty">{STATUS_COPY[selectedItem.status]}</div> : preview ? <>
-            <div className="attachment-preview-file"><FileText size={18} /><div><strong>{preview.file.original_filename}</strong><span>{preview.file.format.toUpperCase()} · {fileSize(preview.file.file_size)} · {preview.records.length} 条记录</span></div></div>
-            <div className="attachment-parser-status" aria-live="polite">
-              <span>{attachmentParserPipelineLabel(preview.pipeline?.text?.content_type)}</span>
-              <span>解析器：{preview.parser_version ?? "未提供"}</span>
-              <span className={`attachment-pipeline-channel ${attachmentPipelineChannelTone(preview.pipeline?.text_model)}`}>
-                文本模型：{attachmentPipelineChannelLabel(preview.pipeline?.text_model)}
-                {attachmentPipelineChannelDetail(preview.pipeline?.text_model) && <small>{attachmentPipelineChannelDetail(preview.pipeline?.text_model)}</small>}
-              </span>
-              <span className={`attachment-pipeline-channel ${attachmentPipelineChannelTone(preview.pipeline?.visual)}`}>
-                视觉通道：{attachmentPipelineChannelLabel(preview.pipeline?.visual)}
-                {attachmentPipelineChannelDetail(preview.pipeline?.visual) && <small>{attachmentPipelineChannelDetail(preview.pipeline?.visual)}</small>}
-              </span>
-              {preview.pipeline?.visual?.used_fallback && <span className="is-warning">视觉解析已降级，已保留文本解析结果{preview.pipeline?.visual?.error_code ? `（${preview.pipeline.visual.error_code}）` : ""}</span>}
-              {preview.pipeline?.text_model?.status === "fallback" && <span className="is-warning">文本模型已降级，当前结果仍需人工核对{preview.pipeline.text_model.error_code ? `（${preview.pipeline.text_model.error_code}）` : ""}</span>}
+            {reviewRecords.map((record) => {
+              const selection = selections[record.record_id] ?? { candidateId: "", fields: new Set<string>(), sections: new Set<string>() };
+              const selectedCandidate = knownCandidates.find((item) => item.id === selection.candidateId);
+              const resolvedBaseline = candidateBaselines[record.record_id];
+              const candidateBaseline = resolvedBaseline?.id === selection.candidateId
+                ? resolvedBaseline
+                : (record.match.resolution === "created" ? selectedCandidate : undefined);
+              const candidate = candidateBaseline
+                ?? (record.match.candidate?.id === selection.candidateId ? record.match.candidate : selectedCandidate);
+              const duplicate = Boolean(selection.candidateId && duplicateCandidateIds.has(selection.candidateId));
+              const parsedName = parsedAttachmentCandidateName(record);
+              const visibleSections = record.sections.filter((section) => !isAttachmentSelfSummarySection(section));
+              const nameText = attachmentValueText(record.suggestions.find((item) => item.field === "name")?.value);
+              const titleText = attachmentValueText(record.suggestions.find((item) => item.field === "current_title")?.value);
+              const locationText = attachmentValueText(record.suggestions.find((item) => item.field === "location")?.value);
+              const docName = nameText === "未填写" ? (parsedName || "未识别姓名") : nameText;
+              const docTitle = titleText === "未填写"
+                ? (selectedCandidate?.current_title ?? "")
+                : titleText;
+              const docLocation = locationText === "未填写"
+                ? (selectedCandidate?.location ?? "")
+                : locationText;
+              const inlineFields = record.suggestions.filter((item) => !["name", "phone", "email", "location", "current_title", "current_company"].includes(item.field));
+              return (
+                <div className="tw-att-review-grid" key={record.record_id}>
+                  <section className="tw-panel tw-att-doc" aria-label="文档预览">
+                    <div className="tw-att-panel-head">
+                      <h2>文档预览</h2>
+                      <div className="tw-att-doc-tools">
+                        <button className="tw-icon-plain" type="button" onClick={() => setDocZoom((value) => Math.max(0.8, Math.round((value - 0.1) * 10) / 10))} disabled={docZoom <= 0.8} aria-label="缩小预览" title="缩小"><Minus size={15} /></button>
+                        <span className="tw-att-zoom">{Math.round(docZoom * 100)}%</span>
+                        <button className="tw-icon-plain" type="button" onClick={() => setDocZoom((value) => Math.min(1.4, Math.round((value + 0.1) * 10) / 10))} disabled={docZoom >= 1.4} aria-label="放大预览" title="放大"><Plus size={15} /></button>
+                        <button className="tw-btn tw-btn-sm" type="button" onClick={() => setDocZoom(1)}>适合宽度</button>
+                      </div>
+                    </div>
+                    <div className="tw-att-doc-body" style={{ fontSize: `${Math.round(docZoom * 14)}px` }}>
+                      <header className="tw-att-doc-identity">
+                        <h3>{docName}</h3>
+                        {docTitle && <p>{docTitle}</p>}
+                        <ul>
+                          {record.identity.phone && <li>{maskPhone(record.identity.phone)}</li>}
+                          {record.identity.email && <li>{maskEmail(record.identity.email)}</li>}
+                          {docLocation && <li>{docLocation}</li>}
+                        </ul>
+                      </header>
+                      {record.row_number && reviewRecords.length > 1 && <p className="tw-att-doc-row">第 {record.row_number} 行解析结果</p>}
+                      {visibleSections.map((section) => (
+                        <section className="tw-att-doc-section" key={section.section_id}>
+                          <h4>{attachmentSectionLabel(section)}</h4>
+                          <p>{section.content || section.evidence || "未解析出正文"}</p>
+                        </section>
+                      ))}
+                      {inlineFields.length > 0 && (
+                        <section className="tw-att-doc-section">
+                          <h4>档案字段</h4>
+                          <ul className="tw-att-doc-fields">
+                            {inlineFields.map((item) => <li key={item.field}><span>{attachmentFieldLabel(item.field)}</span><strong>{attachmentValueText(item.value)}</strong></li>)}
+                          </ul>
+                        </section>
+                      )}
+                      {!visibleSections.length && !inlineFields.length && <p className="tw-att-doc-empty">未解析出可展示的文本内容，请在右侧核对建议。</p>}
+                    </div>
+                    <details className="tw-att-channels">
+                      <summary>解析通道与降级信息</summary>
+                      <div className="tw-att-parser-status">
+                        <span>{attachmentParserPipelineLabel(reviewPreview.pipeline?.text?.content_type)}</span>
+                        <span>解析器：{reviewPreview.parser_version ?? "未提供"}</span>
+                        <span className={`tw-att-channel ${attachmentPipelineChannelTone(reviewPreview.pipeline?.text_model)}`}>
+                          文本模型：{attachmentPipelineChannelLabel(reviewPreview.pipeline?.text_model)}
+                          {attachmentPipelineChannelDetail(reviewPreview.pipeline?.text_model) && <small>{attachmentPipelineChannelDetail(reviewPreview.pipeline?.text_model)}</small>}
+                        </span>
+                        <span className={`tw-att-channel ${attachmentPipelineChannelTone(reviewPreview.pipeline?.visual)}`}>
+                          视觉通道：{attachmentPipelineChannelLabel(reviewPreview.pipeline?.visual)}
+                          {attachmentPipelineChannelDetail(reviewPreview.pipeline?.visual) && <small>{attachmentPipelineChannelDetail(reviewPreview.pipeline?.visual)}</small>}
+                        </span>
+                        {reviewPreview.pipeline?.visual?.used_fallback && <span className="is-warning">视觉解析已降级，已保留文本解析结果{reviewPreview.pipeline?.visual?.error_code ? `（${reviewPreview.pipeline.visual.error_code}）` : ""}</span>}
+                        {reviewPreview.pipeline?.text_model?.status === "fallback" && <span className="is-warning">文本模型已降级，当前结果仍需人工核对{reviewPreview.pipeline.text_model.error_code ? `（${reviewPreview.pipeline.text_model.error_code}）` : ""}</span>}
+                      </div>
+                    </details>
+                  </section>
+
+                  <section className="tw-panel tw-att-diff" aria-label="差异建议">
+                    <h2>差异建议</h2>
+                    <p className="tw-att-panel-sub">对比解析内容与候选人现有资料，发现以下差异，您可以选择需要更新的项。</p>
+                    {!selection.candidateId && (
+                      <div className="tw-alert tw-alert-inline is-warning" role="status">
+                        <AlertTriangle size={15} />
+                        <span>{candidate ? `已选择 ${candidate.name}` : `手机号和邮箱均未匹配${parsedName ? `，可按“${parsedName}”搜索` : ""}，请先选择候选人`}</span>
+                        <span className="tw-att-inline-actions">
+                          <button className="tw-btn tw-btn-sm" type="button" onClick={() => { setPickerError(""); setPickerRecordId(record.record_id); }}><Search size={14} />选择候选人</button>
+                          <button className="tw-btn tw-btn-sm" type="button" onClick={() => openCandidateCreate(record)}><UserPlus size={14} />创建新候选人</button>
+                        </span>
+                      </div>
+                    )}
+                    {duplicate && <div className="tw-alert tw-alert-inline is-warning" role="status"><AlertTriangle size={15} /><span>同一文件中的记录不能重复关联同一候选人。</span></div>}
+                    {["identity_conflict", "multiple_matches"].includes(record.match.status) && <div className="tw-alert tw-alert-inline is-danger" role="alert"><AlertTriangle size={15} /><span>身份冲突已阻断，不能猜测、创建或覆盖候选人。</span></div>}
+                    {candidate && ["high_confidence", "single_identity"].includes(record.match.status) && <p className="tw-att-match-line"><UserRoundCheck size={15} />匹配到 <strong>{candidate.name}</strong></p>}
+                    {record.avatar?.available && <p className="tw-att-match-line"><ImageIcon size={15} />{record.avatar.source === "explicit_url" ? "已识别外部头像地址，创建时需确认是否使用" : "已识别附件头像，创建候选人时默认使用"}</p>}
+                    {record.avatar?.status === "ambiguous" && <p className="tw-att-match-line is-warning"><AlertTriangle size={15} />检测到多张可能的头像，已停止自动选择</p>}
+                    <div className="tw-table-scroll">
+                      <table className="tw-att-diff-table">
+                        <thead>
+                          <tr><th scope="col" className="is-check">选择</th><th scope="col">字段</th><th scope="col">当前值（候选人资料）</th><th scope="col">建议值（来自简历）</th></tr>
+                        </thead>
+                        <tbody>
+                          {record.suggestions.map((suggestion) => {
+                            const currentValue = candidateBaseline
+                              ? candidateFieldValue(candidateBaseline, suggestion.field)
+                              : suggestion.current_value;
+                            const hasRealChange = !candidateBaseline
+                              || suggestionChangesCandidate(candidateBaseline, suggestion.field, suggestion.value);
+                            const selected = hasRealChange && selection.fields.has(suggestion.field);
+                            const evidence = hasRealChange
+                              ? attachmentSuggestionEvidence(suggestion.field, suggestion.evidence, suggestion.value)
+                              : null;
+                            const protectedField = !hasRealChange && ["phone", "email"].includes(suggestion.field);
+                            const evidenceStatus = attachmentEvidenceStatusLabel(suggestion.evidence_status);
+                            return (
+                              <tr className={selected ? "is-selected" : ""} key={suggestion.field}>
+                                <td className="is-check">
+                                  <input type="checkbox" checked={selected} disabled={!selection.candidateId || !hasRealChange} aria-label={`更新${attachmentFieldLabel(suggestion.field)}`} onChange={() => updateSelection(record.record_id, (current) => { const fields = new Set(current.fields); if (fields.has(suggestion.field)) fields.delete(suggestion.field); else fields.add(suggestion.field); return { ...current, fields }; })} />
+                                </td>
+                                <td>
+                                  <span className="tw-att-field-name">{attachmentFieldLabel(suggestion.field)}</span>
+                                  {protectedField && <em className="tw-att-protected">已保护</em>}
+                                  <span className="tw-att-field-meta">{attachmentProvenanceLabel(suggestion.source)}{evidenceStatus ? ` · ${evidenceStatus}` : ""} · {attachmentConfidenceLabel(suggestion.confidence)}</span>
+                                </td>
+                                <td className="tw-att-value-current">
+                                  {attachmentValueText(currentValue)}
+                                  {!hasRealChange && <small>与现有档案一致，不会提交更新</small>}
+                                </td>
+                                <td className="tw-att-value-suggest">
+                                  {attachmentValueText(suggestion.value)}
+                                  {evidence && <small className="tw-att-evidence">{evidence}</small>}
+                                  {hasRealChange && attachmentSuggestionEvidenceRefs(suggestion).map((reference, index) => <small className="tw-att-evidence" key={`${reference.page ?? "none"}-${index}`}>{reference.page ? `第 ${reference.page} 页：` : "证据："}{reference.text}</small>)}
+                                  <AttachmentConflictNotice conflict={suggestion.conflict} />
+                                </td>
+                              </tr>
+                            );
+                          })}
+                          {!record.suggestions.length && <tr><td className="is-check" /><td colSpan={3} className="tw-att-dash">未发现字段差异</td></tr>}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {visibleSections.length > 0 && <>
+                      <h2 className="tw-att-sub-head">新增履历区块</h2>
+                      <p className="tw-att-panel-sub">解析到以下新的履历信息，您可以选择是否添加到候选人资料。</p>
+                      <div className="tw-table-scroll">
+                        <table className="tw-att-diff-table">
+                          <thead><tr><th scope="col" className="is-check">选择</th><th scope="col">区块名称</th><th scope="col">内容摘要</th></tr></thead>
+                          <tbody>
+                            {visibleSections.map((section) => {
+                              const selected = selection.sections.has(section.section_id);
+                              const evidenceStatus = attachmentEvidenceStatusLabel(section.evidence_status);
+                              return (
+                                <tr className={selected ? "is-selected" : ""} key={section.section_id}>
+                                  <td className="is-check">
+                                    <input type="checkbox" checked={selected} disabled={!selection.candidateId} aria-label={`新增${attachmentSectionLabel(section)}`} onChange={() => updateSelection(record.record_id, (current) => { const sections = new Set(current.sections); if (sections.has(section.section_id)) sections.delete(section.section_id); else sections.add(section.section_id); return { ...current, sections }; })} />
+                                  </td>
+                                  <td>
+                                    <span className="tw-att-field-name">{attachmentSectionLabel(section)}</span>
+                                    <span className="tw-att-field-meta">{attachmentProvenanceLabel(section.source)}{evidenceStatus ? ` · ${evidenceStatus}` : ""} · {attachmentConfidenceLabel(section.confidence)}</span>
+                                  </td>
+                                  <td className="tw-att-value-suggest">
+                                    {section.content || section.evidence || "未解析出正文"}
+                                    {attachmentSuggestionEvidenceRefs(section).map((reference, index) => <small className="tw-att-evidence" key={`${reference.page ?? "none"}-${index}`}>{reference.page ? `第 ${reference.page} 页：` : "证据："}{reference.text}</small>)}
+                                    <AttachmentConflictNotice conflict={section.conflict} />
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>}
+                    <p className="tw-att-note"><Info size={15} /><span>仅写入勾选且确认的建议</span></p>
+                  </section>
+                </div>
+              );
+            })}
+          </div>
+          <footer className="tw-att-foot">
+            <span className="tw-att-foot-summary">{pending ? "正在写入…" : `解析完成 · ${suggestionCount} 项建议`}</span>
+            <div className="tw-att-foot-actions">
+              <button className="tw-btn" type="button" disabled={pending} onClick={() => void mutate("skip")}><SkipForward size={15} />跳过此文件</button>
+              <button className="tw-btn" type="button" disabled={pending} onClick={() => setSelectedItemId(null)}>取消</button>
+              <button className="tw-btn tw-btn-primary" type="button" disabled={pending || !canConfirm} onClick={() => void confirmAndNext()}>{pending ? <LoaderCircle className="spin" size={16} /> : <Check size={16} />}确认更新 {selectedCount} 项</button>
             </div>
-            <div className="attachment-record-list">
-              {preview.records.map((record) => {
-                const selection = selections[record.record_id] ?? { candidateId: "", fields: new Set<string>(), sections: new Set<string>() };
-                const selectedCandidate = knownCandidates.find((item) => item.id === selection.candidateId);
-                const resolvedBaseline = candidateBaselines[record.record_id];
-                const candidateBaseline = resolvedBaseline?.id === selection.candidateId
-                  ? resolvedBaseline
-                  : (record.match.resolution === "created" ? selectedCandidate : undefined);
-                const candidate = candidateBaseline
-                  ?? (record.match.candidate?.id === selection.candidateId ? record.match.candidate : selectedCandidate);
-                const duplicate = Boolean(selection.candidateId && duplicateCandidateIds.has(selection.candidateId));
-                const parsedName = parsedAttachmentCandidateName(record);
-                const visibleSections = record.sections.filter((section) => !isAttachmentSelfSummarySection(section));
-                return <article className="attachment-record" key={record.record_id}>
-                  <header><div><strong>{record.row_number ? `第 ${record.row_number} 行` : "简历记录"}</strong><span className={`match-badge is-${MATCH_TONE[record.match.status] ?? "notice"}`}>{MATCH_COPY[record.match.status] ?? record.match.status}</span></div><small>{record.match.reason}</small></header>
-                  <div className="attachment-identity-line"><span>手机：{record.identity.phone || "未提取"}</span><span>邮箱：{record.identity.email || "未提取"}</span></div>
-                  {record.avatar?.available && <div className="attachment-avatar-detection is-ready"><ImageIcon size={15} /><span>{record.avatar.source === "explicit_url" ? "已识别外部头像地址，创建时需确认是否使用" : "已识别附件头像，创建候选人时默认使用"}</span></div>}
-                  {record.avatar?.status === "ambiguous" && <div className="attachment-avatar-detection is-warning"><AlertTriangle size={15} /><span>检测到多张可能的头像，已停止自动选择</span></div>}
-                  {candidate && ["high_confidence", "single_identity"].includes(record.match.status) && <div className="attachment-match-candidate"><UserRoundCheck size={16} /><span>匹配到 <strong>{candidate.name}</strong></span></div>}
-                  {record.match.status === "not_found" && <div className="attachment-match-fallback"><div><strong>{candidate ? `已选择 ${candidate.name}` : "需要确认候选人"}</strong><span>{candidate ? [selectedCandidate?.current_title, selectedCandidate?.current_company].filter(Boolean).join(" · ") || "候选人档案" : `手机号和邮箱均未匹配${parsedName ? `，可按“${parsedName}”搜索` : ""}`}</span></div><div><button className="button secondary-button" type="button" onClick={() => { setPickerError(""); setPickerRecordId(record.record_id); }}><Search size={15} />选择候选人</button><button className="button secondary-button" type="button" onClick={() => openCandidateCreate(record)}><UserPlus size={15} />创建新候选人</button></div></div>}
-                  {duplicate && <div className="attachment-blocked"><AlertTriangle size={15} /><span>同一文件中的记录不能重复关联同一候选人。</span></div>}
-                  {["identity_conflict", "multiple_matches"].includes(record.match.status) && <div className="attachment-blocked"><AlertTriangle size={15} /><span>身份冲突已阻断，不能猜测、创建或覆盖候选人。</span></div>}
-                  {record.suggestions.length > 0 && <div className="attachment-diff-list"><h4>字段更新</h4>{record.suggestions.map((suggestion) => {
-                    const currentValue = candidateBaseline
-                      ? candidateFieldValue(candidateBaseline, suggestion.field)
-                      : suggestion.current_value;
-                    const hasRealChange = !candidateBaseline
-                      || suggestionChangesCandidate(candidateBaseline, suggestion.field, suggestion.value);
-                    const selected = hasRealChange && selection.fields.has(suggestion.field);
-                    const evidence = hasRealChange
-                      ? attachmentSuggestionEvidence(suggestion.field, suggestion.evidence, suggestion.value)
-                      : "与现有档案一致，不会提交更新";
-                    return <label className={`attachment-diff${selected ? " is-selected" : ""}${hasRealChange ? "" : " is-unchanged"}`} key={suggestion.field}><input type="checkbox" checked={selected} disabled={!selection.candidateId || !hasRealChange} onChange={() => updateSelection(record.record_id, (current) => { const fields = new Set(current.fields); if (fields.has(suggestion.field)) fields.delete(suggestion.field); else fields.add(suggestion.field); return { ...current, fields }; })} /><span className="attachment-diff-main"><span><strong>{attachmentFieldLabel(suggestion.field)}</strong><span className="attachment-suggestion-meta"><em className="attachment-provenance">{attachmentProvenanceLabel(suggestion.source)}</em>{attachmentEvidenceStatusLabel(suggestion.evidence_status) && <em className={`attachment-evidence-status is-${suggestion.evidence_status}`}>{attachmentEvidenceStatusLabel(suggestion.evidence_status)}</em>}<em className={`confidence is-${suggestion.confidence}`}>{suggestion.confidence === "high" ? "高" : suggestion.confidence === "medium" ? "中" : "低"}置信</em></span></span><span className="attachment-values"><del>{attachmentValueText(currentValue)}</del><b>→</b><ins>{attachmentValueText(suggestion.value)}</ins></span>{evidence && <small>{evidence}</small>}{attachmentSuggestionEvidenceRefs(suggestion).map((reference, index) => <small className="attachment-evidence-ref" key={`${reference.page ?? "none"}-${index}`}>{reference.page ? `第 ${reference.page} 页：` : "证据："}{reference.text}</small>)}<AttachmentConflictNotice conflict={suggestion.conflict} /></span></label>;
-                  })}</div>}
-                  {visibleSections.length > 0 && <div className="attachment-section-suggestions"><h4>履历区块</h4>{visibleSections.map((section) => {
-                    const selected = selection.sections.has(section.section_id);
-                    return <label className={selected ? "is-selected" : ""} key={section.section_id}><input type="checkbox" checked={selected} disabled={!selection.candidateId} onChange={() => updateSelection(record.record_id, (current) => { const sections = new Set(current.sections); if (sections.has(section.section_id)) sections.delete(section.section_id); else sections.add(section.section_id); return { ...current, sections }; })} /><span><strong>{section.title || section.section_type}</strong><span className="attachment-suggestion-meta"><em className="attachment-provenance">{attachmentProvenanceLabel(section.source)}</em>{attachmentEvidenceStatusLabel(section.evidence_status) && <em className={`attachment-evidence-status is-${section.evidence_status}`}>{attachmentEvidenceStatusLabel(section.evidence_status)}</em>}<em className={`confidence is-${section.confidence}`}>{section.confidence === "high" ? "高" : section.confidence === "medium" ? "中" : "低"}置信</em></span><small>{section.content || section.evidence}</small>{attachmentSuggestionEvidenceRefs(section).map((reference, index) => <small className="attachment-evidence-ref" key={`${reference.page ?? "none"}-${index}`}>{reference.page ? `第 ${reference.page} 页：` : "证据："}{reference.text}</small>)}<AttachmentConflictNotice conflict={section.conflict} /></span></label>;
-                  })}</div>}
-                </article>;
-              })}
+          </footer>
+        </>
+      ) : (
+        <div className="tw-scroll-body tw-att-body">
+          {dropPanel}
+          <div className="tw-att-panel">
+            <div className="tw-att-panel-head">
+              <h2>批量解析任务</h2>
+              <div className="tw-att-panel-meta">
+                <span>{summary.total} 份文件</span>
+                {summary.awaiting_confirmation > 0 && <span className="tw-att-count is-warning">{summary.awaiting_confirmation} 待确认</span>}
+                <span className="tw-att-tools">
+                  {!TERMINAL_BATCH_STATUSES.has(batch.status) && <button className="tw-icon-plain" type="button" disabled={pending} onClick={() => void mutate("cancel")} aria-label="取消整个批次" title="取消批次"><Trash2 size={16} /></button>}
+                  <button className="tw-icon-plain" type="button" disabled={pending} onClick={() => void refresh()} aria-label="刷新批次" title="刷新"><RefreshCw className={batchNeedsPolling(batch) ? "spin-slow" : ""} size={16} /></button>
+                  {TERMINAL_BATCH_STATUSES.has(batch.status) && <button className="tw-btn tw-btn-sm" type="button" onClick={startNewBatch}><UploadCloud size={15} />新批次</button>}
+                </span>
+              </div>
             </div>
-            <div className="attachment-confirm-bar"><button className="button secondary-button" type="button" disabled={pending} onClick={() => void mutate("skip")}><SkipForward size={15} />跳过</button><button className="button primary-button" type="button" disabled={pending || !canConfirm} onClick={() => void confirmAndNext()}>{pending ? <LoaderCircle className="spin" size={16} /> : <Check size={16} />}确认并处理下一条</button></div>
-          </> : <div className="attachment-batch-empty">等待解析结果</div>}
+            {!TERMINAL_BATCH_STATUSES.has(batch.status) && (
+              <div className="tw-att-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={computedProgress}>
+                <span style={{ width: `${computedProgress}%` }} />
+              </div>
+            )}
+            {error && <div className="tw-alert tw-alert-inline" role="alert"><AlertTriangle size={15} /><span>{error}</span><button className="tw-icon-plain" type="button" onClick={() => setError("")} aria-label="关闭错误"><X size={14} /></button></div>}
+            {inspectedItem && (
+              <div className={`tw-att-inline is-${itemStatusDisplay(inspectedItem).tone}`} role="status">
+                {POLLING_STATUSES.has(inspectedItem.status) ? <LoaderCircle className="spin" size={16} /> : inspectedItem.status === "failed" ? <AlertTriangle size={16} /> : inspectedItem.status === "confirmed" ? <CheckCircle2 size={16} /> : <FileText size={16} />}
+                <span className="tw-att-inline-main">
+                  <strong>{displayFilename(inspectedItem)}</strong>
+                  <small>{itemStatusDisplay(inspectedItem).label}{inspectedItem.error?.message ? ` · ${inspectedItem.error.message}` : ` · ${itemStatusDisplay(inspectedItem).hint}`}</small>
+                </span>
+                <span className="tw-att-inline-actions">
+                  {POLLING_STATUSES.has(inspectedItem.status) && <button className="tw-btn tw-btn-sm" type="button" disabled={pending} onClick={() => void mutate("cancelItem", inspectedItem)}>取消此文件</button>}
+                  {inspectedItem.status === "failed" && <button className="tw-btn tw-btn-sm" type="button" disabled={pending || inspectedItem.error?.retryable === false} onClick={() => void mutate("retry", inspectedItem)}><RotateCcw size={14} />重试</button>}
+                  {inspectedItem.status === "failed" && <button className="tw-btn tw-btn-sm" type="button" disabled={pending} onClick={() => void mutate("skip", inspectedItem)}><SkipForward size={14} />跳过</button>}
+                  <button className="tw-icon-plain" type="button" onClick={() => setSelectedItemId(null)} aria-label="收起状态提示"><X size={15} /></button>
+                </span>
+              </div>
+            )}
+            <div className="tw-table-scroll">
+              <table className="tw-table tw-att-table">
+                <thead>
+                  <tr>
+                    <th scope="col">文件名</th>
+                    <th scope="col">解析结果</th>
+                    <th scope="col">匹配的候选人</th>
+                    <th scope="col">匹配来源</th>
+                    <th scope="col">上传时间</th>
+                    <th scope="col">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {batch.items.map((item) => {
+                    const record = item.preview?.records[0] ?? null;
+                    const display = itemStatusDisplay(item);
+                    const source = recordMatchSource(record);
+                    const matchedFull = knownCandidates.find((entry) => entry.id === (record?.match.candidate_id ?? record?.match.candidate?.id)) ?? null;
+                    const matchedFallback = record?.match.candidate ?? null;
+                    const matched = matchedFull ?? (matchedFallback ? { ...matchedFallback, has_photo: false } : null);
+                    const retryAction = item.status === "failed" || POLLING_STATUSES.has(item.status);
+                    return (
+                      <tr key={item.item_id} className={selectedItemId === item.item_id ? "is-active" : ""}>
+                        <td>
+                          <span className="tw-att-cell-file">
+                            <span className={`tw-att-ext is-${item.kind === "archive" ? "zip" : fileTypeTone(displayFilename(item))}`}>{item.kind === "archive" ? "ZIP" : fileTypeLabel(displayFilename(item))}</span>
+                            <span className="tw-att-cell-main">
+                              <strong title={displayFilename(item)}>{displayFilename(item)}</strong>
+                              <small>{item.file?.file_size ? fileSize(item.file.file_size) : item.kind === "archive" ? "压缩包" : "—"}</small>
+                            </span>
+                          </span>
+                        </td>
+                        <td>
+                          <span className={`tw-att-status is-${display.tone}`}><i aria-hidden="true" />{display.label}</span>
+                          <small className="tw-att-hint">{display.hint}</small>
+                        </td>
+                        <td>
+                          {matched
+                            ? <span className="tw-att-cell-file">
+                              <TwAvatar candidate={matched} size={36} />
+                              <span className="tw-att-cell-main">
+                                <strong>{matched.name}</strong>
+                                <small>{matchedFull?.current_company || matchedFallback?.email || matchedFallback?.phone || "候选人档案"}</small>
+                              </span>
+                            </span>
+                            : <span className="tw-att-dash">{item.status === "failed" ? "未找到匹配的候选人" : "—"}</span>}
+                        </td>
+                        <td>
+                          {source.label === "—"
+                            ? <span className="tw-att-dash">—</span>
+                            : <span className="tw-att-cell-main"><strong>{source.label}</strong><small>{source.value}</small></span>}
+                        </td>
+                        <td className="tw-att-time">{formatDateTime(batch.created_at)}</td>
+                        <td>
+                          {retryAction
+                            ? <button className="tw-link-btn" type="button" disabled={pending} onClick={() => void mutate("retry", item)}>重新解析</button>
+                            : <button className="tw-link-btn" type="button" disabled={pending} onClick={() => setSelectedItemId(item.item_id)}>查看建议</button>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {!batch.items.length && <tr><td colSpan={6} className="tw-att-dash">批次中暂无文件</td></tr>}
+                </tbody>
+              </table>
+            </div>
+            <p className="tw-att-note"><Info size={15} /><span>不会自动写入档案，确认后才会更新。请仔细核对解析结果与匹配的候选人信息。</span></p>
+          </div>
         </div>
-      </div>
+      )}
 
       <CandidatePickerDialog
         open={Boolean(pickerRecord)}
@@ -897,13 +1258,13 @@ export function AttachmentBatchWorkflow({
         onClose={() => { if (!pickerBusy) { setPickerRecordId(null); setPickerError(""); } }}
         onConfirm={(candidateIds) => void chooseCandidate(candidateIds)}
       />
-      {createContext && <div className="modal-layer attachment-candidate-create-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !createBusy && closeCandidateCreate()}>
-        <section className="modal attachment-candidate-create-dialog" role="dialog" aria-modal="true" aria-label="创建候选人并关联附件" aria-busy={createBusy || undefined}>
-          <header className="modal-header">
-            <div><p className="drawer-kicker">批次附件匹配</p><h2>创建新候选人</h2></div>
-            <button className="icon-button" type="button" onClick={closeCandidateCreate} disabled={createBusy} aria-label="关闭" title="关闭"><X size={19} /></button>
+      {createContext && <div className="tw-modal-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !createBusy && closeCandidateCreate()}>
+        <section className="tw-modal tw-modal-lg" role="dialog" aria-modal="true" aria-label="创建候选人并关联附件" aria-busy={createBusy || undefined}>
+          <header className="tw-modal-head">
+            <div><h2>创建新候选人</h2><p className="tw-modal-sub">批次附件匹配 · 创建后仍需确认字段与履历区块</p></div>
+            <button className="tw-icon-plain" type="button" onClick={closeCandidateCreate} disabled={createBusy} aria-label="关闭" title="关闭"><X size={18} /></button>
           </header>
-          {createError && <div className="attachment-create-error" role="alert"><AlertTriangle size={15} /><span>{createError}</span></div>}
+          {createError && <div className="tw-alert tw-alert-inline is-danger" role="alert"><AlertTriangle size={15} /><span>{createError}</span></div>}
           <CandidateForm
             initialDraft={createContext.initialDraft}
             attachmentAvatar={createContext.avatar}

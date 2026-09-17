@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, Search, UserPlus, UsersRound, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, LoaderCircle, Search, UserPlus, UsersRound, X } from "lucide-react";
 import { candidateApi } from "../api";
 import type { Candidate, Pagination } from "../types";
 import { maskEmail, maskPhone } from "../utils";
+import { useDismissableLayer } from "../useDismissableLayer";
 import { CandidateAvatar } from "./CandidateAvatar";
 
 export interface CandidatePickerDialogProps {
@@ -54,6 +55,12 @@ export function CandidatePickerDialog({
   const [retryKey, setRetryKey] = useState(0);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectionError, setSelectionError] = useState("");
+
+  useDismissableLayer({
+    open,
+    onClose: () => { if (!busy) onClose(); },
+    dismissOnOutside: false,
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -165,72 +172,94 @@ export function CandidatePickerDialog({
   }
 
   return (
-    <div className="modal-layer candidate-picker-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !busy && onClose()}>
-      <section className="modal candidate-picker-dialog" role="dialog" aria-modal="true" aria-label={title} aria-busy={busy || loading || undefined}>
-        <header className="modal-header candidate-picker-header">
-          <div><p className="drawer-kicker">{eyebrow}</p><h2>{title}</h2></div>
-          <button className="icon-button" type="button" onClick={onClose} disabled={busy} aria-label="关闭" title="关闭"><X size={19} /></button>
+    <div className="tw-modal-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !busy && onClose()}>
+      <section className="tw-modal tw-modal-lg tw-picker" role="dialog" aria-modal="true" aria-labelledby="tw-picker-title">
+        <header className="tw-modal-head">
+          <div>
+            <h2 id="tw-picker-title">{title}</h2>
+            <p className="tw-modal-sub">{helperText}</p>
+          </div>
+          <button className="tw-icon-plain" type="button" onClick={onClose} disabled={busy} aria-label="关闭" title="关闭"><X size={18} /></button>
         </header>
 
-        <div className="candidate-picker-toolbar">
-          <label className="candidate-picker-search">
-            <Search size={17} />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索姓名、公司、职位或标签" autoFocus />
-            {query && <button type="button" onClick={() => setQuery("")} aria-label="清除搜索" title="清除"><X size={15} /></button>}
+        <div className="tw-picker-toolbar">
+          <label className="tw-picker-search">
+            <Search size={16} />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="姓名、公司、职位" autoFocus aria-label="搜索候选人" />
+            {query && <button className="tw-icon-plain" type="button" onClick={() => setQuery("")} aria-label="清除搜索" title="清除"><X size={14} /></button>}
           </label>
-          <span className="candidate-picker-result-count">{pagination.total} 位可选</span>
+          <span className="tw-picker-count">{pagination.total} 位可选</span>
         </div>
 
-        <div className="candidate-picker-selection-bar">
-          <label>
-            <input type="checkbox" checked={allVisibleSelected} disabled={loading || busy || !availableCandidates.length} onChange={toggleVisibleCandidates} />
-            <span>{allVisibleSelected ? "取消选择当前页" : "选择当前页"}</span>
-          </label>
-          <strong>已选择 {selectedIds.size} 位</strong>
-        </div>
-
-        <div className="candidate-picker-body">
+        <div className="tw-table-scroll tw-picker-scroll">
           {loading ? (
-            <div className="candidate-picker-state" role="status"><UsersRound size={24} /><p>正在加载候选人...</p></div>
+            <div className="tw-picker-state" role="status"><UsersRound size={22} /><p>正在加载候选人…</p></div>
           ) : requestError ? (
-            <div className="candidate-picker-state" role="alert"><UsersRound size={24} /><p>{requestError}</p><button className="button secondary-button" type="button" onClick={() => setRetryKey((value) => value + 1)}>重试</button></div>
+            <div className="tw-picker-state" role="alert"><UsersRound size={22} /><p>{requestError}</p><button className="tw-btn tw-btn-sm" type="button" onClick={() => setRetryKey((value) => value + 1)}>重试</button></div>
           ) : availableCandidates.length ? (
-            <div className="candidate-picker-list">
-              {availableCandidates.map((candidate) => {
-                const selected = selectedIds.has(candidate.id);
-                return (
-                  <label className={`candidate-picker-item ${selected ? "is-selected" : ""}`} key={candidate.id}>
-                    <input type="checkbox" checked={selected} disabled={busy} onChange={() => toggleCandidate(candidate.id)} />
-                    <span className="candidate-picker-check" aria-hidden="true">{selected && <Check size={13} />}</span>
-                    <CandidateAvatar candidate={candidate} />
-                    <span className="candidate-picker-identity"><strong>{candidate.name}</strong><small>{candidate.current_title || "职位待补充"}{candidate.current_company ? ` · ${candidate.current_company}` : ""}{candidate.location ? ` · ${candidate.location}` : ""}</small></span>
-                    <span className="candidate-picker-contact">{candidate.phone ? maskPhone(candidate.phone) : candidate.email ? maskEmail(candidate.email) : "联系方式受保护"}</span>
-                    <span className="candidate-picker-source">{candidate.source || "来源未设置"}</span>
-                  </label>
-                );
-              })}
-            </div>
+            <table className="tw-table tw-picker-table">
+              <thead>
+                <tr>
+                  <th className="tw-col-select" scope="col">
+                    <input type="checkbox" checked={allVisibleSelected} disabled={loading || busy || !availableCandidates.length} onChange={toggleVisibleCandidates} aria-label={allVisibleSelected ? "取消选择当前页" : "选择当前页"} />
+                  </th>
+                  <th scope="col">候选人</th>
+                  <th scope="col">所在城市</th>
+                  <th scope="col">已有分组</th>
+                </tr>
+              </thead>
+              <tbody>
+                {availableCandidates.map((candidate) => {
+                  const selected = selectedIds.has(candidate.id);
+                  return (
+                    <tr className={selected ? "is-selected" : ""} key={candidate.id} onClick={() => !busy && toggleCandidate(candidate.id)}>
+                      <td className="tw-col-select">
+                        <input type="checkbox" checked={selected} disabled={busy} onChange={() => toggleCandidate(candidate.id)} onClick={(event) => event.stopPropagation()} aria-label={`选择 ${candidate.name}`} />
+                      </td>
+                      <td>
+                        <div className="tw-cell-name">
+                          <CandidateAvatar candidate={candidate} />
+                          <span className="tw-stack">
+                            <strong>{candidate.name}</strong>
+                            <small>{candidate.current_title || "最近职位待补充"}{candidate.current_company ? ` · ${candidate.current_company}` : ""}</small>
+                          </span>
+                        </div>
+                      </td>
+                      <td>{candidate.location || "—"}</td>
+                      <td>
+                        {candidate.talent_pools.length
+                          ? <span className="tw-tags">{candidate.talent_pools.slice(0, 3).map((pool) => <span className="tw-tag tw-tag-plain" key={pool.id}>{pool.name}</span>)}{candidate.talent_pools.length > 3 && <span className="tw-more">+{candidate.talent_pools.length - 3}</span>}</span>
+                          : <span className="tw-empty-inline">未加入分组</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           ) : (
-            <div className="candidate-picker-state"><UsersRound size={24} /><p>{debouncedQuery ? "没有匹配的可选候选人" : "所有候选人均已关联或暂无可选候选人"}</p></div>
+            <div className="tw-picker-state"><UsersRound size={22} /><p>{debouncedQuery ? "没有匹配的可选候选人" : "所有候选人均已关联或暂无可选候选人"}</p></div>
           )}
         </div>
 
-        <div className="candidate-picker-pagination pagination-compact">
-          <label>每页<select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value) as (typeof PAGE_SIZES)[number])}>{PAGE_SIZES.map((size) => <option value={size} key={size}>{size}</option>)}</select></label>
-          <span>{pagination.total ? `${pagination.page} / ${Math.max(1, pagination.total_pages)}` : "0 / 0"}</span>
-          <button className="icon-button" type="button" disabled={loading || page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))} aria-label="上一页" title="上一页"><ChevronLeft size={16} /></button>
-          <button className="icon-button" type="button" disabled={loading || !(pagination.has_next ?? page < pagination.total_pages)} onClick={() => setPage((value) => value + 1)} aria-label="下一页" title="下一页"><ChevronRight size={16} /></button>
+        <div className="tw-pagination tw-picker-pagination">
+          <label className="tw-page-size">每页<select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value) as (typeof PAGE_SIZES)[number])}>{PAGE_SIZES.map((size) => <option value={size} key={size}>{size}</option>)}</select></label>
+          <div className="tw-pages" role="navigation" aria-label="候选分页">
+            <span className="tw-pagination-note">{pagination.total ? `第 ${pagination.page} / ${Math.max(1, pagination.total_pages)} 页` : "0 / 0"}</span>
+            <button type="button" disabled={loading || page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))} aria-label="上一页"><ChevronLeft size={16} /></button>
+            <button type="button" disabled={loading || !(pagination.has_next ?? page < pagination.total_pages)} onClick={() => setPage((value) => value + 1)} aria-label="下一页"><ChevronRight size={16} /></button>
+          </div>
         </div>
 
-        {(selectionError || externalError) && <p className="candidate-picker-error" role="alert">{selectionError || externalError}</p>}
+        {(selectionError || externalError) && <p className="tw-picker-error" role="alert">{selectionError || externalError}</p>}
 
-        <footer className="modal-footer candidate-picker-footer">
-          <span className="candidate-picker-footer-summary">{helperText}</span>
-          <span className="modal-footer-spacer" />
-          <button className="button secondary-button" type="button" onClick={onClose} disabled={busy}>取消</button>
-          <button className="button primary-button" type="button" disabled={busy || !selectedIds.size} onClick={() => onConfirm(Array.from(selectedIds))}>
-            <UserPlus size={16} />{busy ? "正在处理..." : `${confirmLabel} ${selectedIds.size} 位候选人`}
-          </button>
+        <footer className="tw-modal-foot">
+          <span className="tw-picker-summary">已选择 {selectedIds.size} 位</span>
+          <div className="tw-modal-foot-actions">
+            <button className="tw-btn" type="button" onClick={onClose} disabled={busy}>取消</button>
+            <button className="tw-btn tw-btn-primary" type="button" disabled={busy || !selectedIds.size} onClick={() => onConfirm(Array.from(selectedIds))}>
+              {busy ? <LoaderCircle className="spin" size={16} /> : <UserPlus size={16} />}{busy ? "正在处理…" : confirmLabel}
+            </button>
+          </div>
         </footer>
       </section>
     </div>

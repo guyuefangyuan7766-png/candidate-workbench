@@ -17,7 +17,7 @@ export function openEmbeddingCache(directory, { space, dimensions }) {
   const transaction = action => { db.exec('BEGIN'); try { action(); db.exec('COMMIT') } catch (error) { db.exec('ROLLBACK'); throw error } }
   const get = db.prepare('SELECT vector,sha256 FROM embeddings WHERE key=?')
   const put = db.prepare('INSERT OR REPLACE INTO embeddings VALUES(?,?,?)')
-  const mark = db.prepare('INSERT OR REPLACE INTO seen VALUES(?,?)')
+  const forget = db.prepare('DELETE FROM document_keys WHERE document_id=?')
   return {
     key: text => hash(`${space}\n${text}`),
     read(keys) {
@@ -42,17 +42,18 @@ export function openEmbeddingCache(directory, { space, dimensions }) {
       })
       transaction(() => { for (const row of verified) put.run(...row) })
     },
-    markSeen(ids, runId) { transaction(() => { for (const id of ids) mark.run(id, runId) }) },
+    // Only documents that leave the index need to be named. Tracking every live
+    // document per run wrote the whole corpus into this table on every pass, which
+    // cost more than the scan it was meant to protect.
+    forgetDocuments(ids) { if (ids.length) transaction(() => { for (const id of ids) forget.run(id) }) },
     recordDocuments(documents, chunks) {
       const remove = db.prepare('DELETE FROM document_keys WHERE document_id=?')
       const insert = db.prepare('INSERT OR IGNORE INTO document_keys VALUES(?,?)')
       transaction(() => { for (const document of documents) remove.run(document.document_id); for (const item of chunks) insert.run(item.chunk.document_id, item.key) })
     },
-    seen(ids, runId) { if (!ids.length) return new Set(); if (ids.length > 400) fail(); return new Set(db.prepare(`SELECT document_id FROM seen WHERE run_id=? AND document_id IN (${ids.map(() => '?').join(',')})`).all(runId, ...ids).map(row => row.document_id)) },
-    finish(runId) {
+    finish() {
       transaction(() => {
-        db.prepare('DELETE FROM seen WHERE run_id<>?').run(runId)
-        db.exec('DELETE FROM document_keys WHERE document_id NOT IN (SELECT document_id FROM seen); DELETE FROM embeddings WHERE key NOT IN (SELECT key FROM document_keys)')
+        db.exec('DELETE FROM seen; DELETE FROM embeddings WHERE key NOT IN (SELECT key FROM document_keys)')
       })
       db.exec('PRAGMA wal_checkpoint(TRUNCATE)')
     },

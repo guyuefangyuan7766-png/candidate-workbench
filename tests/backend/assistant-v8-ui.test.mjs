@@ -105,7 +105,7 @@ test('assistant execution process precedes its answer and follows accessible col
   assert.match(drawerSource, /task\.assistant_message\?\.id && message\.id === task\.assistant_message\.id/)
   assert.match(drawerSource, /message\.reply_to_message_id === task\.user_message_id/)
   assert.match(drawerSource, /message\.client_request_id === task\.client_request_id/)
-  assert.match(drawerSource, /taskAnswerMessageId === message\.id && <TaskResultPreview[\s\S]*?<div className=\{`chat-message/)
+  assert.match(drawerSource, /taskAnswerMessageId === message\.id && <TaskResultPreview[\s\S]*?<div className=\{`tw-msg /)
   assert.match(drawerSource, /activeTask && !taskAnswerMessageId && <TaskResultPreview/)
 
   assert.match(stylesSource, /\.assistant-task-process-content\[hidden\] \{ display: none; \}/)
@@ -182,9 +182,14 @@ test('V8 resume evidence renders table, field, actual terms and React mark nodes
 })
 
 test('opening a V8 search result does not depend on candidates loaded on the current page', () => {
-  assert.match(drawerSource, /onOpenCandidateId\(item\.candidate_id\)/)
+  assert.match(drawerSource, /onOpenCandidateId\(item\.candidate_id, tab\)/)
   assert.match(drawerSource, /candidateApi\.get\(item\.candidate_id\)/)
-  assert.doesNotMatch(drawerSource, /candidates\.find\(/)
+  // The open-result handler must not depend on candidates already loaded on the page.
+  const openResultStart = drawerSource.indexOf('async function openResult(')
+  const openResultBody = drawerSource.slice(openResultStart, drawerSource.indexOf('\n  }', openResultStart))
+  assert.ok(openResultStart > 0)
+  assert.doesNotMatch(openResultBody, /candidates\.find\(/)
+  assert.match(openResultBody, /candidateApi\.get\(item\.candidate_id\)/)
 })
 
 test('resume index status refresh is revision-driven instead of tab-toggle driven', () => {

@@ -2,9 +2,11 @@
 
 一个可在个人电脑上自托管、可继续二次开发的本地人才库。当前版本聚焦候选人档案、人才检索、人才库分组和职位关联，数据保存在本机 SQLite 中，不依赖付费招聘平台，也不是完整 ATS。
 
-当前应用版本：`0.2.0`；数据库结构版本：`V13`。两者分别表示应用发布和数据库迁移版本，本次检索与界面更新不新增结构迁移。
+当前应用版本：`0.4.0`（开发中，未发布）；上一次已发布版本：`0.2.0`；数据库结构版本：`V13`。应用版本与数据库迁移版本相互独立：第十一轮视觉重校、第十二轮响应式适配与第十三轮检索/索引维护改造均不新增主库结构迁移。第十二轮（响应式尺度、列优先级与导航表面隔离）见 [设计规范](docs/superpowers/specs/2026-09-15-responsive-scale-and-surface-isolation-design.md)、[实施计划](docs/superpowers/plans/2026-09-15-responsive-scale-and-surface-isolation.md) 与 [验收证据](docs/evidence/talent-redesign/acceptance.md)；`0.3.0` 未单独发布，内容随本版本进入工作区。
 
-2026-09-11 已按用户授权完成正式混合检索补充，作为应用 `0.2.0` / 数据库 `V13` 补充，不新增结构迁移。正式索引已发布并启用：`429,630` 份来源文档、`630,978` 个 chunks/vectors，`text-embedding-v4 / 1024`，维护状态为 `ready`。服务仍使用 [拾才工作台](http://127.0.0.1:4173)，实施细节、匿名质量限制和运维方式见 [补充交接记录](docs/handoffs/2026-09-10-search-hybrid-formal-supplement.md)；正式启用 smoke 证据见 [正式部署验证](docs/evidence/search-hybrid-formal-supplement-deployment.json)。
+第十三轮修复了正式库规模下的检索超时：`self_docs` 的全量物化（单次 38.8s、被同一次检索反复引用）改为按倒排索引收窄候选域、单请求只物化一次，单次检索由 267s（必然 504）降到约 6–10s；向量索引维护由「每 5 分钟一次的全量重扫」改为「**每个开机周期执行一次**的增量维护」，单轮从 498–1003s 降到 19–20s；结果翻页不再逐页遍历（原先跳到靠后页码会串行发出数十次请求，实测一次 4 分钟）。本轮明确不改主库 schema；向量代际内的 `documents` 表新增 `revision` 列用于增量判断。详见 [CHANGELOG.md](CHANGELOG.md) 与 [运维记录](docs/OPERATIONS.md)。
+
+2026-09-11 已按用户授权完成正式混合检索补充，作为应用 `0.2.0` / 数据库 `V13` 补充，不新增结构迁移。正式索引已发布并启用：`429,630` 份来源文档、`630,978` 个 chunks/vectors，`text-embedding-v4 / 1024`。2026-09-17 第十三轮完成增量维护改造后，实际启用代际为 `generation-2dfa743f-c1b4-4e41-8d9f-3d61c963e78a`，维护状态 `ready`，调度为每个开机周期一次。服务仍使用 [拾才工作台](http://127.0.0.1:4173)，实施细节、匿名质量限制和运维方式见 [补充交接记录](docs/handoffs/2026-09-10-search-hybrid-formal-supplement.md)；正式启用 smoke 证据见 [正式部署验证](docs/evidence/search-hybrid-formal-supplement-deployment.json)。
 
 ## 当前能力
 
@@ -28,7 +30,7 @@
 - `years_experience` 现在是可空数值投影，新增 `years_experience_raw` 保存非空来源原文，响应用 `years_experience_display` 提供展示文本。明确的 `0` 保持为 `0`；`经验不详`、范围或带修饰的文本保留原文且数值为 `null`；没有来源值时原文为空、数值为 `null`、展示为空白，不显示字面量 `null`。
 - 通用/北森导入和附件预填充不再因工作年限格式单独拒绝行；新的非空来源值成对更新原文和数值投影，增量导入的空单元格不清除旧值。电话、邮箱及其他身份冲突仍按原有规则阻断。
 - 档案、列表和导入预览优先显示原文，CSV/XLSX 既有“工作年限”列优先导出原文；数值排序/筛选仅使用安全数值投影。`/resume-search` 的 `min_years`、`max_years` 仍保留 API 文档所述的兼容查询输入限制，这不是存储或导入上限。
-- schema V13 是加法且幂等的迁移 `(13, 'candidate_years_experience_raw')`。Task 7 已完成最多 100 条的历史只读样本预览，脱敏聚合记录见 [V13 工作年限导入证据](docs/evidence/v13-years-experience-import-20260825.json)；该条为 V13 历史验收记录；当前应用已发布为 `0.2.0`，正式库在本次启动前后均核对为 schema V1-V13。
+- schema V13 是加法且幂等的迁移 `(13, 'candidate_years_experience_raw')`。Task 7 已完成最多 100 条的历史只读样本预览，脱敏聚合记录见 [V13 工作年限导入证据](docs/evidence/v13-years-experience-import-20260825.json)；该条为 V13 历史验收记录；`0.2.0` 发布时正式库在本次启动前后均核对为 schema V1-V13。
 
 ### 2026-08-21 入职信息字段
 
@@ -39,7 +41,7 @@
 - 北森和通用表格导入识别入职字段；同一候选人增量导入时空值不会清除已有入职字段，且只传日期的 PATCH 不会覆盖已有明确状态。北森字段 `最后职位类投递的职位id` 用于招聘职位关系（必要时按候选人和投递时间匹配历史职位），不能用 `入职职位` 猜测关系；整份工作簿存在该专用表头时，单行空值不回退普通 `职位编号`，仅整表缺该表头才允许兼容回退。
 - 批量清理脚本只保留入职状态非空且不等于精确文本“空”的源行，原始 `.xls` 文件保持不变；若源文件只有入职日期，导入预览会显示 `不确定`，不会把 `入职雇佣关系` 静默转换为状态。
 
-当前应用发布为 `0.2.0`；代码与正式库 schema 基线均为 `V13`，本次检索发布没有新增结构迁移。V12 的历史正式 HTTP 导入记录保持不变；Task 7 只读样本证据是历史验收记录，不替代本轮正式批量导入证据。迁移、接口、字段映射、清理文件和验证命令见 [CHANGELOG.md](CHANGELOG.md)、[docs/DATA_MODEL.md](docs/DATA_MODEL.md)、[docs/API.md](docs/API.md)、[docs/FIELD_MAPPING.md](docs/FIELD_MAPPING.md)、[docs/IMPORT_GUIDE.md](docs/IMPORT_GUIDE.md) 和 [docs/TESTING.md](docs/TESTING.md)。
+工作区当前版本为应用 `0.3.0`（开发中，未发布），上一次已发布版本为 `0.2.0`；代码与正式库 schema 基线均为 `V13`，检索发布与第十二轮实现都没有新增结构迁移。V12 的历史正式 HTTP 导入记录保持不变；Task 7 只读样本证据是历史验收记录，不替代本轮正式批量导入证据。迁移、接口、字段映射、清理文件和验证命令见 [CHANGELOG.md](CHANGELOG.md)、[docs/DATA_MODEL.md](docs/DATA_MODEL.md)、[docs/API.md](docs/API.md)、[docs/FIELD_MAPPING.md](docs/FIELD_MAPPING.md)、[docs/IMPORT_GUIDE.md](docs/IMPORT_GUIDE.md) 和 [docs/TESTING.md](docs/TESTING.md)。
 
 去重只使用标准化后的邮箱、手机号或 `source_system + source_record_id`。系统不会仅凭姓名自动合并候选人，身份键指向不同记录时会拒绝自动更新。
 
@@ -102,10 +104,16 @@ $env:AGENT_MODEL = "your-model"
 ```powershell
 npm test
 npm run build
+npx tsc --noEmit
 npm audit
+
+node tests/browser/responsive-scale-qa.mjs
+node tests/browser/surface-navigation-qa.mjs
+node tests/browser/talent-workspace-qa.mjs
+node --test --test-concurrency=1 tests/backend/search-keyword-recall.test.mjs
 ```
 
-当前人才库 V2 已通过自动化后端测试、生产构建和依赖审计；匿名隔离库的 1440x900 与 390x844 Playwright 核心操作、截图、根页面溢出和控制台检查也已通过。真实北森候选人文件的正式 dry-run 仍需在隔离数据库中单独执行。
+当前人才库 V2 已通过自动化后端测试、生产构建和依赖审计。第十二轮匿名浏览器验收为：15 视口 × 6 页面响应式矩阵 93/93、导航表面 11/11、人才库工作流 32/32，三套流程均为 0 console error；多分辨率截图矩阵见 [前端验收证据](docs/evidence/talent-redesign/acceptance.md)。`npm test` 当前仍保留 8 个与改动前一致的既有失败，未新增失败。真实北森候选人文件的正式 dry-run 仍需在隔离数据库中单独执行。
 
 ## 文档
 

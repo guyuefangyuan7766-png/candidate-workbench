@@ -60,6 +60,21 @@ function fileHash(file) {
   try { let bytes; while ((bytes = fs.readSync(fd, buffer, 0, buffer.length, null)) > 0) hash.update(buffer.subarray(0, bytes)); return hash.digest('hex'); }
   finally { fs.closeSync(fd); }
 }
+// Hashing a published generation reads the whole index and vector database, which
+// costs several gigabytes per open and therefore tens of seconds once the corpus
+// is large. Record the verified identity instead so only the first open after a
+// publication pays for it; the cheap file stamps still catch any later change.
+const VERIFICATION_FILE = '.verified.json';
+function readVerification(directory) {
+  try { return JSON.parse(fs.readFileSync(path.join(directory, VERIFICATION_FILE), 'utf8')); }
+  catch { return null; }
+}
+function writeVerification(directory, value) {
+  const target = path.join(directory, VERIFICATION_FILE);
+  const temporary = `${target}.${crypto.randomUUID()}.tmp`;
+  try { fs.writeFileSync(temporary, JSON.stringify(value)); fs.renameSync(temporary, target); return true; }
+  catch { try { fs.rmSync(temporary, { force: true }); } catch { /* best effort */ } return false; }
+}
 function writerLock(directory) {
   const lockPath = path.join(directory, '.build.lock');
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -116,7 +131,14 @@ export function createVectorStore({ directory, dimensions = 1024, model = 'text-
   function loadActive() {
     if (!manifest) return;
     const dbFile = safeFile(directory, manifest.database_file); const indexFile = safeFile(directory, manifest.index_file);
-    if (!fs.existsSync(dbFile) || !fs.existsSync(indexFile) || fs.statSync(indexFile).size !== manifest.index_bytes || fileHash(indexFile) !== manifest.index_sha256 || fileHash(dbFile) !== manifest.database_sha256) fail('search_vector_corrupt', 'Invalid or corrupt vector generation');
+    if (!fs.existsSync(dbFile) || !fs.existsSync(indexFile) || fs.statSync(indexFile).size !== manifest.index_bytes) fail('search_vector_corrupt', 'Invalid or corrupt vector generation');
+    const identity = { generation: manifest.generation, index: stamp(indexFile), database: stamp(dbFile) };
+    const marker = readVerification(directory);
+    const verified = Boolean(marker) && marker.generation === identity.generation && marker.index === identity.index && marker.database === identity.database;
+    if (!verified) {
+      if (fileHash(indexFile) !== manifest.index_sha256 || fileHash(dbFile) !== manifest.database_sha256) fail('search_vector_corrupt', 'Invalid or corrupt vector generation');
+      writeVerification(directory, identity);
+    }
     db = new DatabaseSync(dbFile, { readOnly: true });
     try {
       const meta = db.prepare('SELECT value FROM meta WHERE key=?').get('embedding_space_id')?.value;
@@ -182,6 +204,10 @@ export function createVectorStore({ directory, dimensions = 1024, model = 'text-
       CREATE INDEX IF NOT EXISTS chunks_candidate_idx ON chunks(candidate_id);
       CREATE TABLE IF NOT EXISTS documents(document_id TEXT PRIMARY KEY,source_hash TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS build_seen(document_id TEXT PRIMARY KEY); DELETE FROM build_seen;`);
+    // Generations published before revisions existed carry only the material hash.
+    // A null revision simply means "read the body once more", never "unchanged".
+    if (!db.prepare(`SELECT 1 FROM pragma_table_info('documents') WHERE name='revision'`).get())
+      db.exec('ALTER TABLE documents ADD COLUMN revision TEXT');
     db.prepare('INSERT OR REPLACE INTO meta VALUES(?,?)').run('embedding_space_id', space);
     key = Number(db.prepare('SELECT coalesce(max(key),0)+1 AS n FROM facts').get().n);
   }
@@ -210,6 +236,7 @@ export function createVectorStore({ directory, dimensions = 1024, model = 'text-
     manifest = next; generation = next.generation; workingDirectory = null; dirty = false;
     db = new DatabaseSync(safeFile(directory, manifest.database_file), { readOnly: true });
     stamps = { database: stamp(safeFile(directory, manifest.database_file)), index: stamp(indexFile) };
+    writeVerification(directory, { generation: next.generation, index: stamps.index, database: stamps.database });
     for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
       if (!entry.isDirectory() || !/^generation-[a-f0-9-]{36}$/u.test(entry.name) || [next.generation, next.previous_generation].includes(entry.name)) continue;
       const retired = path.resolve(directory, entry.name);
@@ -242,7 +269,9 @@ export function createVectorStore({ directory, dimensions = 1024, model = 'text-
         let fact = db.prepare('SELECT key FROM facts WHERE candidate_id=? AND content_hash=?').get(item.candidate_id, item.content_hash);
         if (!fact) { fact = { key: key++ }; db.prepare('INSERT INTO facts VALUES(?,?,?)').run(fact.key, item.candidate_id, item.content_hash); index.add(BigInt(fact.key), values); }
         db.prepare('INSERT OR REPLACE INTO chunks VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)').run(item.id, fact.key, item.candidate_id, item.document_id, item.source_type, item.source_id ?? item.document_id, item.title ?? '', item.field ?? 'content', item.content, item.start ?? 0, item.end ?? item.content.length, item.content_hash, item.source_hash ?? materialSourceHash(item));
-        db.prepare('INSERT OR REPLACE INTO documents VALUES(?,?)').run(item.document_id, item.source_hash ?? materialSourceHash(item));
+        // Chunk writes refresh the material hash only; the revision that drives
+        // incremental maintenance is owned by recordDocuments.
+        db.prepare('INSERT INTO documents(document_id,source_hash,revision) VALUES(?,?,NULL) ON CONFLICT(document_id) DO UPDATE SET source_hash=excluded.source_hash').run(item.document_id, item.source_hash ?? materialSourceHash(item));
       }
       cleanupFacts(affected); db.exec('COMMIT');
     } catch (error) { db.exec('ROLLBACK'); throw error; }
@@ -347,14 +376,20 @@ export function createVectorStore({ directory, dimensions = 1024, model = 'text-
     if (readOnly) fail('search_vector_read_only', 'Vector store is read-only');
     if (!Array.isArray(documents) || documents.length > 400 || documents.some(row => typeof row.document_id !== 'string' || !row.document_id || typeof row.source_hash !== 'string' || !row.source_hash)) fail('search_vector_source_budget', 'Invalid document record batch');
     if (!documents.length) return;
-    const existing = new Map(listDocumentsForIds(documents.map(row => row.document_id)));
-    const changedRows = documents.filter(row => existing.get(row.document_id) !== row.source_hash);
+    const existing = listDocumentsForIds(documents.map(row => row.document_id));
+    const changedRows = documents.filter(row => {
+      const current = existing.get(row.document_id);
+      return !current || current.source_hash !== row.source_hash || (row.revision ?? null) !== (current.revision ?? null);
+    });
     if (!changedRows.length) return;
-    ensureWorking(); const insert = db.prepare('INSERT OR REPLACE INTO documents VALUES(?,?)');
-    db.exec('BEGIN'); try { for (const row of changedRows) insert.run(row.document_id, row.source_hash); db.exec('COMMIT'); } catch (error) { db.exec('ROLLBACK'); throw error; }
+    ensureWorking(); const insert = db.prepare('INSERT OR REPLACE INTO documents VALUES(?,?,?)');
+    db.exec('BEGIN'); try { for (const row of changedRows) insert.run(row.document_id, row.source_hash, row.revision ?? null); db.exec('COMMIT'); } catch (error) { db.exec('ROLLBACK'); throw error; }
     changed();
   }
-  function listDocumentsForIds(ids) { return db && ids.length ? db.prepare(`SELECT document_id,source_hash FROM documents WHERE document_id IN (${placeholders(ids)})`).all(...ids).map(row => [row.document_id, row.source_hash]) : []; }
+  // Generations published before revisions existed are read as "revision unknown",
+  // which makes their documents look stale once and then carry a revision again.
+  const revisionSelect = () => db?.prepare(`SELECT 1 FROM pragma_table_info('documents') WHERE name='revision'`).get() ? 'revision' : 'NULL AS revision';
+  function listDocumentsForIds(ids) { return db && ids.length ? new Map(db.prepare(`SELECT document_id,source_hash,${revisionSelect()} FROM documents WHERE document_id IN (${placeholders(ids)})`).all(...ids).map(row => [row.document_id, row])) : new Map(); }
   function status() {
     assertCurrent();
     return { chunks: !workingDirectory && manifest ? manifest.chunks : count('chunks'), vectors: !workingDirectory && manifest ? manifest.vectors : count('facts'), documents: !workingDirectory && manifest?.documents !== undefined ? manifest.documents : count('documents'), dimensions, model, embedding_space_id: space, generation, index_ready: Boolean(manifest), read_only: readOnly, memory_mapped: readOnly && memoryMap, algorithm: 'usearch-hnsw-cos-f32', max_ann_vectors: maxAnnVectors };
@@ -362,6 +397,7 @@ export function createVectorStore({ directory, dimensions = 1024, model = 'text-
   return {
     upsertChunks, removeDocuments, search, searchQualifiedFacts, searchAnn, readFactChunks, status, commit, refresh, assertCurrent, listDocuments, recordDocuments,
     getDocumentHashes: ids => { if (!db || !ids.length) return new Map(); if (ids.length > MAX_SOURCE_ROWS) fail('search_vector_source_budget', 'Hash page exceeds bounded limit'); return new Map(db.prepare(`SELECT document_id,source_hash FROM documents WHERE document_id IN (${placeholders(ids)})`).all(...ids).map(x => [x.document_id, x.source_hash])); },
+    getDocumentMeta: ids => { if (!db || !ids.length) return new Map(); if (ids.length > MAX_SOURCE_ROWS) fail('search_vector_source_budget', 'Revision page exceeds bounded limit'); return new Map(db.prepare(`SELECT document_id,source_hash,${revisionSelect()} FROM documents WHERE document_id IN (${placeholders(ids)})`).all(...ids).map(x => [x.document_id, x])); },
     getCachedVectors: hashes => { if (!db || !hashes.length) return new Map(); if (hashes.length > 10000) fail('search_vector_source_budget', 'Cache batch exceeds bounded limit'); return new Map(db.prepare(`SELECT content_hash,vector FROM embeddings WHERE content_hash IN (${placeholders(hashes)})`).all(...hashes).map(x => [x.content_hash, fromBlob(x.vector)])); },
     markSeen: ids => { ensureWorking(); const insert = db.prepare('INSERT OR IGNORE INTO build_seen VALUES(?)'); db.exec('BEGIN'); try { for (const id of ids) insert.run(id); db.exec('COMMIT'); } catch (error) { db.exec('ROLLBACK'); throw error; } },
     pruneUnseen: () => { ensureWorking(); let removed = 0; while (true) { const ids = db.prepare('SELECT document_id FROM documents WHERE document_id NOT IN (SELECT document_id FROM build_seen) LIMIT 400').all().map(x => x.document_id); if (!ids.length) break; removed += ids.length; removeDocuments(ids); } return removed; },

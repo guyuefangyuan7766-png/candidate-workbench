@@ -518,7 +518,7 @@ test('ImportWizard persists task identity but App auto-opens only actionable rec
   assert.match(wizard, /activeTask\?\.error\?\.retryable/)
   assert.match(wizard, /重试提交/)
   assert.match(wizard, /role="status" aria-live="polite"/)
-  assert.match(app, /useState\(hasRecoverableImportTask\)/)
+  assert.match(app, /if \(hasRecoverableImportTask\(\)\) \{[\s\S]{0,160}?return \{ kind: "import" \}/)
   assert.match(wizard, /shouldAutoRecoverImportTask\(task\.status\)/)
   for (const status of ['queued', 'parsing', 'mapping', 'preview_ready', 'committing']) {
     assert.equal(shouldAutoRecoverImportTask(status), true, status)

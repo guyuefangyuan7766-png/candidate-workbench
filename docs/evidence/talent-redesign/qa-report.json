@@ -1,0 +1,751 @@
+{
+  "generated_at": "2026-09-16T03:08:03.747Z",
+  "target": "http://127.0.0.1:4399",
+  "anonymous": true,
+  "dataset": {
+    "candidates": 48,
+    "talent_pools": 7,
+    "positions": 12,
+    "primary_candidate": "林悦"
+  },
+  "design_frames": [
+    {
+      "id": "01",
+      "state": "工作台 / 真实统计与分布",
+      "shot": "01-overview.png"
+    },
+    {
+      "id": "02",
+      "state": "候选人库 / 范围 tabs、搜索筛选、列表视图",
+      "shot": "02-candidates.png"
+    },
+    {
+      "id": "03",
+      "state": "人才库分组 / 主从布局与成员",
+      "shot": "03-talent-pools.png"
+    },
+    {
+      "id": "04",
+      "state": "职位管理 / 状态 tabs 与表格",
+      "shot": "04-positions.png"
+    },
+    {
+      "id": "05",
+      "state": "数据导入 / 选择文件",
+      "shot": "05-import-upload.png"
+    },
+    {
+      "id": "06",
+      "state": "AI 助手 / 未配置模型网关的真实状态",
+      "shot": "06-assistant.png"
+    },
+    {
+      "id": "07",
+      "state": "履历检索 / 关键词结果与匹配证据",
+      "shot": "07-resume-search.png"
+    },
+    {
+      "id": "08",
+      "state": "附件解析 / 批次入口与状态",
+      "shot": "08-attachments.png"
+    },
+    {
+      "id": "09",
+      "state": "候选人详情 / 档案页签",
+      "shot": "09-detail-profile.png"
+    },
+    {
+      "id": "10",
+      "state": "候选人详情 / 履历页签",
+      "shot": "10-detail-resume.png"
+    },
+    {
+      "id": "11",
+      "state": "候选人详情 / 历史评估页签",
+      "shot": "11-detail-assessment.png"
+    },
+    {
+      "id": "12",
+      "state": "候选人详情 / 备注与动态页签",
+      "shot": "12-detail-activity.png"
+    },
+    {
+      "id": "13",
+      "state": "候选人详情 / 高级信息页签",
+      "shot": "13-detail-advanced.png"
+    },
+    {
+      "id": "14",
+      "state": "候选人编辑 / 分区表单",
+      "shot": "14-candidate-edit.png"
+    },
+    {
+      "id": "15",
+      "state": "职位详情 / 关联候选人与操作",
+      "shot": "15-position-detail.png"
+    },
+    {
+      "id": "16",
+      "state": "新增职位 / 右侧表单",
+      "shot": "16-position-form.png"
+    },
+    {
+      "id": "17",
+      "state": "加入候选人 / 选择对话框",
+      "shot": "17-pool-picker.png"
+    },
+    {
+      "id": "18",
+      "state": "数据导入 / 字段映射",
+      "shot": "18-import-mapping.png"
+    },
+    {
+      "id": "19",
+      "state": "数据导入 / 预览校验与问题行",
+      "shot": "19-import-preview.png"
+    },
+    {
+      "id": "20",
+      "state": "附件解析 / 候选人相关附件与文档视图（逐项差异确认依赖本地解析网关）",
+      "shot": "20-attachment-review.png"
+    },
+    {
+      "id": "21",
+      "state": "人才库管理 / 新建编辑对话框",
+      "shot": "21-pool-editor.png"
+    },
+    {
+      "id": "22",
+      "state": "批量操作 / 归档确认",
+      "shot": "22-bulk-archive.png"
+    }
+  ],
+  "cases": [
+    {
+      "name": "工作台：真实统计与分布",
+      "ok": true,
+      "detail": {
+        "doc": 1536,
+        "body": 1536,
+        "win": 1536
+      }
+    },
+    {
+      "name": "工作台：最近候选人跳转档案",
+      "ok": true,
+      "detail": {
+        "opened": "孙莉"
+      }
+    },
+    {
+      "name": "候选人库：标题、范围 tabs 与列表列名",
+      "ok": true,
+      "detail": {
+        "doc": 1536,
+        "body": 1536,
+        "win": 1536
+      }
+    },
+    {
+      "name": "候选人库：搜索命中与空结果",
+      "ok": true,
+      "detail": {
+        "hits": "林悦"
+      }
+    },
+    {
+      "name": "候选人库：学历筛选与服务端一致",
+      "ok": true,
+      "detail": {
+        "filtered": 14,
+        "server": 16
+      }
+    },
+    {
+      "name": "候选人库：分页与按职位视图",
+      "ok": true,
+      "detail": {
+        "page_two_first": "\t"
+      }
+    },
+    {
+      "name": "候选人库：导出菜单与取消批量选择",
+      "ok": true,
+      "detail": [
+        "Excel（XLSX）",
+        "CSV"
+      ]
+    },
+    {
+      "name": "候选人库：批量归档确认（可逆操作）",
+      "ok": true,
+      "detail": {
+        "dialog": [
+          "归档 2 位候选人",
+          "归档后将从在库列表隐藏，候选人资料和全部关系都会保留，可在已归档中逐一恢复。"
+        ]
+      }
+    },
+    {
+      "name": "候选人详情：固定五页签与档案内容",
+      "ok": true,
+      "detail": [
+        "档案",
+        "履历",
+        "历史评估",
+        "备注与动态",
+        "高级信息"
+      ]
+    },
+    {
+      "name": "候选人详情：履历页签与附件",
+      "ok": true,
+      "detail": {
+        "groups": [
+          "工作经历",
+          "教育经历",
+          "项目经历",
+          "专业技能"
+        ],
+        "mentions_attachment": true
+      }
+    },
+    {
+      "name": "候选人详情：历史评估页签",
+      "ok": true,
+      "detail": {
+        "source_records": true
+      }
+    },
+    {
+      "name": "候选人详情：备注与动态页签",
+      "ok": true,
+      "detail": {
+        "doc": 1536,
+        "body": 1536,
+        "win": 1536
+      }
+    },
+    {
+      "name": "候选人详情：高级信息按需加载",
+      "ok": true,
+      "detail": {
+        "explicit_load": true
+      }
+    },
+    {
+      "name": "候选人编辑：分区表单",
+      "ok": true,
+      "detail": {
+        "has_section": false
+      }
+    },
+    {
+      "name": "人才库分组：主从布局与成员",
+      "ok": true,
+      "detail": {
+        "summary": "收藏的人才\n\n共 4 位候选人\n\n需要重点关注的人才。\n\n加入候选人\n编辑分组\n归档分组",
+        "overflow": {
+          "doc": 1536,
+          "body": 1536,
+          "win": 1536
+        }
+      }
+    },
+    {
+      "name": "人才库分组：新建与编辑对话框",
+      "ok": true,
+      "detail": {
+        "fields": [
+          "人才库分组",
+          "新建分组",
+          "仅建立分组关系，不改变候选人档案。"
+        ]
+      }
+    },
+    {
+      "name": "人才库分组：加入候选人对话框",
+      "ok": true,
+      "detail": {
+        "lines": 141
+      }
+    },
+    {
+      "name": "职位管理：状态 tabs 与真实统计",
+      "ok": true,
+      "detail": {
+        "paused_rows": 2,
+        "overflow": {
+          "doc": 1536,
+          "body": 1536,
+          "win": 1536
+        }
+      }
+    },
+    {
+      "name": "职位详情：关联候选人与操作入口",
+      "ok": true,
+      "detail": {
+        "overflow": {
+          "doc": 1536,
+          "body": 1536,
+          "win": 1536
+        }
+      }
+    },
+    {
+      "name": "职位表单：新增职位抽屉",
+      "ok": true,
+      "detail": {
+        "fields": [
+          "新增职位",
+          "基本信息",
+          "职位名称",
+          "*"
+        ]
+      }
+    },
+    {
+      "name": "数据导入：选择文件、映射、预览与提交",
+      "ok": true,
+      "detail": {
+        "written": 1,
+        "mapping": [
+          "最近公司",
+          "最近职位"
+        ],
+        "preview": [
+          "支持从 Excel、CSV 等本地文件导入候选人信息。系统将根据文件内容识别字段并进行校验，区分新增候选人与已有候选人的更新。",
+          "存在问题的行",
+          "问题行"
+        ],
+        "result": [
+          "导入候选人",
+          "导入表格，集中整理人才资料",
+          "返回人才库",
+          "选择文件",
+          "字段映射"
+        ]
+      }
+    },
+    {
+      "name": "附件解析：入口与真实状态",
+      "ok": true,
+      "detail": {
+        "excerpt": [
+          "解析并更新候选人",
+          "上传简历附件，核对匹配结果后更新档案。",
+          "2026年9月16日",
+          "返回人才库"
+        ]
+      }
+    },
+    {
+      "name": "候选人详情：附件区与原文",
+      "ok": true,
+      "detail": {
+        "mentions_attachment": true,
+        "attachments": [
+          "相关附件",
+          "1 个文件",
+          "上传附件"
+        ]
+      }
+    },
+    {
+      "name": "履历检索：关键词结果与旧请求状态",
+      "ok": true,
+      "detail": {
+        "excerpt": [
+          "履历检索",
+          "用自然语言描述你要找的人才",
+          "返回人才库",
+          "检索"
+        ]
+      }
+    },
+    {
+      "name": "G4 检索相关性：无关词、命中证据与补齐语义",
+      "ok": true,
+      "detail": {
+        "hitItems": 5,
+        "paddingItems": 15,
+        "realTotal": 5,
+        "unrelatedTotal": 0
+      }
+    },
+    {
+      "name": "AI 助手：未配置状态不伪造答案",
+      "ok": true,
+      "detail": {
+        "excerpt": [
+          "AI 助手",
+          "基于本地人才库的只读问答，回答只引用可核对的证据",
+          "全量只读"
+        ]
+      }
+    },
+    {
+      "name": "人才库分组：新建、加入、移出、编辑、归档与恢复",
+      "ok": true,
+      "detail": {
+        "pool": "匿名QA验收组（已编辑）",
+        "members_before": 2,
+        "members_after": 1
+      }
+    },
+    {
+      "name": "职位：关联候选人、解除关联与档案保留",
+      "ok": true,
+      "detail": {
+        "position": "匿名QA关联职位",
+        "linked": "匿名QA乙"
+      }
+    },
+    {
+      "name": "数据导入：重复候选人更新提示",
+      "ok": true,
+      "detail": {
+        "duplicate_card": "1 重复记录将跳过",
+        "duplicate_row": [
+          "第 2 行\t",
+          "重复跳过\t匿名QA甲\t与已有候选人重复（按email匹配），提交时跳过\t查看解析结果"
+        ]
+      }
+    },
+    {
+      "name": "术语检查：候选人语境无旧术语",
+      "ok": true,
+      "detail": {
+        "checked": [
+          "候选人列表",
+          "导航"
+        ]
+      }
+    },
+    {
+      "name": "响应式：全部入口与五个详情页签在 1440 / 1280 / 768 / 390 无横溢出",
+      "ok": true,
+      "detail": [
+        "1440:13 个状态",
+        "1280:13 个状态",
+        "768:13 个状态",
+        "390:13 个状态"
+      ]
+    },
+    {
+      "name": "弹层：导出菜单、更多筛选、选择器与职位菜单可关闭",
+      "ok": true,
+      "detail": {
+        "export": "esc + 点击外部",
+        "advanced": "esc",
+        "picker": "esc",
+        "rowMenu": "esc"
+      }
+    }
+  ],
+  "viewports": [
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "doc": 1440,
+      "states": [
+        {
+          "state": "工作台",
+          "doc": 1440,
+          "win": 1440
+        },
+        {
+          "state": "候选人库",
+          "doc": 1440,
+          "win": 1440
+        },
+        {
+          "state": "人才库分组",
+          "doc": 1440,
+          "win": 1440
+        },
+        {
+          "state": "职位管理",
+          "doc": 1440,
+          "win": 1440
+        },
+        {
+          "state": "导入候选人",
+          "doc": 1440,
+          "win": 1440
+        },
+        {
+          "state": "AI 助手",
+          "doc": 1440,
+          "win": 1440
+        },
+        {
+          "state": "履历检索",
+          "doc": 1440,
+          "win": 1440
+        },
+        {
+          "state": "附件解析",
+          "doc": 1440,
+          "win": 1440
+        },
+        {
+          "state": "详情·档案",
+          "doc": 1440,
+          "win": 1440
+        },
+        {
+          "state": "详情·履历",
+          "doc": 1440,
+          "win": 1440
+        },
+        {
+          "state": "详情·历史评估",
+          "doc": 1440,
+          "win": 1440
+        },
+        {
+          "state": "详情·备注与动态",
+          "doc": 1440,
+          "win": 1440
+        },
+        {
+          "state": "详情·高级信息",
+          "doc": 1440,
+          "win": 1440
+        }
+      ]
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "doc": 1280,
+      "states": [
+        {
+          "state": "工作台",
+          "doc": 1280,
+          "win": 1280
+        },
+        {
+          "state": "候选人库",
+          "doc": 1280,
+          "win": 1280
+        },
+        {
+          "state": "人才库分组",
+          "doc": 1280,
+          "win": 1280
+        },
+        {
+          "state": "职位管理",
+          "doc": 1280,
+          "win": 1280
+        },
+        {
+          "state": "导入候选人",
+          "doc": 1280,
+          "win": 1280
+        },
+        {
+          "state": "AI 助手",
+          "doc": 1280,
+          "win": 1280
+        },
+        {
+          "state": "履历检索",
+          "doc": 1280,
+          "win": 1280
+        },
+        {
+          "state": "附件解析",
+          "doc": 1280,
+          "win": 1280
+        },
+        {
+          "state": "详情·档案",
+          "doc": 1280,
+          "win": 1280
+        },
+        {
+          "state": "详情·履历",
+          "doc": 1280,
+          "win": 1280
+        },
+        {
+          "state": "详情·历史评估",
+          "doc": 1280,
+          "win": 1280
+        },
+        {
+          "state": "详情·备注与动态",
+          "doc": 1280,
+          "win": 1280
+        },
+        {
+          "state": "详情·高级信息",
+          "doc": 1280,
+          "win": 1280
+        }
+      ]
+    },
+    {
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "doc": 768,
+      "states": [
+        {
+          "state": "工作台",
+          "doc": 768,
+          "win": 768
+        },
+        {
+          "state": "候选人库",
+          "doc": 768,
+          "win": 768
+        },
+        {
+          "state": "人才库分组",
+          "doc": 768,
+          "win": 768
+        },
+        {
+          "state": "职位管理",
+          "doc": 768,
+          "win": 768
+        },
+        {
+          "state": "导入候选人",
+          "doc": 768,
+          "win": 768
+        },
+        {
+          "state": "AI 助手",
+          "doc": 768,
+          "win": 768
+        },
+        {
+          "state": "履历检索",
+          "doc": 768,
+          "win": 768
+        },
+        {
+          "state": "附件解析",
+          "doc": 768,
+          "win": 768
+        },
+        {
+          "state": "详情·档案",
+          "doc": 768,
+          "win": 768
+        },
+        {
+          "state": "详情·履历",
+          "doc": 768,
+          "win": 768
+        },
+        {
+          "state": "详情·历史评估",
+          "doc": 768,
+          "win": 768
+        },
+        {
+          "state": "详情·备注与动态",
+          "doc": 768,
+          "win": 768
+        },
+        {
+          "state": "详情·高级信息",
+          "doc": 768,
+          "win": 768
+        }
+      ]
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "doc": 390,
+      "states": [
+        {
+          "state": "工作台",
+          "doc": 390,
+          "win": 390
+        },
+        {
+          "state": "候选人库",
+          "doc": 390,
+          "win": 390
+        },
+        {
+          "state": "人才库分组",
+          "doc": 390,
+          "win": 390
+        },
+        {
+          "state": "职位管理",
+          "doc": 390,
+          "win": 390
+        },
+        {
+          "state": "导入候选人",
+          "doc": 390,
+          "win": 390
+        },
+        {
+          "state": "AI 助手",
+          "doc": 390,
+          "win": 390
+        },
+        {
+          "state": "履历检索",
+          "doc": 390,
+          "win": 390
+        },
+        {
+          "state": "附件解析",
+          "doc": 390,
+          "win": 390
+        },
+        {
+          "state": "详情·档案",
+          "doc": 390,
+          "win": 390
+        },
+        {
+          "state": "详情·履历",
+          "doc": 390,
+          "win": 390
+        },
+        {
+          "state": "详情·历史评估",
+          "doc": 390,
+          "win": 390
+        },
+        {
+          "state": "详情·备注与动态",
+          "doc": 390,
+          "win": 390
+        },
+        {
+          "state": "详情·高级信息",
+          "doc": 390,
+          "win": 390
+        }
+      ]
+    }
+  ],
+  "console_errors": [],
+  "limitations": [
+    "AI 助手在匿名环境未配置模型网关：只验证真实未配置状态，未验证远程会话、流式回答与只读工具调用。",
+    "附件解析建议需要本地解析网关生成差异：匿名环境验证批次、候选人文档与无建议降级，未验证模型建议的逐项写入。",
+    "1440/1280/768/390 只做入口、布局与横向溢出检查，不要求复制桌面四栏。"
+  ]
+}

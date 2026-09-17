@@ -1,0 +1,196 @@
+{
+  "generated_at": "2026-09-16T03:07:27.731Z",
+  "target": "http://127.0.0.1:4397",
+  "anonymous": true,
+  "gate": "G2 导航表面互斥",
+  "cases": [
+    {
+      "name": "起始：/ 只有工作台一个表面",
+      "ok": true,
+      "detail": {
+        "path": "/",
+        "headings": [
+          "人才资产概览"
+        ],
+        "nav": [
+          "工作台"
+        ],
+        "surfaces": {
+          "page": 1,
+          "tool": 0,
+          "import": 0
+        }
+      }
+    },
+    {
+      "name": "场景 1：先开助手，再点导入候选人 → 只有一个表面",
+      "ok": true,
+      "detail": {
+        "path": "/import",
+        "headings": [
+          "导入候选人"
+        ],
+        "nav": [
+          "导入候选人"
+        ],
+        "surfaces": {
+          "page": 0,
+          "tool": 0,
+          "import": 1
+        }
+      }
+    },
+    {
+      "name": "场景 2：先开导入，再点 AI 助手 → 不叠加",
+      "ok": true,
+      "detail": {
+        "path": "/assistant",
+        "headings": [
+          "AI 助手"
+        ],
+        "nav": [
+          "AI 助手"
+        ],
+        "surfaces": {
+          "page": 0,
+          "tool": 1,
+          "import": 0
+        }
+      }
+    },
+    {
+      "name": "场景 3：直接访问 /assistant（刷新后仍是助手）",
+      "ok": true,
+      "detail": {
+        "path": "/assistant",
+        "headings": [
+          "AI 助手"
+        ],
+        "nav": [
+          "AI 助手"
+        ],
+        "surfaces": {
+          "page": 0,
+          "tool": 1,
+          "import": 0
+        }
+      }
+    },
+    {
+      "name": "场景 4：直接访问 /import（刷新后仍是导入页）",
+      "ok": true,
+      "detail": {
+        "path": "/import",
+        "headings": [
+          "导入候选人"
+        ],
+        "nav": [
+          "导入候选人"
+        ],
+        "surfaces": {
+          "page": 0,
+          "tool": 0,
+          "import": 1
+        }
+      }
+    },
+    {
+      "name": "场景 5：工具页三页互切，URL 与高亮同步",
+      "ok": true,
+      "detail": {
+        "path": "/assistant",
+        "headings": [
+          "AI 助手"
+        ],
+        "nav": [
+          "AI 助手"
+        ],
+        "surfaces": {
+          "page": 0,
+          "tool": 1,
+          "import": 0
+        }
+      }
+    },
+    {
+      "name": "重复点击已激活入口 = 关闭并回到进入前页面",
+      "ok": true,
+      "detail": {
+        "path": "/candidates",
+        "headings": [
+          "候选人库"
+        ],
+        "nav": [
+          "候选人库"
+        ],
+        "surfaces": {
+          "page": 1,
+          "tool": 0,
+          "import": 0
+        }
+      }
+    },
+    {
+      "name": "工具页打开时切换主页面不残留",
+      "ok": true,
+      "detail": {
+        "path": "/positions",
+        "headings": [
+          "职位管理"
+        ],
+        "nav": [
+          "职位管理"
+        ],
+        "surfaces": {
+          "page": 1,
+          "tool": 0,
+          "import": 0
+        }
+      }
+    },
+    {
+      "name": "Esc 关闭工具页并回到进入前页面",
+      "ok": true,
+      "detail": {
+        "path": "/candidates",
+        "headings": [
+          "候选人库"
+        ],
+        "nav": [
+          "候选人库"
+        ],
+        "surfaces": {
+          "page": 1,
+          "tool": 0,
+          "import": 0
+        }
+      }
+    },
+    {
+      "name": "浏览器前进后退与表面一致",
+      "ok": true,
+      "detail": {
+        "path": "/assistant",
+        "headings": [
+          "AI 助手"
+        ],
+        "nav": [
+          "AI 助手"
+        ],
+        "surfaces": {
+          "page": 0,
+          "tool": 1,
+          "import": 0
+        }
+      }
+    },
+    {
+      "name": "检索结果打开候选人档案不清空工具表面",
+      "ok": true,
+      "detail": {
+        "drawer": true
+      }
+    }
+  ],
+  "console_errors": []
+}

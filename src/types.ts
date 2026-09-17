@@ -85,6 +85,8 @@ export interface CandidateSourceRecord {
 export interface CandidateAssessment {
   id: string;
   assessment_type?: string;
+  source_system?: string;
+  source_record_id?: string;
   title?: string;
   result?: string;
   summary?: string;
@@ -465,8 +467,8 @@ export interface ResumeSearchItem {
   name: string;
   current_title?: string | null;
   current_company?: string | null;
-  condition_status?: "matched" | "unknown" | "partial";
-  score: number;
+  condition_status?: "matched" | "unknown" | "partial" | "padding";
+  score: number | null;
   matched_fields: string[];
   matched_terms?: string[];
   evidence?: ResumeSearchEvidence[];

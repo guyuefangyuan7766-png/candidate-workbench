@@ -1,5 +1,19 @@
 # 测试说明
 
+## 2026-09-17 检索性能与增量索引维护验证（0.4.0）
+
+第十三轮以正式库的只读观察与匿名/临时库的自动化测试共同完成，未把正式候选人材料用于压测、截图或 fixture。
+
+- 后端全量：`npm test` 730 项、715 通过、8 个既有失败、7 跳过；失败集合与改动前完全一致，无新增失败。构建侧 `npx tsc --noEmit`、`npm run build` 通过。
+- 检索与维护定向套件逐组通过：`hybrid-search.test.mjs`、`hybrid-search-service-lifecycle.test.mjs`、`hybrid-search-api.test.mjs`、`resume-search-service/api/v6`、`search-keyword-recall.test.mjs`、`search-vector-lifecycle.test.mjs`、`search-formal-maintenance.test.mjs`、`business-search-maintenance.test.mjs`、`search-index-maintenance-cli.test.mjs`；其中含归档不更新 `updated_at` 的剪枝用例、索引同尺寸损坏拒绝用例与超时/取消生命周期用例。
+- 端到端（正式服务、正式库、只读检索）：10 类真实查询全部 200，含关键词、筛选、无命中、英文、`fast` 与翻页；无维护负载 5.0–12.5s，维护运行期间 6.5–10.1s。结果总数与改动前一致（产品经理 5,419 / 后端 8,684 / Unity 8,505 / Java 9,975 / 数值策划 783）。
+- 维护实测：增量轮 19.4s、19.3s、20.3s（三代际不变更）；基准重建轮 914s（一次性，写入修订值）。修订值全量扫描 455,744 行约 7.8s。
+- 调度行为：以临时目录验证「新开机周期执行一次、同周期应用重启不执行、一轮结束后不再排期、下一周期再执行一次」四种情形。
+
+## 2026-09-16 响应式尺度与导航表面隔离验收（0.3.0）
+
+第十二轮使用匿名临时库完成 G1–G6 复验：`responsive-scale-qa.mjs` 93/93（15 视口 × 6 页面矩阵 90 项 + 3 项抽屉布局）、`surface-navigation-qa.mjs` 11/11、`talent-workspace-qa.mjs` 32/32（含新增 G4 检索相关性），三套均为 0 console error、0 pageerror、0 个 ≥500 响应。`npx tsc --noEmit`、`npm run build` 通过；`npm test` 为 730 项、715 通过、8 个既有失败、7 跳过，失败集合与改动前一致。关键词定向后端测试 4/4。完整结果见 [第十二轮验收](evidence/talent-redesign/acceptance.md) 与 `docs/evidence/talent-redesign/*.json`。
+
 ## 0.2.0 / V13 正式混合补充验收
 
 本次继续使用合成匿名库。新增正式维护、缓存、遮蔽、宽集合 ANN、常驻 mmap/队列/取消/换代及未知布尔逻辑测试；最新整合后的后端定向集合实际 122/122 通过（28.885 秒），记录为 `docs/evidence/search-formal-supplement-final-focused.txt`。116/116 和维护专用 24/24 是较早子集，仅保留作历史记录。随后正式回填暴露 5 秒 Embedding 超时需要独立维护预算，改为仅维护调用 30 秒上限，在线预算不变。最新维护/服务生命周期复核为 21/21。完整指标以 [补充交接](handoffs/2026-09-10-search-hybrid-formal-supplement.md) 最新实测为准，不把旧结果冒充新运行。
@@ -786,3 +800,93 @@ npm run build
 - 收尾时完整复跑 `npm test` 观察到 591 项中 578 通过、6 失败、7 跳过；其中 2 个 Agent 时序用例单独复跑通过，另 1 个 Agent 附件取消用例仍失败，属于与本次导入无关的既有时序问题。稳定失败还包括既有 V11 旧文档断言和 2 个 V12 维护测试（工作区缺少 `.tmp-v12-paused-server.mjs`），不是本次导入断言。
 - `npx tsc --noEmit`、`npm run build`、`git diff --check`：均通过。
 - B 组正式导入证据：`evidence/beisen-candidate-import-b-20260827.json`；完整性检查按报告如实标记为未运行。
+
+
+## 2026-09-15 追加：人才库前端重制的浏览器验收
+
+### 匿名靶环境（不使用正式库与正式服务）
+
+- 匿名数据源：`tests/fixtures/anonymous-talent-workspace.mjs`（48 位候选人、7+1 个分组、12+1 个职位、3 条历史评估，全部虚构）。
+- 匿名服务：`node tests/browser/anonymous-talent-workspace-server.mjs 4398`（数据写入系统临时目录，重启即重置，绝不触碰 `data/recruitment.db`）。
+- QA 预览：`.codex-tmp/vite-anon.config.mjs`（`npx vite --config .codex-tmp/vite-anon.config.mjs`，端口 4400，`/api` 代理到 4398），仅用于本轮肉眼比对与 QA，正式入口仍是 4173 / `start.ps1`。
+
+### 运行方式
+
+```powershell
+node tests/browser/anonymous-talent-workspace-server.mjs 4398
+npx vite --config .codex-tmp/vite-anon.config.mjs
+$env:TALENT_QA_URL="http://127.0.0.1:4400"; node tests/browser/talent-workspace-qa.mjs
+```
+
+- 不设置 `TALENT_QA_URL` 时，脚本会在 4399 端口自起匿名服务（`TALENT_QA_PORT` 可改）。
+- 脚本启动时校验库内候选人 ID 是否全部为 `anon-tw-candidate-*`，命中非匿名数据会直接拒绝运行。
+
+### 本轮结果与产物
+
+- 30/30 用例通过，控制台 0 error；报告 `docs/evidence/talent-redesign/qa-report.json`，截图 `docs/evidence/talent-redesign/screenshots/`（22 张设计图对应状态 + 本轮 `round10-*.png`）。
+- 22 项覆盖表与限制说明：`docs/evidence/talent-redesign/acceptance.md`、`coverage.json`。
+- 结构变更时同步更新 `tests/browser/talent-workspace-qa.mjs` 的选择器与断言（例如履历页签改为校验「工作经历/教育经历/项目经历/专业技能」分组），不得为了通过测试回退新结构。
+
+### 补充（第十一轮）：QA 截图前必须先构建
+
+`tests/browser/talent-workspace-qa.mjs` 通过 `http://127.0.0.1:4399` 访问的是 `server/app.js` 提供的 **`dist/` 静态产物**（`express.static(distPath)`），不是 Vite 开发服务。因此：
+
+- 改完 `src/` 后必须先 `npm run build`，再跑 QA，否则截图与断言仍是上一次构建的结果。
+- 迭代期看实时效果用开发服务：`npm run dev`（Vite，默认 5173）或 `npx vite --config .codex-tmp/vite-anon.config.mjs`（4400，代理到 4398 匿名库）。
+- 需要真实 API 的匿名库：`node tests/browser/anonymous-talent-workspace-server.mjs 4398`；QA 脚本自身会在 4399 起独立匿名库，因此跑 QA 时不要设置 `TALENT_QA_URL`。
+
+## 2026-09-16 响应式与导航表面验收（已完成）
+
+2026-09-15 的浏览器审计确认了三类缺陷：整站尺度不随分辨率变化（15 档视口下主标题恒 34px、行高恒 ≈72px）、1024–1366px 常见分辨率下表格右侧列被裁、AI 助手与导入候选人两个表面不互斥导致叠加与「点不开」。修复方案与实施步骤见 [设计规范](superpowers/specs/2026-09-15-responsive-scale-and-surface-isolation-design.md) 与 [实施计划](superpowers/plans/2026-09-15-responsive-scale-and-surface-isolation.md)。
+
+本节记录第十二轮已实际执行的 G1–G6，结果与截图矩阵见 [验收证据](evidence/talent-redesign/acceptance.md)。
+
+### 新增脚本
+
+- `tests/browser/responsive-scale-qa.mjs`：分辨率矩阵与布局断言（G1、G3）。
+- `tests/browser/surface-navigation-qa.mjs`：导航表面互斥与可关闭性（G2）。
+- 扩展 `tests/browser/talent-workspace-qa.mjs`：弹层关闭（G3）、检索相关性（G4）与 32 项完整工作流。
+- `tests/backend/search-keyword-recall.test.mjs`：关键词零命中、真实命中证据、补齐语义和结构化条件保持范围。
+
+### 运行方式（沿用匿名靶环境）
+
+```powershell
+node tests/browser/anonymous-talent-workspace-server.mjs 4398
+npx vite --config .codex-tmp/vite-anon.config.mjs
+node tests/browser/responsive-scale-qa.mjs
+node tests/browser/surface-navigation-qa.mjs
+node tests/browser/talent-workspace-qa.mjs
+node --test --test-concurrency=1 tests/backend/search-keyword-recall.test.mjs
+```
+
+- 两个新脚本与既有 QA 一样只允许连接本机匿名库，命中非 `anon-tw-candidate-*` 数据时直接拒绝运行。
+- 若改用 `server/app.js` 提供的 `dist/` 静态产物验收，必须先 `npm run build`，否则测的是上一次构建。
+
+### 门禁表
+
+| 门禁 | 断言 |
+| --- | --- |
+| G1 分辨率矩阵 | 15 视口（1024×768、1152×864、1280×720、1366×768、1440×900、1536×864、1600×900、1680×1050、1728×1117、1920×1080、2560×1440、3840×2160、768×1024、820×1180、390×844）× 6 页面：无根节点横向溢出；列可见性与设计规范一致；主标题字号落在档位区间 ±1px；候选人列表首屏可见行数 ≥5（M 档及以上）/ ≥4（S 档及以下） |
+| G2 导航表面 | 5 场景（先助手后导入、先导入后助手、直接访问 `/assistant`、直接访问 `/import`、助手内三页互切）：可见 `h1` 数恒为 1；侧栏高亮 = URL 对应标签 = 屏幕标题；重复点击同一入口可关闭并回到进入前页面 |
+| G3 布局 | 同一列表所有行高相等；职位操作按钮 `scrollHeight ≤ clientHeight + 1`；详情抽屉「显示」按钮不越出卡片；导出菜单与模态框在 Esc / 点击外部后关闭 |
+| G4 检索相关性 | 无关词返回 0 条；命中项 `evidence.length > 0`；补齐项不得标注为「部分匹配」 |
+| G5 回归 | `npx tsc --noEmit`、`npm run build` 通过；`npm test` 730 项中 715 通过、8 个既有失败、7 跳过且无新增失败；`talent-workspace-qa.mjs` 为 32/32 |
+| G6 控制台 | 全部受测流程 0 console error、0 pageerror、0 个 ≥500 响应 |
+
+### 本轮实测结果
+
+| 检查 | 结果 |
+| --- | --- |
+| 响应式矩阵 | 90/90 页面矩阵通过；加 3 项抽屉断言后报告总数 93/93 |
+| 导航表面 | 11/11 |
+| 人才库浏览器工作流 | 32/32，其中 `G4 检索相关性：无关词、命中证据与补齐语义` 通过；匿名实测真实命中 5、补齐 15、无关词 0 |
+| 后端关键词召回 | 4/4 |
+| TypeScript / 构建 | `npx tsc --noEmit`、`npm run build` 通过 |
+| 全量后端测试 | 730 项、715 通过、8 个既有失败、7 跳过；无新增失败 |
+| 控制台与网络 | 三套浏览器流程 0 console error、0 pageerror、0 个 ≥500 响应 |
+
+### 与既有验收的关系
+
+`docs/evidence/talent-redesign/screenshots/` 中的 22 张设计图对照截图与第十/十一轮的 `round10-*.png` 保持作为视觉基准，不覆盖；本轮新增 90 张 `viewport-<宽>x<高>-<页面>.jpg` 页面矩阵截图和 3 张 `viewport-<宽>x<高>-candidates-drawer.jpg` 抽屉截图，共 93 张 JPG。`talent-workspace-qa.mjs` 由第十轮的 30 项扩展到 32 项，新增 G3 弹层与 G4 相关性断言。
+
+已知有意偏离：≤720px 仍保留候选人表格，隐藏次要列并使用 60px 行高，没有改造成卡片列表；S 档及以下候选人行内操作常显。

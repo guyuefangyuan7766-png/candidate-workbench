@@ -214,7 +214,10 @@ function revision(db, databasePath) {
 }
 function runtime(options) {
   const db = options.db ?? new DatabaseSync(options.databasePath, { readOnly: true })
-  if (!options.db) db.exec('PRAGMA query_only=ON; PRAGMA busy_timeout=2000;')
+  // The file-backed connection already opens read-only, which keeps every write to
+  // the resume database impossible while still allowing the temporary projection
+  // tables a single search needs.
+  if (!options.db) db.exec('PRAGMA busy_timeout=2000;')
   const adapters = options.adapters ?? createSearchModelAdapters(options.modelConfig ?? {})
   let store = null
   let vectorError = null
@@ -324,6 +327,10 @@ export class HybridSearchService {
     this.maxQueued = Number.isInteger(options.maxQueued) && options.maxQueued >= 0 ? Math.min(options.maxQueued, 32) : 8
     this.timeoutMs = Math.min(18000, Math.max(1, Number(options.requestTimeoutMs) || 18000))
     this.warmupTimeoutMs = Math.min(120000, Math.max(1, Number(options.warmupTimeoutMs) || 120000))
+    // Worker startup opens the vector generation and the resume database, which is
+    // I/O bound and unrelated to how fast a query can run. It gets its own bounded
+    // budget so a cold start can no longer consume the whole query deadline.
+    this.startupTimeoutMs = Math.min(this.warmupTimeoutMs, Math.max(this.timeoutMs, Number(options.startupTimeoutMs) || 60000))
   }
   status() {
     const current = this.identity === manifestIdentity(this.options.vectorDirectory)
@@ -365,14 +372,19 @@ export class HybridSearchService {
     if (this.closed) return Promise.reject(new HybridSearchError('search_service_closed', '检索服务已关闭', { status: 503 }))
     if (signal?.aborted) return Promise.reject(new HybridSearchError('search_cancelled', '检索已取消', { status: 499 }))
     if (this.active && this.queue.length >= this.maxQueued) return Promise.reject(new HybridSearchError('search_busy', '检索繁忙，请稍后重试', { status: 429 }))
-    return new Promise((resolve, reject) => {
+    const pending = new Promise((resolve, reject) => {
       const task = { id: randomUUID(), input, options, signal, warmup, resolve, reject, done: false, controller: new AbortController() }
       task.cancel = () => this.finish(task, new HybridSearchError('search_cancelled', '检索已取消', { status: 499 }), null, this.active === task)
-      task.timer = setTimeout(() => this.finish(task, new HybridSearchError('search_timeout', '检索超时，请重试', { status: 504 }), null, this.active === task), warmup ? this.warmupTimeoutMs : this.timeoutMs)
+      task.timer = setTimeout(() => this.finish(task, new HybridSearchError('search_timeout', '检索超时，请重试', { status: 504 }), null, this.active === task), warmup ? this.warmupTimeoutMs : this.startupTimeoutMs)
       signal?.addEventListener('abort', task.cancel, { once: true })
       this.queue.push(task)
       this.pump()
     })
+    // A deadline or a recycled worker can settle this task before its caller
+    // attaches a handler. Marking it handled keeps a late settlement from taking
+    // the whole service down; callers still observe the rejection.
+    void pending.catch(() => {})
+    return pending
   }
   pump() {
     if (this.active || this.closed) return
@@ -448,12 +460,19 @@ export class HybridSearchService {
       worker.once('error', () => broken(new HybridSearchError('search_worker_error', '检索暂不可用', { status: 503 })))
       worker.once('exit', () => broken(new HybridSearchError('search_worker_exit', '检索已中断', { status: 503 })))
     })
+    // Startup can be abandoned when a task settles first (a deadline or a recycle),
+    // so the rejection must never be left unobserved.
+    void this.initializing.catch(() => {})
     return this.initializing
   }
   async run(task) {
     await this.ensureWorker()
     if (task.done || this.closed) return
     if (task.warmup) { this.finish(task, null, this.lastStatus); return }
+    // Startup is done, so the query now runs on its own deadline rather than on
+    // whatever was left of the startup budget.
+    clearTimeout(task.timer)
+    task.timer = setTimeout(() => this.finish(task, new HybridSearchError('search_timeout', '检索超时，请重试', { status: 504 }), null, this.active === task), this.timeoutMs)
     if (this.inline) {
       const value = await execute(this.inline, task.input, { ...this.options, ...task.options, signal: task.controller.signal })
       if (!task.done) { this.lastStatus = this.inline.status(); this.finish(task, null, value) }

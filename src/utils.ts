@@ -17,7 +17,7 @@ export function formatDate(value: string | null): string {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).format(new Date(value));
+  }).format(new Date(value)).split("/").join("-");
 }
 
 export function candidateHireStatusText(value: unknown): string {

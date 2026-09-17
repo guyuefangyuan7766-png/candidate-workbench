@@ -4,7 +4,7 @@
 
 正式本机服务沿用 0.2.0 / V13；远程混合检索补充的实际启用、索引与验收状态见 [补充交付](handoffs/2026-09-10-search-hybrid-formal-supplement.md)。开关、配置完整和索引可用是不同状态，不能只凭开关判断成功。
 
-`GET /api/resume-search/status` 保留既有本地索引状态，新增 `hybrid` 与 `vector_maintenance`。`hybrid.model` 为远程开关/配置布尔值；`hybrid.vector` 包含 available、loaded、current、generation、chunks、vectors、dimensions、memory_mapped；`hybrid.worker` 包含 ready、active、queued、max_queue 和 query_budget_ms。`vector_maintenance` 包含 enabled、running、state、last_success、脱敏计数和稳定错误码。状态不含网关、密钥、数据库路径或候选人正文，配置布尔值不是最近请求成功率。
+`GET /api/resume-search/status` 保留既有本地索引状态，新增 `hybrid` 与 `vector_maintenance`。`hybrid.model` 为远程开关/配置布尔值；`hybrid.vector` 包含 available、loaded、current、generation、chunks、vectors、dimensions、memory_mapped；`hybrid.worker` 包含 ready、active、queued、max_queue 和 query_budget_ms。`vector_maintenance` 包含 enabled、**schedule、boot_marker、ran_this_boot**、running、state、last_success、脱敏计数和稳定错误码；调度自 `0.4.0` 起为「每个开机周期执行一次」，不再返回 `interval_ms`（`SEARCH_VECTOR_MAINTENANCE_INTERVAL_MS` 不再参与调度）。状态不含网关、密钥、数据库路径或候选人正文，配置布尔值不是最近请求成功率。
 
 单常驻检索 worker，默认最多排队 8 项；新查询默认 18 秒总预算，满队列返回 `search_busy/429`，超时 `search_timeout/504`，取消 `search_cancelled/499`。数据或向量代际改变时游标返回 409，客户端保留输入并允许直接重试。前端仍是输入框加结果，所有条件摘要/降级/完整性信息均非阻塞。
 
@@ -18,7 +18,7 @@
 
 兼容原 `stage`、`include_archived`、`evidence_limit`、camelCase 年限/字段/职位/页大小别名。阶段为硬条件，`evidence_limit` 为1至5。查询理解默认最多30秒（`SEARCH_QUERY_TIMEOUT_MS`只可缩短），查询Embedding及Rerank每请求最多5秒；客户端48秒。原18秒总体和10秒p95目标未通过；正式启用保留这些预算并以明确降级交付，不把未达性能门禁伪装成完整混合成功。
 
-`SEARCH_REMOTE_ENABLED=false` 为默认值，远程理解/Embedding/Rerank 需要显式启用。补充前“正式数据外发和向量回填另行安排”是历史状态；截至 2026-09-11，正式 generation 已发布并启用，维护状态为 `ready`，共 `429,630` 文档和 `630,978` vectors。未配置或未 ready 的向量仍返回明确本地降级，不能声称语义检索可用；最新匿名质量中仍有正常降级和 p95 `14,821.83ms`，详见补充交接记录。
+`SEARCH_REMOTE_ENABLED=false` 为默认值，远程理解/Embedding/Rerank 需要显式启用。补充前“正式数据外发和向量回填另行安排”是历史状态；2026-09-17 第十三轮增量维护改造后，正式 generation 为 `generation-2dfa743f-c1b4-4e41-8d9f-3d61c963e78a`，维护状态为 `ready`，共 `429,630` 文档和 `630,978` vectors。未配置或未 ready 的向量仍返回明确本地降级，不能声称语义检索可用；最新匿名质量中仍有正常降级和 p95 `14,821.83ms`，详见补充交接记录。
 
 ## 使用边界
 

@@ -29,21 +29,27 @@ const LABELS = {
 }
 // Only direct authored fields can establish ability. JSON snapshots and relation
 // descriptions never enter this projection, even when the legacy FTS matches them.
-const DOCS = `WITH self_docs AS (
-  SELECT d.document_id, d.row_id, c.id candidate_id, 'candidate' source_type, c.id source_id,
+const SELF_DOCS_BRANCH_CANDIDATE = `SELECT d.document_id, d.row_id, c.id candidate_id, 'candidate' source_type, c.id source_id,
     'candidate' section_type, '候选人主档' title,
     coalesce(c.current_title,'') || char(10) || coalesce(c.self_summary,'') || char(10) ||
     CASE WHEN json_valid(c.tags) AND json_type(c.tags)='array' THEN coalesce((SELECT group_concat(value,char(10)) FROM json_each(c.tags) WHERE type='text'),'') ELSE '' END content
-  FROM candidate_resume_documents d JOIN candidates c ON d.source_type='candidate' AND d.candidate_id=c.id
-  UNION ALL
-  SELECT d.document_id,d.row_id,s.candidate_id,'profile_section',s.id,s.section_type,coalesce(s.title,''),coalesce(s.content,'')
+  FROM candidate_resume_documents d JOIN candidates c ON d.source_type='candidate' AND d.candidate_id=c.id`
+const SELF_DOCS_BRANCH_SECTION = `SELECT d.document_id,d.row_id,s.candidate_id,'profile_section',s.id,s.section_type,coalesce(s.title,''),coalesce(s.content,'')
   FROM candidate_resume_documents d JOIN candidate_profile_sections s ON d.source_type='profile_section' AND d.source_id=s.id
-  WHERE s.archived_at IS NULL AND s.section_type IN ('education','education_experience','experience','work_experience','work','project','project_experience','internship','skill','skills')
-  UNION ALL
-  SELECT d.document_id,d.row_id,a.candidate_id,'attachment',a.id,'attachment',a.original_filename,a.extracted_text
+  WHERE s.archived_at IS NULL AND s.section_type IN ('education','education_experience','experience','work_experience','work','project','project_experience','internship','skill','skills')`
+const SELF_DOCS_BRANCH_ATTACHMENT = `SELECT d.document_id,d.row_id,a.candidate_id,'attachment',a.id,'attachment',a.original_filename,a.extracted_text
   FROM candidate_resume_documents d JOIN candidate_attachments a ON d.source_type='attachment' AND d.source_id=a.id
-  WHERE a.parse_status='parsed' AND a.attachment_type='resume'
-)`
+  WHERE a.parse_status='parsed' AND a.attachment_type='resume'`
+const SELF_DOCS_BRANCHES = [
+  SELF_DOCS_BRANCH_CANDIDATE,
+  SELF_DOCS_BRANCH_SECTION,
+  SELF_DOCS_BRANCH_ATTACHMENT
+]
+const SELF_DOCS_SEARCH_SOURCES = [
+  'candidates',
+  'candidate_profile_sections',
+  'candidate_attachments'
+]
 const EQUIVALENTS = new Map([
   ['unity', ['Unity', 'Unity3D', 'Unity 3D']],
   ['unreal', ['Unreal', 'UE4', 'UE5', '虚幻引擎']],
@@ -61,6 +67,137 @@ function leaves(nodes, output = []) {
     else if (n.kind === 'term') output.push(n)
   }
   return output
+}
+function planNodes(plan) {
+  return [
+    ...(plan?.must ?? []),
+    ...(plan?.should ?? []),
+    ...(plan?.must_not ?? [])
+  ]
+}
+function hasSourceFilter(node) {
+  if (!node || typeof node !== 'object') return false
+  if (node.kind === 'filter') return node.field === 'source'
+  if (node.kind === 'not') return hasSourceFilter(node.child)
+  return (node.children ?? []).some(hasSourceFilter)
+}
+function selfDocsCte(predicate, parameters) {
+  // The predicate is repeated per UNION branch, so its bindings are too.
+  const body = SELF_DOCS_BRANCHES.map(
+    (branch) =>
+      `${branch}${branch.includes(' WHERE ') ? ' AND ' : ' WHERE '}${predicate}`
+  ).join(' UNION ALL ')
+  return {
+    docs: `WITH self_docs AS (${body})`,
+    body,
+    parameters: SELF_DOCS_BRANCHES.flatMap(() => parameters),
+    narrowed: true
+  }
+}
+const SELF_DOCS_UNSCOPED = {
+  docs: `WITH self_docs AS (${SELF_DOCS_BRANCHES.join(' UNION ALL ')})`,
+  body: SELF_DOCS_BRANCHES.join(' UNION ALL '),
+  parameters: [],
+  narrowed: false
+}
+/**
+ * SQLite materialises `self_docs` for every statement that references it, so an
+ * unbounded CTE costs one full read of the resume corpus per statement — tens of
+ * seconds once the corpus reaches hundreds of thousands of documents, multiplied
+ * by every statement a single search issues. Narrowing the CTE to the candidates
+ * that can still match keeps the exact same rows while making the materialisation
+ * proportional to the hit set instead of the whole database.
+ *
+ * Two narrowings are proven equivalent to the surrounding predicates:
+ *   - an explicit candidate list is already part of the caller's WHERE clause;
+ *   - every term node carries its own inverted-index prefilter, so the union of
+ *     those index hits is a superset of the rows that term predicate can accept.
+ * A `source` filter reads `self_docs` without such a prefilter, so it disables
+ * term narrowing. Parameters are ordered for the CTE, before the caller's own.
+ */
+function selfDocsScope(plan, options = {}, candidateIds = null) {
+  // A request that already materialised its narrowed projection reuses it, so the
+  // corpus is read once for the whole search instead of once per statement.
+  if (options.selfDocsTable) {
+    const scoped = Array.isArray(candidateIds) ? candidateIds : []
+    return {
+      docs: scoped.length
+        ? `WITH self_docs AS (SELECT * FROM ${options.selfDocsTable} WHERE candidate_id IN (${scoped.map(() => '?').join(',')}))`
+        : `WITH self_docs AS (SELECT * FROM ${options.selfDocsTable})`,
+      body: null,
+      parameters: [...scoped],
+      narrowed: true
+    }
+  }
+  const ids = Array.isArray(candidateIds) ? candidateIds : []
+  if (ids.length)
+    return selfDocsCte(
+      `d.candidate_id IN (${ids.map(() => '?').join(',')})`,
+      [...ids]
+    )
+  const nodes = leaves(planNodes(plan))
+  if (!nodes.length || planNodes(plan).some(hasSourceFilter))
+    return SELF_DOCS_UNSCOPED
+  const parameters = []
+  const parts = []
+  for (const node of nodes)
+    for (const term of terms(node)) {
+      if (/\p{Script=Han}/u.test(term)) {
+        // Without the business gram index the matching predicate is a plain
+        // substring scan, so there is no index hit set to narrow with.
+        if (!options.gramIndexReady) return SELF_DOCS_UNSCOPED
+        parameters.push(
+          `search_text : (${businessSearchTermExpression(term)})`,
+          ...SELF_DOCS_SEARCH_SOURCES
+        )
+        parts.push(
+          `SELECT sd.candidate_id AS candidate_id FROM search_documents_v2_fts
+           JOIN search_documents_v2 sd ON sd.row_id = search_documents_v2_fts.rowid
+           WHERE search_documents_v2_fts MATCH ?
+             AND sd.source_table IN (${SELF_DOCS_SEARCH_SOURCES.map(() => '?').join(',')})`
+        )
+      } else {
+        parameters.push(quoteFts(term))
+        parts.push(
+          `SELECT d2.candidate_id AS candidate_id FROM candidate_resume_fts
+           JOIN candidate_resume_documents d2 ON d2.row_id = candidate_resume_fts.rowid
+           WHERE candidate_resume_fts MATCH ?`
+        )
+      }
+    }
+  if (!parts.length) return SELF_DOCS_UNSCOPED
+  return selfDocsCte(
+    `d.candidate_id IN (${parts.join(' UNION ')})`,
+    parameters
+  )
+}
+// One request at a time reaches a given connection, so a short-lived temp table
+// per connection is enough. Tables are dropped when the next request materialises
+// its own scope, and otherwise when the worker closes its connection.
+const SELF_DOCS_TABLES = new WeakMap()
+let selfDocsTableSequence = 0
+function materialiseSelfDocsScope(db, plan, options, candidateIds) {
+  const scope = selfDocsScope(plan, options, candidateIds)
+  if (!scope.narrowed || !scope.body) return scope
+  try {
+    for (const stale of SELF_DOCS_TABLES.get(db) ?? [])
+      db.exec(`DROP TABLE IF EXISTS temp.${stale}`)
+    const name = `self_docs_scope_${(selfDocsTableSequence += 1)}`
+    db.prepare(`CREATE TEMP TABLE ${name} AS ${scope.body}`).run(...scope.parameters)
+    db.exec(`CREATE INDEX temp.${name}_candidate ON ${name}(candidate_id)`)
+    SELF_DOCS_TABLES.set(db, [name])
+    return {
+      docs: `WITH self_docs AS (SELECT * FROM temp.${name})`,
+      body: null,
+      parameters: [],
+      narrowed: true,
+      table: `temp.${name}`
+    }
+  } catch {
+    // Temporary tables are unavailable (for example an in-memory test database),
+    // so fall back to the inline projection.
+    return scope
+  }
 }
 const quoteFts = (text) => `"${text.replace(/"/g, '""')}"`
 function textPredicate(node, params, options = {}) {
@@ -185,8 +322,8 @@ const FIELD_LABELS = {
   talent_pool_id: '人才库',
   source: '证据来源',
   education: '学历',
-  current_title: '当前任职',
-  current_company: '当前公司',
+  current_title: '最近职位',
+  current_company: '最近公司',
   stage: '候选人阶段'
 }
 function label(n) {
@@ -286,11 +423,12 @@ function evidenceFor(db, ids, plan, options) {
     }
     const params = []
     const predicate = textPredicate(node, params, options)
+    const scope = selfDocsScope(plan, options, ids)
     const rows = db
       .prepare(
-        `${DOCS}, matched_docs AS (SELECT d.*,row_number() OVER(PARTITION BY candidate_id ORDER BY document_id) evidence_rank FROM self_docs d WHERE ${predicate} AND candidate_id IN (${ids.map(() => '?').join(',')})) SELECT * FROM matched_docs WHERE evidence_rank<=5 ORDER BY document_id`
+        `${scope.docs}, matched_docs AS (SELECT d.*,row_number() OVER(PARTITION BY candidate_id ORDER BY document_id) evidence_rank FROM self_docs d WHERE ${predicate} AND candidate_id IN (${ids.map(() => '?').join(',')})) SELECT * FROM matched_docs WHERE evidence_rank<=5 ORDER BY document_id`
       )
-      .all(...params, ...ids)
+      .all(...scope.parameters, ...params, ...ids)
     for (const row of rows) {
       const list = result.get(row.candidate_id)
       if (
@@ -441,6 +579,125 @@ function fuse(lexical, vector) {
   )
 }
 
+// 未解析的自由文本（规则与模型都没能映射成结构化条件）以前只作为「未执行条件」
+// 返回全库，用户看到的是与关键词无关的整库列表。这里把这类文本按本地关键词召回
+// 执行：每个条件取「能命中的最长前缀」，多个条件按交集收敛，无命中即空结果。
+function ambiguousKeywords(plan) {
+  const seen = new Set()
+  const keywords = []
+  for (const item of plan.unresolved ?? []) {
+    if (item?.reason !== 'ambiguous' || typeof item.text !== 'string') continue
+    const text = item.text.trim()
+    if (!text || text.length > 80 || seen.has(text)) continue
+    seen.add(text)
+    keywords.push(text)
+  }
+  return keywords
+}
+function keywordProbes(text) {
+  const probes = [text]
+  if (/^[\p{Script=Han}]+$/u.test(text) && text.length > 2)
+    for (let length = text.length - 1; length >= 2; length -= 1) probes.push(text.slice(0, length))
+  return probes
+}
+// Unresolved free text has no structured predicate, so its literal scan is bounded
+// by the same inverted index the structured terms use. The index hit set is a
+// superset of the literal matches, so the `instr` check below still decides them.
+function keywordSelfDocsScope(probe, options = {}) {
+  try {
+    if (/\p{Script=Han}/u.test(probe)) {
+      if (!options.gramIndexReady) return SELF_DOCS_UNSCOPED
+      return selfDocsCte(
+        `d.candidate_id IN (SELECT sd.candidate_id FROM search_documents_v2_fts
+           JOIN search_documents_v2 sd ON sd.row_id = search_documents_v2_fts.rowid
+           WHERE search_documents_v2_fts MATCH ?
+             AND sd.source_table IN (${SELF_DOCS_SEARCH_SOURCES.map(() => '?').join(',')}))`,
+        [
+          `search_text : (${businessSearchTermExpression(probe)})`,
+          ...SELF_DOCS_SEARCH_SOURCES
+        ]
+      )
+    }
+    return selfDocsCte(
+      `d.row_id IN (SELECT rowid FROM candidate_resume_fts WHERE candidate_resume_fts MATCH ?)`,
+      [quoteFts(probe)]
+    )
+  } catch {
+    return SELF_DOCS_UNSCOPED
+  }
+}
+function recallKeywordCandidates(db, keywords, options = {}) {
+  const perCondition = keywords.map(() => new Map())
+  let index = -1
+  for (const text of keywords) {
+    index += 1
+    for (const probe of keywordProbes(text)) {
+      const scope = keywordSelfDocsScope(probe, options)
+      const rows = db
+        .prepare(
+          `${scope.docs} SELECT d.candidate_id candidate_id, coalesce(d.title,'') title, coalesce(d.content,'') content
+           FROM self_docs d
+           WHERE instr(lower(coalesce(d.content,'') || char(10) || coalesce(d.title,'')), lower(?)) > 0
+           LIMIT 2000`
+        )
+        .all(...scope.parameters, probe)
+      if (!rows.length) continue
+      // 最长命中前缀一旦成立，更短的同义前缀只会带来噪声（产品设计 不该匹配产品经理）。
+      for (const row of rows) {
+        const target = row.content || row.title
+        const at = target.toLowerCase().indexOf(probe.toLowerCase())
+        perCondition[index].set(row.candidate_id, {
+          probe,
+          title: row.title,
+          content: target,
+          at: at < 0 ? 0 : at
+        })
+      }
+      break
+    }
+  }
+  if (perCondition.some(map => map.size === 0)) return new Map()
+  const result = new Map()
+  for (const [candidateId, hit] of perCondition[0]) {
+    if (!perCondition.every(map => map.has(candidateId))) continue
+    const hits = perCondition.map(map => map.get(candidateId))
+    result.set(candidateId, {
+      score: hits.reduce((sum, item) => sum + item.probe.length, 0),
+      hits
+    })
+  }
+  return result
+}
+function keywordEvidence(candidateId, recall) {
+  return recall.hits.map((hit, index) => {
+    const start = Math.max(0, hit.at - 40)
+    const end = Math.min(hit.content.length, hit.at + hit.probe.length + 60)
+    return {
+      document_id: `keyword:${candidateId}:${index}`,
+      candidate_id: candidateId,
+      entity_type: 'candidate',
+      entity_id: candidateId,
+      source_table: 'candidates',
+      source_row_id: candidateId,
+      field_path: 'keyword',
+      title: hit.title || '候选人主档',
+      source_label: hit.title ? '履历区块' : '候选人主档',
+      ownership: 'self',
+      match_kind: 'keyword',
+      score: 0,
+      matched_terms: [hit.probe],
+      matched_actual_terms: [hit.probe],
+      snippet: {
+        text: hit.content.slice(start, end),
+        highlights: [],
+        matches: [],
+        prefix_ellipsis: start > 0,
+        suffix_ellipsis: end < hit.content.length
+      }
+    }
+  })
+}
+
 async function recallValidatedVectors(db, { plan, options, vectorStore, vector, qualification, signal, check }) {
   const started = performance.now()
   const sourceBudget = 12800
@@ -460,7 +717,8 @@ async function recallValidatedVectors(db, { plan, options, vectorStore, vector, 
       for (const id of unknown) eligibility.set(id, false)
       if (allowed.length) {
         const where = compileCandidateWhere(plan, { ...options, candidateIds: allowed })
-        for (const row of db.prepare(`${DOCS} SELECT c.id FROM candidates c ${where.where}`).all(...where.parameters)) eligibility.set(row.id, true)
+        const scope = selfDocsScope(plan, options, allowed)
+        for (const row of db.prepare(`${scope.docs} SELECT c.id FROM candidates c ${where.where}`).all(...scope.parameters, ...where.parameters)) eligibility.set(row.id, true)
       }
       const eligibleFacts = batch.filter(row => eligibility.get(row.candidate_id))
       if (!eligibleFacts.length) continue
@@ -554,11 +812,13 @@ export async function hybridSearch(
     vectorEvidence: snapshot?.vectorEvidence ?? []
   }
   const compiled = compileCandidateWhere(plan, options)
+  const scope = materialiseSelfDocsScope(db, plan, options, candidateIds)
+  if (scope.table) options.selfDocsTable = scope.table
   // Qualification is evaluated over every candidate before the recall windows.
   const total = Number(
     db
-      .prepare(`${DOCS} SELECT count(*) n FROM candidates c ${compiled.where}`)
-      .get(...compiled.parameters).n
+      .prepare(`${scope.docs} SELECT count(*) n FROM candidates c ${compiled.where}`)
+      .get(...scope.parameters, ...compiled.parameters).n
   )
   const degradation = []
   let head = snapshot?.head ?? []
@@ -581,9 +841,10 @@ export async function hybridSearch(
         : ''
     const ranked = db
       .prepare(
-        `${DOCS}${lexicalCte} SELECT c.id candidate_id FROM candidates c ${compiled.where} ORDER BY ${rankTerms.length ? `(${rankTerms.join('+')}) DESC,` : ''}${lexicalCte ? 'coalesce((SELECT min(lexical_rank) FROM lexical_scores ls WHERE ls.candidate_id=c.id),0),' : ''} c.id LIMIT 200`
+        `${scope.docs}${lexicalCte} SELECT c.id candidate_id FROM candidates c ${compiled.where} ORDER BY ${rankTerms.length ? `(${rankTerms.join('+')}) DESC,` : ''}${lexicalCte ? 'coalesce((SELECT min(lexical_rank) FROM lexical_scores ls WHERE ls.candidate_id=c.id),0),' : ''} c.id LIMIT 200`
       )
       .all(
+        ...scope.parameters,
         ...(lexicalCte
           ? [
               `search_text : (${recallTerms.map(businessSearchTermExpression).join(' OR ')})`
@@ -613,9 +874,9 @@ export async function hybridSearch(
         // condition/provenance validation within explicit work budgets.
         const qualification = db
           .prepare(
-            `${DOCS} SELECT c.id FROM candidates c ${compiled.where} ORDER BY c.id LIMIT 10001`
+            `${scope.docs} SELECT c.id FROM candidates c ${compiled.where} ORDER BY c.id LIMIT 10001`
           )
-          .all(...compiled.parameters)
+          .all(...scope.parameters, ...compiled.parameters)
         if (typeof vectorStore.searchQualifiedFacts === 'function') {
           const recalled = await recallValidatedVectors(db, { plan, options, vectorStore, vector, qualification, signal, check })
           vectorRows = recalled.rows
@@ -637,12 +898,13 @@ export async function hybridSearch(
               ...options,
               candidateIds: allowedVectorIds
             })
+            const vectorScope = selfDocsScope(plan, options, allowedVectorIds)
             const qualified = new Set(
               allowedVectorIds.length ? db
                 .prepare(
-                  `${DOCS} SELECT c.id FROM candidates c ${vectorFilter.where}`
+                  `${vectorScope.docs} SELECT c.id FROM candidates c ${vectorFilter.where}`
                 )
-                .all(...vectorFilter.parameters)
+                .all(...vectorScope.parameters, ...vectorFilter.parameters)
                 .map((r) => r.id) : []
             )
             const liveDocs = new Map(
@@ -778,21 +1040,33 @@ export async function hybridSearch(
     }
   }
   const offset = (page - 1) * pageSize
+  // D1：未解析的自由文本按本地关键词执行；无真实命中时返回空结果，不做整库补齐。
+  const keywords = ambiguousKeywords(plan)
+  const recall = keywords.length ? recallKeywordCandidates(db, keywords, options) : null
+  if (recall) {
+    const scoped = head.filter((id) => recall.has(id))
+    scoped.sort((a, b) => recall.get(b).score - recall.get(a).score || a.localeCompare(b))
+    head = scoped
+  }
   const selected = head.slice(offset, offset + pageSize)
-  if (selected.length < pageSize) {
+  const padded = []
+  if (selected.length < pageSize && head.length > 0) {
     const tailWhere = `${compiled.where || 'WHERE 1'}${head.length ? ` AND c.id NOT IN (${head.map(() => '?').join(',')})` : ''}`
     const tail = db
       .prepare(
-        `${DOCS} SELECT c.id FROM candidates c ${tailWhere} ORDER BY c.id LIMIT ? OFFSET ?`
+        `${scope.docs} SELECT c.id FROM candidates c ${tailWhere} ORDER BY c.id LIMIT ? OFFSET ?`
       )
       .all(
+        ...scope.parameters,
         ...compiled.parameters,
         ...head,
         pageSize - selected.length,
         Math.max(0, offset - head.length)
       )
-    selected.push(...tail.map((r) => r.id))
+    padded.push(...tail.map((r) => r.id))
+    selected.push(...padded)
   }
+  const padding = new Set(padded)
   const rows = selected.length
     ? db
         .prepare(
@@ -802,21 +1076,28 @@ export async function hybridSearch(
     : []
   const ev = evidenceFor(db, selected, plan, options)
   const byId = new Map(rows.map((r) => [r.candidate_id, r]))
-  const items = selected.map((id, i) => {
-    const evidence = (ev.get(id) ?? []).slice(0, evidenceLimit)
+  const items = selected.map((id) => {
+    const recallHit = recall?.get(id)
+    const matched = (ev.get(id) ?? []).slice(0, evidenceLimit)
+    const evidence = recallHit ? [...keywordEvidence(id, recallHit), ...matched].slice(0, evidenceLimit) : matched
+    const isPadding = padding.has(id)
     return {
       ...byId.get(id),
-      score: 1 / ((page - 1) * pageSize + i + 1),
-      matched_fields: [...new Set(evidence.map((e) => e.source_label))],
+      score: null,
+      matched_fields: [...new Set(evidence.filter((e) => e.match_kind !== 'keyword').map((e) => e.source_label))],
       matched_terms: [...new Set(evidence.flatMap((e) => e.matched_terms))],
       evidence,
       snippets: evidence.map((e) => e.snippet.text),
-      reasons: evidence.some((e) => e.ownership === 'self')
-        ? ['本人履历证据']
-        : evidence.length
-          ? ['关联关系命中，不代表本人能力']
-          : ['满足已执行的结构化条件'],
-      condition_status: plan.unresolved.length ? 'partial' : 'matched'
+      reasons: isPadding
+        ? ['仅用于补足分页，不代表命中']
+        : recallHit
+          ? ['本地关键词命中']
+          : evidence.some((e) => e.ownership === 'self')
+            ? ['本人履历证据']
+            : evidence.length
+              ? ['关联关系命中，不代表本人能力']
+              : ['满足已执行的结构化条件'],
+      condition_status: isPadding ? 'padding' : plan.unresolved.length ? 'partial' : 'matched'
     }
   })
   const complete = snapshot?.completeness ?? {
@@ -826,15 +1107,17 @@ export async function hybridSearch(
     ...(vectorCompleteness ? { vector: vectorCompleteness } : {})
   }
   const degraded = snapshot?.degradation ?? degradation
+  // 关键词范围下的真实命中数（补齐项只保证分页长度，不计入总数）。
+  const effectiveTotal = recall ? head.length : total
   check()
   return {
     items,
     pagination: {
       page,
       page_size: pageSize,
-      total: includeTotal ? total : null,
-      total_pages: includeTotal ? Math.ceil(total / pageSize) : null,
-      has_more: page * pageSize < total,
+      total: includeTotal ? effectiveTotal : null,
+      total_pages: includeTotal ? Math.ceil(effectiveTotal / pageSize) : null,
+      has_more: page * pageSize < effectiveTotal,
       next_cursor: null
     },
     condition_summary: conditionSummary(plan),

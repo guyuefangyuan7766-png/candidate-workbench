@@ -2,6 +2,7 @@ import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
+  BookOpen,
   Bot,
   Check,
   ChevronDown,
@@ -9,6 +10,7 @@ import {
   ChevronRight,
   Download,
   FileSearch,
+  FileText,
   History,
   LoaderCircle,
   LockKeyhole,
@@ -24,6 +26,7 @@ import {
   ShieldCheck,
   Sparkles,
   Trash2,
+  UserRound,
   X,
 } from "lucide-react";
 import { agentSessionApi, agentTaskApi, candidateApi, getResumeSearchStatus, getResumeSearchOptions, searchCandidateResumesWithPlan, ApiError } from "../api";
@@ -49,9 +52,9 @@ import type {
   Position,
   TalentPool,
 } from "../types";
+import { TwAvatar } from "../views/TwAvatar";
 import { AssistantMarkdown } from "./AssistantMarkdown";
 import { AttachmentBatchWorkflow } from "./AttachmentBatchWorkflow";
-import "../search.css";
 
 const ACTIVE_SESSION_STORAGE_KEY = "candidate-workbench.agent.active-session-id.v1";
 const HISTORY_OPEN_STORAGE_KEY = "candidate-workbench.agent.history-open.v1";
@@ -108,12 +111,14 @@ interface AssistantDrawerProps {
   positions?: Position[];
   talentPools?: TalentPool[];
   onClose: () => void;
-  onOpenCandidateId?: (candidateId: string) => void;
+  onOpenCandidateId?: (candidateId: string, tab?: "profile" | "resume") => void;
   onOpenCandidate?: (candidate: Candidate) => void;
   onCandidatesUpdated?: () => void;
   /** Render the assistant as an app page instead of a modal drawer. */
   presentation?: "drawer" | "page";
   initialTab?: AssistantTab;
+  /** 第十二轮：工具页三页互切时同步表面状态与 URL（导航表面互斥）。 */
+  onToolChange?: (tool: "assistant" | "resume-search" | "attachment-parser") => void;
 }
 
 type AssistantTab = "chat" | "resume-search" | "attachment";
@@ -192,7 +197,7 @@ function HighlightedSnippet({ evidence }: { evidence: ResumeSearchEvidence }) {
     cursor = range.end;
   }
   if (cursor < snippet.text.length) content.push(snippet.text.slice(cursor));
-  return <span className="resume-evidence-snippet">{snippet.truncated_before ? "…" : ""}{content}{snippet.truncated_after ? "…" : ""}</span>;
+  return <span className="tw-evidence-snippet">{snippet.truncated_before ? "…" : ""}{content}{snippet.truncated_after ? "…" : ""}</span>;
 }
 
 function evidenceActualTerms(evidence: ResumeSearchEvidence) {
@@ -216,8 +221,42 @@ function searchSourceLabel(evidence: ResumeSearchEvidence) {
   return evidence.source_label || SEARCH_SOURCE_LABELS[evidence.source_table] || SEARCH_SOURCE_LABELS[evidence.entity_type] || "来源记录";
 }
 
+function visiblePages(page: number, pageCount: number): Array<number | "gap"> {
+  if (pageCount <= 7) return Array.from({ length: pageCount }, (_, index) => index + 1);
+  const pages = new Set<number>([1, pageCount, page, page - 1, page + 1]);
+  const sorted = [...pages].filter((value) => value >= 1 && value <= pageCount).sort((left, right) => left - right);
+  const result: Array<number | "gap"> = [];
+  let previous = 0;
+  for (const value of sorted) {
+    if (previous && value - previous > 1) result.push("gap");
+    result.push(value);
+    previous = value;
+  }
+  return result;
+}
+
+function sessionTimeLabel(value: string | null | undefined) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const startOfDay = (input: Date) => new Date(input.getFullYear(), input.getMonth(), input.getDate()).getTime();
+  const now = new Date();
+  const dayDiff = Math.round((startOfDay(now) - startOfDay(date)) / 86_400_000);
+  const time = new Intl.DateTimeFormat("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false }).format(date);
+  if (dayDiff <= 0) return `今天 ${time}`;
+  if (dayDiff === 1) return `昨天 ${time}`;
+  return `${new Intl.DateTimeFormat("zh-CN", { month: "long", day: "numeric" }).format(date)} ${time}`;
+}
+
+function searchYearsText(person?: Candidate) {
+  const display = person?.years_experience_display?.trim() ?? "";
+  if (display) return /^d+(.d+)?$/.test(display) ? display + " 年" : display;
+  if (person?.years_experience === null || person?.years_experience === undefined) return "未填写";
+  return person.years_experience + " 年";
+}
+
 function searchFieldLabel(field: string) {
-  const labels: Record<string, string> = { title: "标题", content: "正文", name: "姓名", current_title: "当前职位", current_company: "当前公司", location: "所在地", years_experience: "工作年限", skills: "专业技能", work_experience: "工作经历", project_experience: "项目经历" };
+  const labels: Record<string, string> = { title: "标题", content: "正文", name: "姓名", current_title: "最近职位", current_company: "最近公司", location: "所在地", years_experience: "工作年限", skills: "专业技能", work_experience: "工作经历", project_experience: "项目经历" };
   const segments = field.split(/[.\[\]]/).filter(Boolean);
   return labels[field] || SEARCH_SOURCE_LABELS[field] || segments.map((segment) => labels[segment] || SEARCH_SOURCE_LABELS[segment]).find(Boolean) || "履历字段";
 }
@@ -227,21 +266,21 @@ function searchReasonLabel(reason: string) {
 }
 
 function SearchEvidence({ evidence }: { evidence: ResumeSearchEvidence }) {
-  const matchLabels: Record<string, string> = { exact: "精确命中", phrase: "精确短语", concept: "同义表达", semantic: "语义相关", expanded: "同义表达", unknown: "待核实" };
+  const matchLabels: Record<string, string> = { exact: "精确命中", phrase: "精确短语", concept: "同义表达", semantic: "语义相关", expanded: "同义表达", keyword: "关键词命中", unknown: "待核实" };
   const terms = evidenceActualTerms(evidence);
   const relatedKinds = ["positions", "position", "talent_pools", "talent_pool", "candidate_position_links", "candidate_talent_pool_links"];
   const inferredRelated = evidence.ownership ?? (relatedKinds.includes(evidence.source_table) || relatedKinds.includes(evidence.entity_type) ? "related" : undefined);
-  return <div className="resume-evidence">
-    <span className="resume-evidence-source"><b>{searchSourceLabel(evidence)}</b>
-      {inferredRelated === "related" && <span className="resume-evidence-ownership">关联信息，不代表本人能力</span>}
+  return <div className="tw-evidence-card">
+    <span className="tw-evidence-source"><b>{searchSourceLabel(evidence)}</b>
+      {inferredRelated === "related" && <span className="tw-evidence-ownership">关联信息，不代表本人能力</span>}
       {inferredRelated === "self" && <span>本人经历</span>}
       {evidence.match_kind && matchLabels[evidence.match_kind] && <span>{matchLabels[evidence.match_kind]}</span>}
     </span>
     <HighlightedSnippet evidence={evidence} />
-    <details className="resume-evidence-detail">
+    <details className="tw-evidence-detail">
       <summary>展开证据片段</summary>
-      <div className="resume-evidence-expanded"><HighlightedSnippet evidence={evidence} />
-        {terms.length > 0 && <span className="resume-evidence-terms" aria-label="实际命中关键词">{terms.map((term) => <mark key={term}>{term}</mark>)}</span>}
+      <div className="tw-evidence-expanded"><HighlightedSnippet evidence={evidence} />
+        {terms.length > 0 && <span className="tw-evidence-terms" aria-label="实际命中关键词">{terms.map((term) => <mark key={term}>{term}</mark>)}</span>}
         {(evidence.snippet.truncated_before || evidence.snippet.truncated_after) && <small>此处为命中片段，可打开候选人查看来源记录。</small>}
       </div>
     </details>
@@ -510,6 +549,39 @@ interface TaskResultPreviewProps {
   onRetryAnswer: (task: AgentTask) => void;
 }
 
+function TaskResultCandidates({ task, candidates, canOpen, openingCandidateId, onOpen }: {
+  task: AgentTask;
+  candidates: Candidate[];
+  canOpen: boolean;
+  openingCandidateId: string | null;
+  onOpen: (item: ResumeSearchItem, tab: "profile" | "resume") => void;
+}) {
+  const items = Array.isArray(task.result?.items)
+    ? task.result.items.filter((item) => item && item.candidate_id && item.name)
+    : [];
+  if (!items.length) return null;
+  return (
+    <div className="tw-chat-cards" aria-label="回答涉及的候选人">
+      {items.map((item) => {
+        const person = candidates.find((candidate) => candidate.id === item.candidate_id);
+        return (
+          <article className="tw-chat-card" key={item.candidate_id}>
+            <TwAvatar size={56} candidate={{ id: item.candidate_id, name: item.name, has_photo: person?.has_photo ?? false, updated_at: person?.updated_at ?? "" }} />
+            <div className="tw-chat-card-body">
+              <strong>{item.name}</strong>
+              <span>{[item.current_title, item.current_company].filter(Boolean).join(" · ") || "最近职位未填写"}</span>
+            </div>
+            <div className="tw-chat-card-actions">
+              <button className="tw-btn tw-btn-sm" type="button" disabled={!canOpen || openingCandidateId === item.candidate_id} onClick={() => onOpen(item, "profile")}><FileText size={14} />档案</button>
+              <button className="tw-btn tw-btn-sm" type="button" disabled={!canOpen || openingCandidateId === item.candidate_id} onClick={() => onOpen(item, "resume")}><BookOpen size={14} />履历</button>
+            </div>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
 function TaskResultPreview({ task, mutationPending, onCancel, onRetryAnswer }: TaskResultPreviewProps) {
   const result = task.result;
   const rows = taskResultRows(result);
@@ -606,16 +678,16 @@ function TaskResultPreview({ task, mutationPending, onCancel, onRetryAnswer }: T
           })}
         </div>}
         {resultEvidence.length > 0 && <div className="assistant-task-result-evidence">
-          {resultEvidence.map((evidence) => <div className="resume-evidence" key={`${evidence.document_id}:${evidence.field_path}:${evidence.snippet.start}:${evidence.snippet.end}`}>
-            <span className="resume-evidence-source"><b>{evidence.source_table}</b><code>{evidence.field_path}</code></span>
-            {evidenceActualTerms(evidence).length > 0 && <span className="resume-evidence-terms" aria-label="实际命中关键词">{evidenceActualTerms(evidence).map((term) => <mark key={term}>{term}</mark>)}</span>}
+          {resultEvidence.map((evidence) => <div className="tw-evidence-card" key={`${evidence.document_id}:${evidence.field_path}:${evidence.snippet.start}:${evidence.snippet.end}`}>
+            <span className="tw-evidence-source"><b>{evidence.source_table}</b><code>{evidence.field_path}</code></span>
+            {evidenceActualTerms(evidence).length > 0 && <span className="tw-evidence-terms" aria-label="实际命中关键词">{evidenceActualTerms(evidence).map((term) => <mark key={term}>{term}</mark>)}</span>}
             <HighlightedSnippet evidence={evidence} />
           </div>)}
         </div>}
         {more && <small className="assistant-task-result-more">结果已限制在当前批次，可继续分页查看。</small>}
         {(active || canRetry) && <div className="assistant-task-result-actions">
-          {active && <button className="button secondary-button" type="button" onClick={() => onCancel(task)} disabled={mutationPending}><X size={13} />取消任务</button>}
-          {!active && canRetry && <button className="button secondary-button" type="button" onClick={() => onRetryAnswer(task)} disabled={mutationPending}><RefreshCw size={13} />继续生成结果</button>}
+          {active && <button className="tw-btn tw-btn-sm" type="button" onClick={() => onCancel(task)} disabled={mutationPending}><X size={13} />取消任务</button>}
+          {!active && canRetry && <button className="tw-btn tw-btn-sm" type="button" onClick={() => onRetryAnswer(task)} disabled={mutationPending}><RefreshCw size={13} />继续生成结果</button>}
         </div>}
         {!active && !task.error && !retained && task.status === "cancelled" && <span className="assistant-task-result-more">没有产生可展示的结果。</span>}
       </div>
@@ -635,8 +707,13 @@ export function AssistantDrawer({
   onCandidatesUpdated,
   presentation = "drawer",
   initialTab = "chat",
+  onToolChange,
 }: AssistantDrawerProps) {
   const [tab, setTab] = useState<AssistantTab>(initialTab);
+  const selectTab = (next: AssistantTab) => {
+    setTab(next);
+    onToolChange?.(next === "chat" ? "assistant" : next === "resume-search" ? "resume-search" : "attachment-parser");
+  };
   const [query, setQuery] = useState("");
   const [pending, setPending] = useState(false);
   const [pendingLabel, setPendingLabel] = useState("正在提交查询…");
@@ -650,7 +727,7 @@ export function AssistantDrawer({
   const [sessionPage, setSessionPage] = useState(1);
   const [sessionPending, setSessionPending] = useState(false);
   const [activeSessionId, setActiveSessionIdState] = useState<string | null>(() => readStoredSessionId());
-  const [historyOpen, setHistoryOpenState] = useState(() => readStoredHistoryOpen());
+  const [historyOpen, setHistoryOpenState] = useState(() => (presentation === "page" ? true : readStoredHistoryOpen()));
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<AgentSession | null>(null);
@@ -1455,10 +1532,10 @@ export function AssistantDrawer({
     }
   }
 
-  async function searchResumes(event?: FormEvent, requestedPage = 1, useSnapshot = false) {
+  async function searchResumes(event?: FormEvent, requestedPage = 1, useSnapshot = false, explicitQuery?: string) {
     event?.preventDefault();
     if (useSnapshot && resumeCriteriaChanged) return;
-    const value = (useSnapshot ? resumeSubmittedQuery : resumeQuery).trim();
+    const value = (explicitQuery ?? (useSnapshot ? resumeSubmittedQuery : resumeQuery)).trim();
     if (!value) return;
     const requestId = ++resumeRequest.current;
     resumeAbort.current?.abort();
@@ -1508,6 +1585,24 @@ export function AssistantDrawer({
     }
   }
 
+  function jumpToResumePage(target: number) {
+    const currentPage = resumePagination?.page ?? 1;
+    const totalPages = resumePagination?.total_pages ?? null;
+    if (target === currentPage || target < 1) return;
+    if (totalPages != null && target > totalPages) return;
+    if (resumePending || resumeCriteriaChanged) return;
+    const value = resumeSubmittedQuery.trim();
+    if (!value) return;
+    // A cached cursor keeps this page inside the frozen snapshot. Any other page is
+    // requested directly: walking every page in between issued one full search per
+    // page, which turned a single page jump into minutes once a search took seconds.
+    if (resumeCursors.current.has(target)) {
+      void searchResumes(undefined, target, true);
+      return;
+    }
+    void searchResumes(undefined, target, false, value);
+  }
+
   function markResumeCriteriaChanged() {
     resumeAbort.current?.abort();
     resumeRequest.current += 1;
@@ -1526,13 +1621,13 @@ export function AssistantDrawer({
     setResumeState("cancelled");
   }
 
-  async function openResult(item: ResumeSearchItem) {
+  async function openResult(item: ResumeSearchItem, tab: "profile" | "resume" = "profile") {
     if (openingCandidateId) return;
     setOpeningCandidateId(item.candidate_id);
     setResumeError("");
     try {
       if (onOpenCandidateId) {
-        onOpenCandidateId(item.candidate_id);
+        onOpenCandidateId(item.candidate_id, tab);
       } else if (onOpenCandidate) {
         onOpenCandidate(await candidateApi.get(item.candidate_id));
       }
@@ -1561,165 +1656,318 @@ export function AssistantDrawer({
     : null;
 
   const pagePresentation = presentation === "page";
+  const toolTitle = tab === "chat" ? "AI 助手" : tab === "resume-search" ? "履历检索" : "解析并更新候选人";
+  const toolSubtitle = tab === "chat"
+    ? "基于本地人才库的只读问答，回答只引用可核对的证据"
+    : "用自然语言描述你要找的人才";
+
+  const sessionColumn = configured ? (
+    <nav className="tw-tool-side" aria-label="历史会话">
+      <div className="tw-tool-side-head">
+        <h2>会话历史</h2>
+        <button className="tw-btn tw-btn-sm" type="button" onClick={() => void createSession()} disabled={sessionMutationPending}><Plus size={15} />新建会话</button>
+      </div>
+      {sessionPending && !sessions.length
+        ? <div className="tw-tool-side-empty">正在读取历史会话…</div>
+        : <div className="tw-tool-side-list">
+          {sessions.map((session) => <div className={`tw-session-row${session.id === activeSessionId ? " is-active" : ""}`} key={session.id}>
+            {editingSessionId === session.id
+              ? <form className="tw-session-rename" onSubmit={(event) => void renameSession(event, session)}>
+                <input autoFocus value={editingTitle} onChange={(event) => setEditingTitle(event.target.value)} maxLength={200} aria-label="会话名称" />
+                <button className="tw-icon-plain" type="submit" disabled={!editingTitle.trim() || sessionMutationPending} aria-label="保存名称" title="保存"><Check size={14} /></button>
+                <button className="tw-icon-plain" type="button" onClick={() => setEditingSessionId(null)} aria-label="取消重命名" title="取消"><X size={14} /></button>
+              </form>
+              : <>
+                <button className="tw-session" type="button" onClick={() => { selectSession(session.id); if (!pagePresentation) setHistoryOpen(false); }} aria-current={session.id === activeSessionId ? "true" : undefined}>
+                  <span className="tw-session-text"><strong>{session.title}</strong><small>{sessionTimeLabel(session.last_message_at) || `${session.message_count} 条消息`}</small></span>
+                </button>
+                <span className="tw-session-actions">
+                  <button className="tw-icon-plain" type="button" onClick={() => { setEditingSessionId(session.id); setEditingTitle(session.title); }} aria-label={`重命名会话：${session.title}`} title="重命名"><Pencil size={13} /></button>
+                  <button className="tw-icon-plain is-danger" type="button" onClick={() => setDeleteTarget(session)} aria-label={`删除会话：${session.title}`} title="删除"><Trash2 size={13} /></button>
+                </span>
+              </>}
+          </div>)}
+          {!sessions.length && <div className="tw-tool-side-empty">还没有历史会话</div>}
+        </div>}
+      {sessionPagination && sessionPagination.total_pages > 1 && <div className="tw-tool-side-foot">
+        <button className="tw-icon-plain" type="button" disabled={sessionPending || sessionPage <= 1} onClick={() => void loadSessions(sessionPage - 1, activeSessionId)} aria-label="上一页会话"><ChevronLeft size={14} /></button>
+        <span>{sessionPage} / {sessionPagination.total_pages}</span>
+        <button className="tw-icon-plain" type="button" disabled={sessionPending || sessionPage >= sessionPagination.total_pages} onClick={() => void loadSessions(sessionPage + 1, activeSessionId)} aria-label="下一页会话"><ChevronRight size={14} /></button>
+      </div>}
+    </nav>
+  ) : null;
+
+  const chatBody = configured ? <>
+    <div className="tw-chat" ref={chatListRef}>
+      {messagePagination?.has_more && <div className="tw-chat-more"><button className="tw-btn tw-btn-sm" type="button" onClick={() => void loadEarlierMessages()} disabled={messagePending}>加载更早消息</button></div>}
+      {!messages.length && !messagePending && !activeTask
+        ? <div className="tw-chat-empty">
+          <span className="tw-chat-empty-icon"><Sparkles size={22} /></span>
+          <h3>拾才助手</h3>
+          <p>招聘库问题使用本机只读证据，时效问题使用受控联网检索，混合问题会分别标明来源。</p>
+          <div className="tw-chat-quick">
+            {quickQueries.map((item) => <button type="button" key={item} onClick={() => void submit(undefined, item)}><Search size={14} />{item}</button>)}
+          </div>
+        </div>
+        : <div className="tw-chat-list" aria-live="polite">
+          {messages.map((message) => {
+            const messageTask = Object.values(agentTasks).find((task) => isTaskAnswerMessage(task, message)) ?? null;
+            return <div key={message.id} className="tw-chat-entry">
+              {activeTask && taskAnswerMessageId === message.id && <TaskResultPreview key={activeTask.task_id} task={activeTask} mutationPending={taskMutationPending === activeTask.task_id} onCancel={(task) => void cancelTask(task)} onRetryAnswer={(task) => void retryTaskAnswer(task)} />}
+              <div className={`tw-msg ${message.role === "user" ? "is-user" : "is-assistant"}`}>
+                {message.role === "assistant" && <span className="tw-msg-avatar" aria-hidden="true"><Sparkles size={16} /></span>}
+                <div className="tw-msg-bubble">
+                  {message.role === "assistant" ? <AssistantMarkdown content={message.content} /> : <span>{message.content}</span>}
+                  {message.status === "failed" && <small className="tw-msg-status">{messageErrorCopy(message.error_code)}</small>}
+                  {message.role === "user" && message.status === "processing" && <small className="tw-msg-status is-processing">处理中…</small>}
+                  {message.role === "user" && message.status === "completed" && <small className="tw-msg-time">{sessionTimeLabel(message.created_at)}</small>}
+                </div>
+                {message.role === "user" && <span className="tw-msg-avatar is-user" aria-hidden="true"><UserRound size={16} /></span>}
+              </div>
+              {message.role === "assistant" && messageTask && <TaskResultCandidates task={messageTask} candidates={candidates} canOpen={canOpenCandidate} openingCandidateId={openingCandidateId} onOpen={(item, tab) => void openResult(item, tab)} />}
+              {message.role === "assistant" && messageTask && <AgentArtifactDownloads task={messageTask} />}
+            </div>;
+          })}
+          {activeTask && !taskAnswerMessageId && <TaskResultPreview key={activeTask.task_id} task={activeTask} mutationPending={taskMutationPending === activeTask.task_id} onCancel={(task) => void cancelTask(task)} onRetryAnswer={(task) => void retryTaskAnswer(task)} />}
+          {activeTask && !taskAnswerMessageId && <AgentArtifactDownloads task={activeTask} />}
+          {(pending && pendingSessionId === activeSessionId || messagePending && !messages.length) && <div className="tw-msg is-assistant is-pending"><span>{pending && pendingSessionId === activeSessionId ? pendingLabel : "正在恢复会话…"}</span></div>}
+        </div>}
+    </div>
+    {chatError && (!activeTask?.error || isActiveTask(activeTask)) && <div className="tw-alert tw-alert-inline is-danger tw-chat-error" role="alert"><span>{chatError}</span></div>}
+    <form className="tw-composer" onSubmit={(event) => void submit(event)}>
+      <div className="tw-composer-box">
+        <textarea value={query} onChange={(event) => setQuery(event.target.value)} rows={2} placeholder="继续提问，例如“上海有哪些有产品设计经验的人才？”" aria-label="向拾才助手提问" />
+        <button className="tw-composer-send" type="submit" disabled={!query.trim() || pending || sessionMutationPending || hasProcessingMessage || Boolean(activeTask && isActiveTask(activeTask))} aria-label="发送" title="发送"><Send size={16} /><span>发送</span></button>
+      </div>
+      <p className="tw-composer-note">拾才助手不会修改人才资料，回答仅引用本地人才库证据。</p>
+    </form>
+  </> : <div className="tw-tool-scroll">
+    <div className="tw-empty-card">
+      <span className="tw-empty-icon"><Bot size={26} /></span>
+      <h3>数据问答尚未配置</h3>
+      <p>当前未建立模型连接；本地履历检索与附件更新仍可使用，不会返回任何编造结果。</p>
+      <div className="tw-status-row"><LockKeyhole size={15} /><span>等待连接 Agent Gateway</span></div>
+      <div className="tw-empty-actions">
+        <button className="tw-btn" type="button" onClick={() => selectTab("resume-search")}><FileSearch size={16} />前往履历检索</button>
+        <button className="tw-btn" type="button" onClick={() => selectTab("attachment")}><Paperclip size={16} />前往附件更新</button>
+      </div>
+    </div>
+  </div>;
+
+  const resumePageCount = resumePagination?.total_pages ?? Math.max(1, (resumePagination?.page ?? 1) + (resumePagination?.has_more || resumePagination?.has_next ? 1 : 0));
+
+  const resumeBody = <>
+    <form className="tw-search-bar" onSubmit={(event) => { if (resumeInputComposing.current) { event.preventDefault(); return; } void searchResumes(event); }} aria-label="履历检索">
+      <span className="tw-search-input">
+        <Search size={18} />
+        <input value={resumeQuery} onChange={(event) => { markResumeCriteriaChanged(); setResumeQuery(event.target.value); }} onCompositionStart={() => { resumeInputComposing.current = true; }} onCompositionEnd={() => { resumeInputComposing.current = false; }} placeholder="上海，3年以上产品设计经验，本科及以上" aria-label="检索候选人履历" />
+      </span>
+      <button className="tw-btn tw-btn-primary tw-search-submit" type="submit" disabled={!resumeQuery.trim() || resumePending || resumeIndex?.ready === false}>{resumePending ? "检索中…" : "检索"}</button>
+    </form>
+    <div className="tw-search-filters">
+      <div className="tw-seg-field">
+        <span>活动</span>
+        <div className="tw-seg" role="group" aria-label="归档范围">
+          {([["include", "全部"], ["exclude", "在库"], ["only", "归档"]] as const).map(([value, label]) => <button className={resumeArchived === value ? "active" : ""} type="button" key={value} aria-pressed={resumeArchived === value} onClick={() => { markResumeCriteriaChanged(); setResumeArchived(value); }}>{label}</button>)}
+        </div>
+      </div>
+      <label className="tw-select-field"><span>关联职位</span><select value={resumePositionId} onChange={(event) => { markResumeCriteriaChanged(); setResumePositionId(event.target.value); }}><option value="">全部职位</option>{(resumePositionOptions ?? positions.filter((position) => !position.archived_at).map((position) => ({ id: position.id, name: position.title }))).map((position) => <option value={position.id} key={position.id}>{position.name}</option>)}</select></label>
+      <label className="tw-select-field"><span>人才库</span><select value={resumePoolId} onChange={(event) => { markResumeCriteriaChanged(); setResumePoolId(event.target.value); }}><option value="">全部人才库</option>{(resumePoolOptions ?? talentPools.filter((pool) => !pool.archived_at).map((pool) => ({ id: pool.id, name: pool.name }))).map((pool) => <option value={pool.id} key={pool.id}>{pool.name}</option>)}</select></label>
+      <details className="tw-search-more">
+        <summary>更多筛选</summary>
+        <div>
+          <label className="tw-select-field"><span>字段</span><select value={resumeField} onChange={(event) => { markResumeCriteriaChanged(); setResumeField(event.target.value as typeof resumeField); }}><option value="">全部字段</option><option value="title">标题</option><option value="content">正文</option></select></label>
+          <label className="tw-select-field"><span>来源</span><select value={resumeSourceType} onChange={(event) => { markResumeCriteriaChanged(); setResumeSourceType(event.target.value as typeof resumeSourceType); }}><option value="">全部来源</option><option value="candidate">候选人主档</option><option value="profile_section">履历区块</option><option value="attachment">附件简历</option></select></label>
+        </div>
+      </details>
+    </div>
+    {resumeOptionsPending && <div className="tw-status-line" role="status">正在更新职位和人才库选项…</div>}
+    {resumeOptionsError && <div className="tw-status-line is-error" role="status">{resumeOptionsError} <button type="button" onClick={() => setResumeOptionsRevision((value) => value + 1)}>重试</button></div>}
+    {resumeIndex && !resumeIndex.ready && <div className={`tw-status-line is-${resumeIndex.state}`} role="status">
+      <LoaderCircle className={resumeIndex.state === "indexing" ? "spin" : ""} size={16} />
+      <span>{resumeIndex.state === "failed" ? "履历索引不可用" : "履历索引准备中"}：{resumeIndex.remaining == null ? "正在核对索引状态" : `剩余 ${resumeIndex.remaining} 条`}</span>
+      {resumeIndex.progress != null && <progress max={1} value={resumeIndex.progress} />}
+      <button className="tw-icon-plain" type="button" onClick={() => { setResumeError(""); setResumeStatusRevision((revision) => revision + 1); }} aria-label="重新检查索引" title="重新检查"><RefreshCw size={14} /></button>
+    </div>}
+    {resumeIndexError && <div className="tw-status-line is-error" role="status"><span>{resumeIndexError}</span><button className="tw-icon-plain" type="button" onClick={() => setResumeStatusRevision((value) => value + 1)} aria-label="重新读取索引状态" title="重新读取索引状态"><RefreshCw size={14} /></button></div>}
+    {resumeCriteriaChanged && resumeSubmittedQuery && <div className="tw-status-line is-warning" role="status">条件已改变，下方仍为上次检索结果。</div>}
+    {resumePending && <div className="tw-status-line" role="status"><LoaderCircle className="spin" size={16} /><span>正在检索{resumeItems.length > 0 ? "，暂保留上次结果" : ""}…</span><button className="tw-icon-plain" type="button" onClick={cancelResumeSearch} aria-label="取消检索" title="取消检索"><X size={16} /></button></div>}
+    {resumeState === "cancelled" && <div className="tw-status-line" role="status"><span>检索已取消{resumeItems.length > 0 ? "，已保留上次结果" : ""}。</span><button className="tw-icon-plain" type="button" onClick={() => void searchResumes()} aria-label="重新检索" title="重新检索"><RefreshCw size={16} /></button></div>}
+    {resumeError && <div className="tw-status-line is-error" role="alert"><span>{resumeError}{resumeItems.length > 0 ? " 已保留上次结果。" : ""}</span>{resumeState === "error" && <button className="tw-icon-plain" type="button" onClick={() => void searchResumes()} aria-label="重试检索" title="重试检索"><RefreshCw size={16} /></button>}</div>}
+    {resumeMetadata.condition_summary && resumeMetadata.condition_summary.length > 0 && <details className="tw-conditions">
+      <summary>已识别 {resumeMetadata.condition_summary.length} 项条件</summary>
+      <div>{resumeMetadata.condition_summary.map((condition) => <span className={`tw-condition is-${condition.kind}`} key={condition.id}>{condition.kind === "required" ? "必需" : condition.kind === "excluded" ? "排除" : condition.kind === "preferred" ? "偏好" : "未解析"}：{condition.text}</span>)}</div>
+    </details>}
+    {((resumeMetadata.degradation?.length ?? 0) > 0 || (resumeMetadata.completeness && (resumeMetadata.completeness.conditions !== "complete" || resumeMetadata.completeness.retrieval !== "complete"))) && <div className="tw-status-line is-warning is-compact" role="status">
+      <AlertTriangle size={14} />
+      <span>{[...(resumeMetadata.degradation ?? []).map((item) => item.message), resumeMetadata.completeness && (resumeMetadata.completeness.conditions !== "complete" || resumeMetadata.completeness.retrieval !== "complete") ? `结果可能不完整：${[resumeMetadata.completeness.conditions === "partial" ? "部分条件未执行" : "", resumeMetadata.completeness.retrieval === "index_not_ready" ? "索引尚未就绪" : resumeMetadata.completeness.retrieval === "bounded" ? "召回范围受限" : resumeMetadata.completeness.retrieval === "partial" ? "部分来源尚未检索" : ""].filter(Boolean).join("；")}。` : ""].filter(Boolean).join(" · ")}</span>
+    </div>}
+    {!resumeItems.length && !resumePending && !resumeError && resumeState !== "cancelled" && <div className="tw-empty-card is-slim">
+      <span className="tw-empty-icon"><FileSearch size={22} /></span>
+      <h3>{resumeState === "success" ? "未找到符合已执行条件的候选人" : "等待检索条件"}</h3>
+      <p>{resumeState === "success" ? `“${resumeSubmittedQuery}”` : "输入自然语言条件后回车即可检索本地履历与档案。"}</p>
+    </div>}
+    {resumeItems.length > 0 && <div className="tw-results" aria-busy={resumePending}>
+      <div className="tw-results-head">
+        <h2>{resumePagination?.total == null ? `本页 ${resumeItems.length} 位候选人` : `${resumePagination.total} 位候选人`}</h2>
+        <span className="tw-results-query">“{resumeSubmittedQuery}”</span>
+      </div>
+      {resumePending && <div className="tw-results-loading" role="status"><LoaderCircle className="spin" size={15} />正在检索…</div>}
+      <div className="tw-table-scroll">
+        <table className="tw-table tw-search-table">
+          <thead>
+            <tr>
+              <th className="tw-col-name" scope="col">候选人</th>
+              <th className="tw-col-place" scope="col">所在城市</th>
+              <th className="tw-col-education" scope="col">学历</th>
+              <th className="tw-col-experience" scope="col">工作经验</th>
+              <th className="tw-col-recent" scope="col">最近公司</th>
+              <th className="tw-col-evidence" scope="col">匹配证据</th>
+              <th className="tw-col-actions" scope="col">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {resumeItems.map((item) => {
+              const person = candidates.find((candidate) => candidate.id === item.candidate_id);
+              const fields = [...new Set(item.matched_fields.map(searchFieldLabel))];
+              const hasEvidence = Boolean(item.evidence?.length || item.snippets?.length);
+              const statusTag = item.condition_status === "padding"
+                ? "仅补足分页"
+                : item.condition_status === "unknown"
+                  ? "待核实"
+                  : item.condition_status === "partial" && hasEvidence
+                    ? "部分匹配"
+                    : null;
+              return (
+                <tr key={item.candidate_id}>
+                  <td className="tw-col-name">
+                    <div className="tw-cell-name">
+                      <TwAvatar candidate={{ id: item.candidate_id, name: item.name, has_photo: person?.has_photo ?? false, updated_at: person?.updated_at ?? "" }} size={80} />
+                      <span className="tw-stack">
+                        <strong>{item.name}</strong>
+                        <small>{item.current_title || "最近职位未填写"}</small>
+                      </span>
+                      {statusTag && <span className="tw-tag is-warning">{statusTag}</span>}
+                    </div>
+                  </td>
+                  <td className="tw-col-place">{person?.location || "未填写"}</td>
+                  <td className="tw-col-education">{person?.education || "未填写"}</td>
+                  <td className="tw-col-experience">{searchYearsText(person)}</td>
+                  <td className="tw-search-company tw-col-recent">{item.current_company || "最近公司未填写"}</td>
+                  <td className="tw-col-evidence">
+                    <div className="tw-evidence">
+                      <div className="tw-result-fields">{fields.map((field) => <i key={field}>{field}</i>)}</div>
+                      <span className="tw-evidence-label"><FileSearch size={13} />匹配证据</span>
+                      {(item.evidence ?? []).map((evidence, evidenceIndex) => <SearchEvidence evidence={evidence} key={`${evidence.document_id}:${evidenceIndex}`} />)}
+                      {!(item.evidence?.length) && item.snippets.map((snippet, snippetIndex) => <span className="tw-evidence-legacy" key={snippetIndex}>{snippet}</span>)}
+                      {item.reasons.length > 0 && <small>{[...new Set(item.reasons.map(searchReasonLabel))].join(" · ")}</small>}
+                    </div>
+                  </td>
+                  <td className="tw-col-actions">
+                    <button className="tw-btn tw-btn-sm" type="button" onClick={() => void openResult(item)} disabled={!canOpenCandidate || openingCandidateId === item.candidate_id}>{openingCandidateId === item.candidate_id ? "打开中…" : "查看档案"}</button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="tw-pagination">
+        <span>共 {resumePagination?.total == null ? `本页 ${resumeItems.length} 位` : `${resumePagination.total} 位候选人`}</span>
+        <div className="tw-pages" role="navigation" aria-label="检索结果分页">
+          <button type="button" disabled={resumePending || resumeCriteriaChanged || (resumePagination?.page ?? 1) <= 1} onClick={() => void jumpToResumePage((resumePagination?.page ?? 1) - 1)} aria-label="上一页"><ChevronLeft size={16} /></button>
+          {resumePageCount > 1
+            ? visiblePages(resumePagination?.page ?? 1, resumePageCount).map((value, index) => value === "gap"
+              ? <span className="tw-ellipsis" key={`gap-${index}`}>···</span>
+              : <button className={value === (resumePagination?.page ?? 1) ? "active" : ""} type="button" key={value} aria-current={value === (resumePagination?.page ?? 1) ? "page" : undefined} disabled={resumePending || resumeCriteriaChanged} onClick={() => void jumpToResumePage(value)}>{value}</button>)
+            : <button className="active" type="button" aria-current="page" disabled>{resumePagination?.page ?? 1}</button>}
+          <button type="button" disabled={resumePending || resumeCriteriaChanged || !(resumePagination?.has_more || resumePagination?.has_next)} onClick={() => void jumpToResumePage((resumePagination?.page ?? 1) + 1)} aria-label="下一页"><ChevronRight size={16} /></button>
+        </div>
+        {resumePagination?.total_pages == null && <span className="tw-pagination-note">第 {resumePagination?.page ?? 1} 页</span>}
+      </div>
+    </div>}
+  </>;
+
+  const attachmentBody = <AttachmentBatchWorkflow
+    candidates={candidates}
+    onCommitted={() => onCandidatesUpdated?.()}
+    onCandidateCreated={() => onCandidatesUpdated?.()}
+    onExit={onClose}
+  />;
+
+  const mainBody = tab === "chat"
+    ? chatBody
+    : tab === "resume-search"
+    ? <div className="tw-tool-scroll">{resumeBody}</div>
+    : attachmentBody;
+
+  const deleteDialog = deleteTarget ? (
+    <div className="tw-modal-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !sessionMutationPending && setDeleteTarget(null)}>
+      <div className="tw-modal tw-modal-sm" role="alertdialog" aria-modal="true" aria-labelledby="assistant-session-delete-title">
+        <header className="tw-modal-head">
+          <div className="tw-modal-title-row"><Trash2 size={18} /><h2 id="assistant-session-delete-title">删除“{deleteTarget.title}”？</h2></div>
+        </header>
+        <div className="tw-modal-body"><p>该会话的消息和摘要将从本机 SQLite 永久删除，无法恢复；候选人和其他业务数据不受影响。</p></div>
+        <footer className="tw-modal-foot">
+          <button className="tw-btn" type="button" onClick={() => setDeleteTarget(null)} disabled={sessionMutationPending}>取消</button>
+          <button className="tw-btn tw-btn-danger" type="button" onClick={() => void deleteSession()} disabled={sessionMutationPending}>{sessionMutationPending ? "删除中…" : "确认删除"}</button>
+        </footer>
+      </div>
+    </div>
+  ) : null;
+
+  if (pagePresentation) {
+    return (
+      <section className="tw-page tw-tool-page" aria-label={toolTitle}>
+        <div className="tw-tool">
+          {tab === "chat" && configured && (historyOpen
+            ? sessionColumn
+            : <nav className="tw-tool-rail" aria-label="会话导航">
+              <button className="tw-icon-plain" type="button" onClick={() => void createSession()} disabled={sessionMutationPending} aria-label="新建会话" title="新建会话"><Plus size={19} /></button>
+              <button className="tw-icon-plain" type="button" onClick={() => setHistoryOpen(true)} aria-label="展开历史会话" title="展开历史会话" aria-expanded={false}><PanelLeftOpen size={19} /></button>
+            </nav>)}
+          <div className="tw-tool-main">
+            {tab !== "attachment" && <header className="tw-tool-head">
+              <div>
+                <h1>{toolTitle}</h1>
+                {toolSubtitle && <p className="tw-sub">{toolSubtitle}</p>}
+              </div>
+              <div className="tw-page-actions">
+                {tab === "chat" && <span className="tw-readonly" title="只读数据源：不会修改人才资料"><ShieldCheck size={13} />全量只读</span>}
+                {tab === "chat" && configured && historyOpen && <button className="tw-icon-plain" type="button" onClick={() => setHistoryOpen(false)} aria-label="收起历史会话" title="收起历史会话" aria-expanded={true}><PanelLeftClose size={18} /></button>}
+                <button className="tw-btn" type="button" onClick={onClose}><ArrowLeft size={16} />返回人才库</button>
+              </div>
+            </header>}
+            {mainBody}
+          </div>
+        </div>
+        {deleteDialog}
+      </section>
+    );
+  }
+
   return (
-    <div className={`drawer-layer assistant-layer${pagePresentation ? " assistant-page-layer" : ""}`} role="presentation" onMouseDown={(event) => !pagePresentation && event.target === event.currentTarget && onClose()}>
-      <aside className={`drawer assistant-drawer${pagePresentation ? " assistant-page-drawer" : ""}`} role={pagePresentation ? "region" : "dialog"} aria-modal={pagePresentation ? undefined : true} aria-label={tab === "chat" ? "智能助手" : tab === "resume-search" ? "履历检索" : "附件解析"}>
-        <header className={`drawer-header${pagePresentation ? " assistant-page-header" : ""}`}>
-          <div><p className="drawer-kicker">Agent</p><h2>{tab === "chat" ? "智能助手" : tab === "resume-search" ? "履历检索" : "附件解析"}</h2></div>
-          <div className="assistant-header-actions">
-            <span className="readonly-badge"><ShieldCheck size={13} />受控数据源</span>
-            {configured && <button className="icon-button" type="button" onClick={() => setHistoryOpen(!historyOpen)} aria-label={historyOpen ? "收起历史会话" : "打开历史会话"} title={historyOpen ? "收起历史会话" : "历史会话"}><History size={18} /></button>}
-            {configured && <button className="icon-button" type="button" onClick={() => void createSession()} disabled={sessionMutationPending} aria-label="新建会话" title="新建会话"><Plus size={18} /></button>}
-            <button className="icon-button assistant-back" type="button" onClick={onClose} aria-label={pagePresentation ? "返回人才库" : "关闭"} title={pagePresentation ? "返回人才库" : "关闭"}>{pagePresentation ? <ArrowLeft size={19} /> : <X size={19} />}</button>
+    <div className="tw-modal-layer is-drawer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <aside className="tw-drawer tw-assistant-drawer" role="dialog" aria-modal="true" aria-label={toolTitle}>
+        <header className="tw-drawer-head">
+          <div><h2>{toolTitle}</h2></div>
+          <div className="tw-drawer-head-actions">
+            <span className="tw-readonly" title="受控数据源"><ShieldCheck size={13} />受控数据源</span>
+            {configured && tab === "chat" && <button className="tw-icon-plain" type="button" onClick={() => setHistoryOpen(!historyOpen)} aria-label={historyOpen ? "收起历史会话" : "打开历史会话"} aria-expanded={historyOpen} title={historyOpen ? "收起历史会话" : "历史会话"}><History size={18} /></button>}
+            <button className="tw-icon-plain" type="button" onClick={onClose} aria-label="关闭" title="关闭"><X size={18} /></button>
           </div>
         </header>
-
-        {!pagePresentation && <div className="assistant-mode-tabs" role="tablist" aria-label="助手工具">
-          <button className={tab === "chat" ? "active" : ""} type="button" onClick={() => setTab("chat")}><Bot size={15} />数据问答</button>
-          <button className={tab === "resume-search" ? "active" : ""} type="button" onClick={() => setTab("resume-search")}><FileSearch size={15} />履历检索</button>
-          <button className={tab === "attachment" ? "active" : ""} type="button" onClick={() => setTab("attachment")}><Paperclip size={15} />附件更新</button>
-        </div>}
-
-        {tab === "chat" && (configured ? <div className={`assistant-chat-workspace${pagePresentation ? ` assistant-page-chat${historyOpen ? " has-history" : ""}${!messages.length && !messagePending && !activeTask ? " is-new" : ""}` : ""}`}>
-          {pagePresentation && !historyOpen && <nav className="assistant-page-rail" aria-label="会话导航">
-            <button className="icon-button" type="button" onClick={() => void createSession()} disabled={sessionMutationPending} aria-label="新建会话" title="新建会话"><Plus size={19} /></button>
-            <button className="icon-button assistant-history-toggle" type="button" onClick={() => setHistoryOpen(true)} aria-label="展开历史会话" title="展开历史会话" aria-expanded={false}><PanelLeftOpen size={19} /></button>
-          </nav>}
-          <div className="assistant-session-context">
-            <button type="button" onClick={() => setHistoryOpen(!historyOpen)} aria-expanded={historyOpen}>
-              <History size={14} /><span>{activeSession?.title ?? "新对话"}</span><small>{activeSession?.message_count ?? 0} 条消息</small>
-            </button>
-          </div>
-
-          {historyOpen && <section className="assistant-session-panel" aria-label="历史会话">
-            <div className="assistant-session-panel-header"><strong>历史会话</strong><button className="icon-button" type="button" onClick={() => void createSession()} disabled={sessionMutationPending} aria-label="新建会话" title="新建会话"><Plus size={15} /></button></div>
-            {sessionPending && !sessions.length ? <div className="assistant-session-loading">正在读取历史会话…</div> : <div className="assistant-session-list">
-              {sessions.map((session) => <div className={`assistant-session-item ${session.id === activeSessionId ? "active" : ""}`} key={session.id}>
-                {editingSessionId === session.id ? <form onSubmit={(event) => void renameSession(event, session)}>
-                  <input autoFocus value={editingTitle} onChange={(event) => setEditingTitle(event.target.value)} maxLength={200} aria-label="会话名称" />
-                  <button className="icon-button" type="submit" disabled={!editingTitle.trim() || sessionMutationPending} aria-label="保存名称" title="保存"><Check size={14} /></button>
-                  <button className="icon-button" type="button" onClick={() => setEditingSessionId(null)} aria-label="取消重命名" title="取消"><X size={14} /></button>
-                </form> : <>
-                  <button className="assistant-session-select" type="button" onClick={() => { selectSession(session.id); setHistoryOpen(false); }}>
-                    <strong>{session.title}</strong><span>{session.message_count} 条消息</span>
-                  </button>
-                  <button className="icon-button" type="button" onClick={() => { setEditingSessionId(session.id); setEditingTitle(session.title); }} aria-label={`重命名会话：${session.title}`} title="重命名"><Pencil size={13} /></button>
-                  <button className="icon-button danger-icon-button" type="button" onClick={() => setDeleteTarget(session)} aria-label={`删除会话：${session.title}`} title="删除"><Trash2 size={13} /></button>
-                </>}
-              </div>)}
-              {!sessions.length && <div className="assistant-session-loading">还没有历史会话</div>}
-            </div>}
-            {sessionPagination && sessionPagination.total_pages > 1 && <div className="assistant-session-pagination">
-              <button className="icon-button" type="button" disabled={sessionPending || sessionPage <= 1} onClick={() => void loadSessions(sessionPage - 1, activeSessionId)} aria-label="上一页会话"><ChevronLeft size={14} /></button>
-              <span>{sessionPage} / {sessionPagination.total_pages}</span>
-              <button className="icon-button" type="button" disabled={sessionPending || sessionPage >= sessionPagination.total_pages} onClick={() => void loadSessions(sessionPage + 1, activeSessionId)} aria-label="下一页会话"><ChevronRight size={14} /></button>
-            </div>}
-            {pagePresentation && <button className="icon-button assistant-history-toggle" type="button" onClick={() => setHistoryOpen(false)} aria-label="收起历史会话" title="收起历史会话" aria-expanded={true}><PanelLeftClose size={19} /></button>}
-          </section>}
-
-          <div className="assistant-content" ref={chatListRef}>
-            {messagePagination?.has_more && <button className="assistant-load-earlier" type="button" onClick={() => void loadEarlierMessages()} disabled={messagePending}>加载更早消息</button>}
-            {!messages.length && !messagePending && !activeTask ? <div className="assistant-welcome">
-              <span><Sparkles size={24} /></span>
-              <h3>{pagePresentation ? "你好，我是拾才助手" : "数据库与互联网按问题路由"}</h3>
-              <p className="assistant-boundary-copy">招聘库问题使用本机只读证据，时效问题使用受控联网检索，混合问题会分别标明来源。消息保存在本机 SQLite。</p>
-              <div className="quick-query-list">
-                {quickQueries.map((item) => <button type="button" key={item} onClick={() => void submit(undefined, item)}><Search size={14} />{item}</button>)}
-              </div>
-             </div> : <div className="chat-list" aria-live="polite">
-            {messages.map((message) => {
-              const messageTask = Object.values(agentTasks).find((task) => isTaskAnswerMessage(task, message)) ?? null;
-              return <div key={message.id} className="assistant-chat-entry">
-                 {activeTask && taskAnswerMessageId === message.id && <TaskResultPreview key={activeTask.task_id} task={activeTask} mutationPending={taskMutationPending === activeTask.task_id} onCancel={(task) => void cancelTask(task)} onRetryAnswer={(task) => void retryTaskAnswer(task)} />}
-                 <div className={`chat-message ${message.role}`}>
-                   {message.role === "assistant" ? <AssistantMarkdown content={message.content} /> : <span>{message.content}</span>}
-                   {message.status === "failed" && <small className="chat-message-status">{messageErrorCopy(message.error_code)}</small>}
-                   {message.role === "user" && message.status === "processing" && <small className="chat-message-status is-processing">处理中…</small>}
-                 </div>
-                 {message.role === "assistant" && messageTask && <AgentArtifactDownloads task={messageTask} />}
-               </div>})}
-                 {activeTask && !taskAnswerMessageId && <TaskResultPreview key={activeTask.task_id} task={activeTask} mutationPending={taskMutationPending === activeTask.task_id} onCancel={(task) => void cancelTask(task)} onRetryAnswer={(task) => void retryTaskAnswer(task)} />}
-                 {activeTask && !taskAnswerMessageId && <AgentArtifactDownloads task={activeTask} />}
-                 {(pending && pendingSessionId === activeSessionId || messagePending && !messages.length) && <div className="chat-message assistant pending-message"><span>{pending && pendingSessionId === activeSessionId ? pendingLabel : "正在恢复会话…"}</span></div>}
-              </div>}
-          </div>
-          {chatError && (!activeTask?.error || isActiveTask(activeTask)) && <div className="assistant-chat-error" role="alert">{chatError}</div>}
-          <form className="assistant-composer" onSubmit={(event) => void submit(event)}>
-            <textarea value={query} onChange={(event) => setQuery(event.target.value)} rows={2} placeholder="询问候选人、职位、履历或招聘统计" />
-            <button className="icon-button assistant-send" type="submit" disabled={!query.trim() || pending || sessionMutationPending || hasProcessingMessage || Boolean(activeTask && isActiveTask(activeTask))} aria-label="发送" title="发送"><Send size={17} /></button>
-          </form>
-        </div> : <div className="agent-empty-state">
-          <span className="agent-empty-icon"><Bot size={32} /></span>
-          <h3>数据问答尚未配置</h3>
-          <p>当前未建立模型连接；本地履历检索与附件更新仍可使用。</p>
-          <div className="agent-status-row"><LockKeyhole size={15} /><span>等待连接 Agent Gateway</span></div>
-        </div>)}
-
-        {tab === "resume-search" && <div className="assistant-tool-panel resume-search-panel">
-          <form className="resume-search-form" onSubmit={(event) => { if (resumeInputComposing.current) { event.preventDefault(); return; } void searchResumes(event); }} aria-label="履历检索">
-             <Search size={16} /><input value={resumeQuery} onChange={(event) => { markResumeCriteriaChanged(); setResumeQuery(event.target.value); }} onCompositionStart={() => { resumeInputComposing.current = true; }} onCompositionEnd={() => { resumeInputComposing.current = false; }} placeholder="关键词或精确短语" aria-label="检索候选人履历" /><button className="button primary-button" type="submit" disabled={!resumeQuery.trim() || resumePending || resumeIndex?.ready === false}>{resumePending ? "检索中…" : "检索"}</button>
-          </form>
-          <div className="resume-search-filters">
-            <label><span>字段</span><select value={resumeField} onChange={(event) => { markResumeCriteriaChanged(); setResumeField(event.target.value as typeof resumeField); }}><option value="">全部字段</option><option value="title">标题</option><option value="content">正文</option></select></label>
-            <label><span>来源</span><select value={resumeSourceType} onChange={(event) => { markResumeCriteriaChanged(); setResumeSourceType(event.target.value as typeof resumeSourceType); }}><option value="">全部来源</option><option value="candidate">候选人主档</option><option value="profile_section">履历区块</option><option value="attachment">附件简历</option></select></label>
-            <label><span>职位</span><select value={resumePositionId} onChange={(event) => { markResumeCriteriaChanged(); setResumePositionId(event.target.value); }}><option value="">全部职位</option>{(resumePositionOptions ?? positions.filter((position) => !position.archived_at).map((position) => ({ id: position.id, name: position.title }))).map((position) => <option value={position.id} key={position.id}>{position.name}</option>)}</select></label>
-            <label><span>人才库</span><select value={resumePoolId} onChange={(event) => { markResumeCriteriaChanged(); setResumePoolId(event.target.value); }}><option value="">全部人才库</option>{(resumePoolOptions ?? talentPools.filter((pool) => !pool.archived_at).map((pool) => ({ id: pool.id, name: pool.name }))).map((pool) => <option value={pool.id} key={pool.id}>{pool.name}</option>)}</select></label>
-            <div className="resume-archive-filter" role="group" aria-label="归档范围">{([['exclude', '活动'], ['include', '全部'], ['only', '归档']] as const).map(([value, label]) => <button className={resumeArchived === value ? "active" : ""} type="button" key={value} onClick={() => { markResumeCriteriaChanged(); setResumeArchived(value); }}>{label}</button>)}</div>
-          </div>
-          {resumeOptionsPending && <div className="resume-options-status" role="status">正在更新职位和人才库选项…</div>}
-          {resumeOptionsError && <div className="resume-options-status is-error" role="status">{resumeOptionsError} <button type="button" onClick={() => setResumeOptionsRevision((value) => value + 1)}>重试</button></div>}
-          {resumeCriteriaChanged && resumeSubmittedQuery && <div className="resume-query-status" role="status">条件已改变，下方仍为上次检索结果。</div>}
-          {resumePending && <div className="resume-query-status resume-search-progress" role="status"><LoaderCircle className="spin" size={16} /><span>正在检索{resumeItems.length > 0 ? "，暂保留上次结果" : ""}…</span><button className="icon-button" type="button" onClick={cancelResumeSearch} aria-label="取消检索" title="取消检索"><X size={16} /></button></div>}
-          {resumeState === "cancelled" && <div className="resume-query-status resume-search-progress" role="status"><span>检索已取消{resumeItems.length > 0 ? "，已保留上次结果" : ""}。</span><button className="icon-button" type="button" onClick={() => void searchResumes()} aria-label="重新检索" title="重新检索"><RefreshCw size={16} /></button></div>}
-          {resumeIndex && !resumeIndex.ready && <div className={`resume-index-status is-${resumeIndex.state}`} role="status">
-            <LoaderCircle className={resumeIndex.state === "indexing" ? "spin" : ""} size={17} />
-            <div><strong>{resumeIndex.state === "failed" ? "履历索引不可用" : "履历索引准备中"}</strong><span>{resumeIndex.remaining == null ? "正在核对索引状态" : `剩余 ${resumeIndex.remaining} 条`}</span>{resumeIndex.progress != null && <progress max={1} value={resumeIndex.progress} />}</div>
-            <button className="icon-button compact-icon-button" type="button" onClick={() => { setResumeError(""); setResumeStatusRevision((revision) => revision + 1); }} aria-label="重新检查索引" title="重新检查"><RefreshCw size={14} /></button>
-          </div>}
-          {resumeIndexError && <div className="resume-options-status is-error" role="status">{resumeIndexError}<button className="icon-button" type="button" onClick={() => setResumeStatusRevision((value) => value + 1)} aria-label="重新读取索引状态" title="重新读取索引状态"><RefreshCw size={14} /></button></div>}
-          {resumeError && <div className="assistant-tool-error resume-search-progress" role="alert"><span>{resumeError}{resumeItems.length > 0 ? " 已保留上次结果。" : ""}</span>{resumeState === "error" && <button className="icon-button" type="button" onClick={() => void searchResumes()} aria-label="重试检索" title="重试检索"><RefreshCw size={16} /></button>}</div>}
-          {resumeMetadata.condition_summary && resumeMetadata.condition_summary.length > 0 && <details className="resume-condition-summary"><summary>已识别 {resumeMetadata.condition_summary.length} 项条件</summary><div>{resumeMetadata.condition_summary.map((condition) => <span className={`resume-condition is-${condition.kind}`} key={condition.id}>{condition.kind === "required" ? "必需" : condition.kind === "excluded" ? "排除" : condition.kind === "preferred" ? "偏好" : "未解析"}：{condition.text}</span>)}</div></details>}
-          {resumeMetadata.degradation && resumeMetadata.degradation.length > 0 && <div className="resume-degradation" role="status">{resumeMetadata.degradation.map((item) => <span key={`${item.code}-${item.stage}`}>{item.message}</span>)}</div>}
-          {resumeMetadata.completeness && (resumeMetadata.completeness.conditions !== "complete" || resumeMetadata.completeness.retrieval !== "complete") && <div className="resume-query-status" role="status">结果可能不完整：{[resumeMetadata.completeness.conditions === "partial" ? "部分条件未执行" : "", resumeMetadata.completeness.retrieval === "index_not_ready" ? "索引尚未就绪" : resumeMetadata.completeness.retrieval === "bounded" ? "召回范围受限" : resumeMetadata.completeness.retrieval === "partial" ? "部分来源尚未检索" : ""].filter(Boolean).join("；")}。</div>}
-          {!resumeItems.length && !resumePending && !resumeError && resumeState !== "cancelled" && <div className="assistant-tool-empty"><FileSearch size={26} /><strong>{resumeState === "success" ? "未找到符合已执行条件的候选人" : "人才检索"}</strong>{resumeState === "success" && <span>“{resumeSubmittedQuery}”</span>}</div>}
-          {resumeItems.length > 0 && <div className="resume-search-results" aria-busy={resumePending}>
-            <div className="resume-results-summary"><span>“{resumeSubmittedQuery}”</span><strong role="status">{resumePagination?.total == null ? `本页 ${resumeItems.length} 位` : `${resumePagination.total} 位候选人`}</strong></div>
-            {resumeItems.map((item, index) => <article key={item.candidate_id}>
-              <button type="button" onClick={() => void openResult(item)} disabled={!canOpenCandidate || openingCandidateId === item.candidate_id}>
-                <span className="resume-result-rank">{(resumePagination?.page ? (resumePagination.page - 1) * resumePagination.page_size : 0) + index + 1}</span>
-                <span className="resume-result-main">
-                  <span><strong>{item.name}</strong>{(item.current_title || item.current_company) && <small className="resume-current-meta">{[item.current_title, item.current_company].filter(Boolean).join(" · ")}</small>}</span>
-                  <span className="resume-match-fields">{[...new Set(item.matched_fields.map(searchFieldLabel))].map((field) => <i key={field}>{field}</i>)}</span>
-                  {item.condition_status && item.condition_status !== "matched" && <small className="resume-condition-status">条件状态：{item.condition_status === "unknown" ? "待核实" : "部分匹配"}</small>}
-                </span>
-              </button>
-              <div className="resume-result-details">
-                {(item.evidence ?? []).map((evidence, evidenceIndex) => <SearchEvidence evidence={evidence} key={`${evidence.document_id}:${evidenceIndex}`} />)}
-                {!(item.evidence?.length) && item.snippets.map((snippet, snippetIndex) => <span className="resume-legacy-snippet" key={snippetIndex}>{snippet}</span>)}
-                {item.reasons.length > 0 && <small>{[...new Set(item.reasons.map(searchReasonLabel))].join(" · ")}</small>}
-              </div>
-            </article>)}
-            {resumePagination && ((resumePagination.page ?? 1) > 1 || resumePagination.has_more || resumePagination.has_next) && <div className="resume-result-pagination"><button className="icon-button" type="button" disabled={resumePending || resumeCriteriaChanged || (resumePagination.page ?? 1) <= 1} onClick={() => void searchResumes(undefined, Math.max(1, (resumePagination.page ?? 1) - 1), true)} aria-label="上一页"><ChevronLeft size={16} /></button><span>第 {resumePagination.page ?? 1} 页</span><button className="icon-button" type="button" disabled={resumePending || resumeCriteriaChanged || !(resumePagination.has_more || resumePagination.has_next)} onClick={() => void searchResumes(undefined, (resumePagination.page ?? 1) + 1, true)} aria-label="下一页"><ChevronRight size={16} /></button></div>}
-          </div>}
-        </div>}
-
-        {tab === "attachment" && <div className="assistant-tool-panel attachment-tool-panel">
-          <div className="assistant-tool-heading"><div><h3>解析并更新候选人</h3><p>系统只按规范化手机号或邮箱定位。所有字段与履历区块必须由你勾选并确认后才会写入。</p></div></div>
-          <AttachmentBatchWorkflow
-            candidates={candidates}
-            onCommitted={() => onCandidatesUpdated?.()}
-            onCandidateCreated={() => onCandidatesUpdated?.()}
-          />
-        </div>}
-
-        {deleteTarget && <div className="assistant-session-confirm-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !sessionMutationPending && setDeleteTarget(null)}>
-          <div className="assistant-session-confirm" role="alertdialog" aria-modal="true" aria-labelledby="assistant-session-delete-title">
-            <Trash2 size={20} />
-            <div><strong id="assistant-session-delete-title">删除“{deleteTarget.title}”？</strong><p>该会话的消息和摘要将从本机 SQLite 永久删除，无法恢复；候选人和其他业务数据不受影响。</p></div>
-            <div><button className="button" type="button" onClick={() => setDeleteTarget(null)} disabled={sessionMutationPending}>取消</button><button className="button danger-button" type="button" onClick={() => void deleteSession()} disabled={sessionMutationPending}>{sessionMutationPending ? "删除中…" : "确认删除"}</button></div>
-          </div>
-        </div>}
+        <div className="tw-seg tw-tool-tabs" role="tablist" aria-label="助手工具">
+          <button className={tab === "chat" ? "active" : ""} type="button" role="tab" aria-selected={tab === "chat"} onClick={() => selectTab("chat")}><Bot size={15} />数据问答</button>
+          <button className={tab === "resume-search" ? "active" : ""} type="button" role="tab" aria-selected={tab === "resume-search"} onClick={() => selectTab("resume-search")}><FileSearch size={15} />履历检索</button>
+          <button className={tab === "attachment" ? "active" : ""} type="button" role="tab" aria-selected={tab === "attachment"} onClick={() => selectTab("attachment")}><Paperclip size={15} />附件更新</button>
+        </div>
+        <div className="tw-drawer-body tw-tool-drawer-body">
+          {tab === "chat" && configured && historyOpen && sessionColumn}
+          {mainBody}
+        </div>
       </aside>
+      {deleteDialog}
     </div>
   );
 }
