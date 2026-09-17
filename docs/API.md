@@ -14,7 +14,7 @@
 
 `GET /api/resume-search/options?kind=position|talent_pool&page=1&page_size=100` 独立返回全部活动筛选选项，每页最多100项。
 
-游标绑定查询、筛选、页大小、缓存排序、数据库修改和向量代际，有效期5分钟。每页返回 `pagination.current_cursor`，返回第一页也复用该凭据；下一页使用 `next_cursor`。数据变化返回 `409 search_cursor_stale/search_index_changed`，过期后重新检索。取消返回 `search_cancelled`；worker最多并发2、45秒预算。页面旧结果在重试期间保留，但明确显示状态。
+游标绑定查询、筛选、页大小、缓存排序、数据库修改和向量代际，有效期5分钟。每页返回 `pagination.current_cursor`，返回第一页也复用该凭据；下一页使用 `next_cursor`。未携带游标的首轮检索在向量代际发布导致 `search_index_changed` 时会回收旧 worker 并自动重试一次；分页或缓存快照失效仍返回 `409 search_cursor_stale/search_index_changed`，过期后重新检索。取消返回 `search_cancelled`；worker最多并发2、45秒预算。页面旧结果在重试期间保留，但明确显示状态。
 
 兼容原 `stage`、`include_archived`、`evidence_limit`、camelCase 年限/字段/职位/页大小别名。阶段为硬条件，`evidence_limit` 为1至5。查询理解默认最多30秒（`SEARCH_QUERY_TIMEOUT_MS`只可缩短），查询Embedding及Rerank每请求最多5秒；客户端48秒。原18秒总体和10秒p95目标未通过；正式启用保留这些预算并以明确降级交付，不把未达性能门禁伪装成完整混合成功。
 

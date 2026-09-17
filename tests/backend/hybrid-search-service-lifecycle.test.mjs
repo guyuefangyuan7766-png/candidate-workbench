@@ -60,6 +60,24 @@ test('warmup and repeated queries reuse a single resident worker and stale pages
   assert.equal(service.status().worker.running, false)
 }))
 
+test('unrelated database writes do not invalidate a stable hybrid search snapshot', async () => gateway(async ({ modelConfig, setPlanner }) => fixture(async ({ db, make, build, vectorDirectory }) => {
+  await build()
+  const entered = deferred(); const release = deferred()
+  setPlanner(async () => { entered.resolve(); await release.promise })
+  const service = make({ modelConfig, remoteEnabled: true, vectorDirectory })
+  await service.warmup()
+  const pending = service.search({ q: 'Unity' })
+  await entered.promise
+  db.prepare(`
+    INSERT INTO agent_query_audits(id, tool_name, query_scope, duration_ms, row_count, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run('unrelated-audit', 'agent_response_assembly', '{}', 1, 0, new Date().toISOString())
+  release.resolve()
+  const result = await pending
+  assert.equal(result.items.length, 4)
+  assert.equal(service.status().worker.starts, 1)
+})))
+
 test('active manifest changes release the old mmap worker and invalidate its pagination snapshot', async () => fixture(async ({ db, vectorDirectory, make, build }) => {
   await build()
   const service = make({ vectorDirectory })
@@ -144,12 +162,12 @@ test('an index publication during planning discards the old result, then the nex
   setPlanner(async () => { entered.resolve(); await release.promise })
   const service = make({ modelConfig, remoteEnabled: true, vectorDirectory })
   await service.warmup()
-  const pending = assert.rejects(service.search({ q: 'Unity' }), { code: 'search_index_changed' })
+  const pending = service.search({ q: 'Unity' })
   await entered.promise
   insertCandidate(db, { name: '匿名换代', current_title: 'Unity 工程师' }); await build()
   assert.equal(service.status().worker.ready, false)
-  release.resolve(); await pending; setPlanner(async () => {})
-  assert.equal((await service.search({ q: 'Unity' })).items.length, 5)
+  release.resolve(); const recovered = await pending; setPlanner(async () => {})
+  assert.equal(recovered.items.length, 5)
   assert.equal(service.status().worker.starts, 2)
 })))
 

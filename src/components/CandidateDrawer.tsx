@@ -938,7 +938,7 @@ export function CandidateDrawer({
               {tab === "activity" && (
                 <div className="tw-activity">
                   {!candidate.archived_at && (
-                    <section className="tw-section">
+                    <section className="tw-note-section">
                       <h3 className="tw-section-title">添加跟进备注</h3>
                       <div className="tw-note-composer">
                         <textarea

@@ -2,6 +2,41 @@
 
 格式参考 Keep a Changelog，版本号遵循语义化版本。
 
+## [0.5.0] - 2026-09-17（开发中）
+
+> 状态：第十四轮（头像、界面层级、AI 助手与无效 UI 清理）已完成实现和匿名验收，工作区版本提升为 `0.5.0`。上一已发布版本仍为 `0.2.0`；数据库保持 schema `V13`，人才库领域版本保持历史 `V2`，本轮没有新增主库迁移，也尚未正式部署 `0.5.0`。
+
+### 修复
+
+- 头像改为图片、姓名首字互斥渲染。有图片时加载中和成功态均不显示首字，失败后卸载图片并稳定回退首字；`CandidateAvatar`、`TwAvatar` 覆盖列表、详情、检索结果和候选人选择器。
+- “添加跟进备注”删除无功能价值的外层 section 和中间 composer 边框、背景、圆角与 padding，仅保留 textarea 的输入边界和焦点态。
+- 混合检索的修订检查不再监视整个数据库 WAL 文件和 `PRAGMA data_version`，避免 Agent 自己的任务、会话和审计写入把稳定检索误判为 `search_index_changed`。检查改为使用 `candidate_resume_documents` 触发器维护的 FTS5 结构行，正式库实测约 `3ms`。
+- 真实向量代际发布导致 `search_index_changed` 时，非分页检索会等待旧 worker 回收并自动重试一次；Agent 工具层也将该错误视为可重试。分页游标仍按既有契约返回 `search_cursor_stale/search_index_changed`。
+
+### 变更
+
+- AI 助手页面改为居中的 `760–880px` 会话列；工具页全局导航自动压缩为 `72px` 图标栏，历史会话默认收起，并统一改为 `<=320px` 的覆盖层和 scrim，不再占用正文文档流、恢复陈旧展开状态或保留多余窄轨。
+- 助手回答使用无重边框正文，用户消息右对齐并使用克制气泡；Markdown、表格横向滚动和代码块保持既有安全渲染。
+- 输入区改为固定底部的单一表面，发送按钮使用 Lucide 图标并位于输入表面内部；加载态增加明确进度图标。
+
+### 移除
+
+- 删除不可达的 AI 助手 modal drawer 分支、`presentation` 分支、drawer 专属工具页签和重复的历史会话界面。
+- 删除无引用的 `ExportMenu`、`AppShell.overlays`、候选人回退 handler、candidate API 回退 import，以及 `export-menu`、旧 assistant/note composer 等孤立 CSS。
+
+### 验证
+
+- `npx tsc --noEmit`、`npm run build` 通过；构建型检查为 1863 个模块，保留既有大 chunk 警告。
+- `npm test`：733 项、719 通过、7 个与基线一致的既有失败、7 跳过，无新增失败；新增混合检索修订回归 1 项，原有 `hire-status-v11` 部署状态文档断言经本轮文档同步后恢复通过。
+- 新增头像组件 QA：无图、加载中、成功、失败四态在 `CandidateAvatar` 和 `TwAvatar` 上全部通过。
+- 新增匿名浏览器 QA：375×812、768×1024、1440×900，覆盖备注区、空态、加载、成功、失败、长文本、Markdown 表格、代码块、会话新建/重命名/删除和执行过程展开；0 个新增 console error。
+- 证据见 `docs/evidence/round14-ui-polish/qa-report.json`、`avatar-report.json` 和 `screenshots/`。
+
+### 限制
+
+- 本轮不修改后端、API、数据库 schema、既有业务数据或共享关系；正式 `data/recruitment.db` 未用于测试。
+- 仍未处理历史 baseline 中的 7 个测试失败，也没有执行 `0.5.0` 的正式部署。
+
 ## [0.4.0] - 2026-09-17（开发中）
 
 > 状态：第十三轮（检索性能、索引维护与稳定性）已完成实现与验证，工作区版本提升为 `0.4.0`。数据库保持 schema `V13`，**本轮没有新增主库迁移**；改动的是检索执行、向量索引的增量维护模型与前端翻页行为。`0.3.0` 从未发布，第十一/十二轮内容随本版本一并进入工作区。
@@ -94,7 +129,7 @@
 - `node --test --test-concurrency=1 tests/backend/search-keyword-recall.test.mjs`：4/4。
 - 15 视口 × 6 页面截图共 93 张，目录为 `docs/evidence/talent-redesign/screenshots/`；门禁报告见 `docs/evidence/talent-redesign/responsive-scale-report.json`、`surface-navigation-report.json` 与 `qa-report.json`。
 
-以下保留历史累计开发记录；工作区当前版本号为 `0.3.0`（第十二轮实现已完成，尚未发布），上一次已发布版本为 `0.2.0`，数据库为 schema `V13`。历史条目中的未部署状态按记录当时理解，当前部署状态以运维记录为准。
+以下为 `0.3.0` 时点的历史累计开发记录；当前工作区版本以本文件顶部的 `0.5.0` 条目为准。历史条目中的未部署状态按记录当时理解，当前部署状态以运维记录为准。
 
 ### Added
 

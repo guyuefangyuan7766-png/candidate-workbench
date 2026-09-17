@@ -1,0 +1,2258 @@
+{
+  "generated_at": "2026-09-17T08:00:14.570Z",
+  "anonymous": true,
+  "viewports": [
+    375,
+    768,
+    1440
+  ],
+  "cases": [
+    {
+      "name": "隐藏节点审计 candidate-drawer-activity-1440",
+      "ok": true,
+      "detail": {
+        "count": 93
+      }
+    },
+    {
+      "name": "备注区单层容器",
+      "ok": true,
+      "detail": {
+        "section": {
+          "borderTopWidth": "0px",
+          "borderRightWidth": "0px",
+          "borderBottomWidth": "0px",
+          "borderLeftWidth": "0px",
+          "borderRadius": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "paddingTop": "0px",
+          "paddingRight": "0px",
+          "paddingBottom": "0px",
+          "paddingLeft": "0px"
+        },
+        "composer": {
+          "borderTopWidth": "0px",
+          "borderRightWidth": "0px",
+          "borderBottomWidth": "0px",
+          "borderLeftWidth": "0px",
+          "borderRadius": "0px",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "paddingTop": "0px",
+          "paddingRight": "0px",
+          "paddingBottom": "0px",
+          "paddingLeft": "0px"
+        },
+        "textarea": {
+          "borderTopWidth": "1px",
+          "borderRightWidth": "1px",
+          "borderBottomWidth": "1px",
+          "borderLeftWidth": "1px",
+          "borderRadius": "6px",
+          "backgroundColor": "rgb(255, 255, 255)",
+          "paddingTop": "12px",
+          "paddingRight": "12px",
+          "paddingBottom": "12px",
+          "paddingLeft": "12px"
+        }
+      }
+    },
+    {
+      "name": "隐藏节点审计 assistant-empty-1440",
+      "ok": true,
+      "detail": {
+        "count": 22
+      }
+    },
+    {
+      "name": "AI 会话新建、重命名和删除",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "AI 助手布局 1440px",
+      "ok": true,
+      "detail": {
+        "shell": {
+          "x": 316,
+          "width": 880,
+          "mainX": 72,
+          "mainWidth": 1368,
+          "centerOffset": 36,
+          "appSidebarWidth": 72,
+          "navDotDisplay": "block"
+        },
+        "desktopStyles": {
+          "assistantBubble": {
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderTopWidth": "0px",
+            "borderRightWidth": "0px",
+            "borderBottomWidth": "0px",
+            "borderLeftWidth": "0px",
+            "width": 790
+          },
+          "assistantMarkdown": {
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderTopWidth": "0px",
+            "borderRightWidth": "0px",
+            "borderBottomWidth": "0px",
+            "borderLeftWidth": "0px",
+            "width": 790
+          },
+          "userBubble": {
+            "backgroundColor": "rgb(234, 240, 255)",
+            "borderTopWidth": "0px",
+            "borderRightWidth": "0px",
+            "borderBottomWidth": "0px",
+            "borderLeftWidth": "0px",
+            "width": 578
+          },
+          "form": {
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderTopWidth": "0px",
+            "borderRightWidth": "0px",
+            "borderBottomWidth": "0px",
+            "borderLeftWidth": "0px",
+            "width": 880
+          },
+          "surface": {
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderTopWidth": "1px",
+            "borderRightWidth": "1px",
+            "borderBottomWidth": "1px",
+            "borderLeftWidth": "1px",
+            "width": 832
+          },
+          "textarea": {
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderTopWidth": "0px",
+            "borderRightWidth": "0px",
+            "borderBottomWidth": "0px",
+            "borderLeftWidth": "0px",
+            "width": 756
+          },
+          "sendInsideSurface": true,
+          "chatScrollWidth": 880,
+          "chatClientWidth": 880,
+          "documentOverflow": false
+        },
+        "markdownLayout": {
+          "tableOverflowX": "auto",
+          "tableScrollWidth": 790,
+          "tableClientWidth": 790,
+          "preMaxWidth": 790,
+          "messageWidth": 832
+        }
+      }
+    },
+    {
+      "name": "AI 助手布局 768px",
+      "ok": true,
+      "detail": {
+        "shell": {
+          "x": 72,
+          "width": 696,
+          "mainX": 72,
+          "mainWidth": 696,
+          "centerOffset": 36,
+          "appSidebarWidth": 72,
+          "navDotDisplay": "block"
+        },
+        "desktopStyles": {
+          "assistantBubble": {
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderTopWidth": "0px",
+            "borderRightWidth": "0px",
+            "borderBottomWidth": "0px",
+            "borderLeftWidth": "0px",
+            "width": 622
+          },
+          "assistantMarkdown": {
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderTopWidth": "0px",
+            "borderRightWidth": "0px",
+            "borderBottomWidth": "0px",
+            "borderLeftWidth": "0px",
+            "width": 622
+          },
+          "userBubble": {
+            "backgroundColor": "rgb(234, 240, 255)",
+            "borderTopWidth": "0px",
+            "borderRightWidth": "0px",
+            "borderBottomWidth": "0px",
+            "borderLeftWidth": "0px",
+            "width": 502.46875
+          },
+          "form": {
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderTopWidth": "0px",
+            "borderRightWidth": "0px",
+            "borderBottomWidth": "0px",
+            "borderLeftWidth": "0px",
+            "width": 696
+          },
+          "surface": {
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderTopWidth": "1px",
+            "borderRightWidth": "1px",
+            "borderBottomWidth": "1px",
+            "borderLeftWidth": "1px",
+            "width": 664
+          },
+          "textarea": {
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderTopWidth": "0px",
+            "borderRightWidth": "0px",
+            "borderBottomWidth": "0px",
+            "borderLeftWidth": "0px",
+            "width": 588
+          },
+          "sendInsideSurface": true,
+          "chatScrollWidth": 696,
+          "chatClientWidth": 696,
+          "documentOverflow": false
+        },
+        "markdownLayout": {
+          "tableOverflowX": "auto",
+          "tableScrollWidth": 622,
+          "tableClientWidth": 622,
+          "preMaxWidth": 622,
+          "messageWidth": 664
+        }
+      }
+    },
+    {
+      "name": "AI 助手布局 375px",
+      "ok": true,
+      "detail": {
+        "shell": {
+          "x": 0,
+          "width": 375,
+          "mainX": 0,
+          "mainWidth": 375,
+          "centerOffset": 0,
+          "appSidebarWidth": 64,
+          "navDotDisplay": "block"
+        },
+        "desktopStyles": {
+          "assistantBubble": {
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderTopWidth": "0px",
+            "borderRightWidth": "0px",
+            "borderBottomWidth": "0px",
+            "borderLeftWidth": "0px",
+            "width": 306
+          },
+          "assistantMarkdown": {
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderTopWidth": "0px",
+            "borderRightWidth": "0px",
+            "borderBottomWidth": "0px",
+            "borderLeftWidth": "0px",
+            "width": 306
+          },
+          "userBubble": {
+            "backgroundColor": "rgb(234, 240, 255)",
+            "borderTopWidth": "0px",
+            "borderRightWidth": "0px",
+            "borderBottomWidth": "0px",
+            "borderLeftWidth": "0px",
+            "width": 301.828125
+          },
+          "form": {
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderTopWidth": "0px",
+            "borderRightWidth": "0px",
+            "borderBottomWidth": "0px",
+            "borderLeftWidth": "0px",
+            "width": 375
+          },
+          "surface": {
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderTopWidth": "1px",
+            "borderRightWidth": "1px",
+            "borderBottomWidth": "1px",
+            "borderLeftWidth": "1px",
+            "width": 343
+          },
+          "textarea": {
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderTopWidth": "0px",
+            "borderRightWidth": "0px",
+            "borderBottomWidth": "0px",
+            "borderLeftWidth": "0px",
+            "width": 269
+          },
+          "sendInsideSurface": true,
+          "chatScrollWidth": 375,
+          "chatClientWidth": 375,
+          "documentOverflow": false
+        },
+        "markdownLayout": {
+          "tableOverflowX": "auto",
+          "tableScrollWidth": 306,
+          "tableClientWidth": 306,
+          "preMaxWidth": 306,
+          "messageWidth": 343
+        }
+      }
+    },
+    {
+      "name": "隐藏节点审计 assistant-loading-1440",
+      "ok": true,
+      "detail": {
+        "count": 22
+      }
+    },
+    {
+      "name": "AI 助手加载与取消状态",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "AI 助手失败状态",
+      "ok": true,
+      "detail": null
+    }
+  ],
+  "screenshots": [
+    "note-composer-1440.png",
+    "assistant-empty-1440.png",
+    "assistant-history-1440.png",
+    "assistant-success-1440.png",
+    "assistant-process-expanded-1440.png",
+    "assistant-success-768.png",
+    "assistant-history-375.png",
+    "assistant-success-375.png",
+    "assistant-loading-1440.png",
+    "assistant-failure-1440.png"
+  ],
+  "console_errors": [],
+  "hidden_audit": {
+    "candidate-drawer-activity-1440": [
+      {
+        "tag": "head",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "招聘工作台",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "meta",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "meta",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "meta",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "meta",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "title",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "招聘工作台",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "script",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "link",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "button",
+        "id": null,
+        "className": "tw-icon-plain",
+        "role": null,
+        "ariaLabel": "打开导航",
+        "text": "打开导航",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": true,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "span",
+        "id": null,
+        "className": "tw-topbar-title",
+        "role": null,
+        "ariaLabel": null,
+        "text": "候选人库人才资料管理",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "th",
+        "id": null,
+        "className": "tw-col-positions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "关联职位",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "th",
+        "id": null,
+        "className": "tw-col-tags",
+        "role": null,
+        "ariaLabel": null,
+        "text": "标签",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "th",
+        "id": null,
+        "className": "tw-sortable tw-col-time",
+        "role": null,
+        "ariaLabel": null,
+        "text": "更新时间",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-positions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "海外项目制作人 +1",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-tags",
+        "role": null,
+        "ariaLabel": null,
+        "text": "-",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-time",
+        "role": null,
+        "ariaLabel": null,
+        "text": "2026-09-17",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "className": "tw-row-actions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "opacity-zero"
+        ],
+        "interactive": false,
+        "width": 90,
+        "height": 26
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-positions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "海外项目制作人 +1",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-tags",
+        "role": null,
+        "ariaLabel": null,
+        "text": "-",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-time",
+        "role": null,
+        "ariaLabel": null,
+        "text": "2026-09-17",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "className": "tw-row-actions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "opacity-zero"
+        ],
+        "interactive": false,
+        "width": 90,
+        "height": 26
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-positions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "Unity 客户端工程师",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-tags",
+        "role": null,
+        "ariaLabel": null,
+        "text": "-",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-time",
+        "role": null,
+        "ariaLabel": null,
+        "text": "2026-09-17",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "className": "tw-row-actions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "opacity-zero"
+        ],
+        "interactive": false,
+        "width": 90,
+        "height": 26
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-positions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "Unity 客户端工程师",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-tags",
+        "role": null,
+        "ariaLabel": null,
+        "text": "-",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-time",
+        "role": null,
+        "ariaLabel": null,
+        "text": "2026-09-17",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "className": "tw-row-actions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "opacity-zero"
+        ],
+        "interactive": false,
+        "width": 90,
+        "height": 26
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-positions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "Unity 客户端工程师",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-tags",
+        "role": null,
+        "ariaLabel": null,
+        "text": "-",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-time",
+        "role": null,
+        "ariaLabel": null,
+        "text": "2026-09-17",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "className": "tw-row-actions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "opacity-zero"
+        ],
+        "interactive": false,
+        "width": 90,
+        "height": 26
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-positions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "Unity 客户端工程师",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-tags",
+        "role": null,
+        "ariaLabel": null,
+        "text": "-",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-time",
+        "role": null,
+        "ariaLabel": null,
+        "text": "2026-09-17",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "className": "tw-row-actions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "opacity-zero"
+        ],
+        "interactive": false,
+        "width": 90,
+        "height": 26
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-positions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "Unity 客户端工程师",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-tags",
+        "role": null,
+        "ariaLabel": null,
+        "text": "-",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-time",
+        "role": null,
+        "ariaLabel": null,
+        "text": "2026-09-17",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "className": "tw-row-actions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "opacity-zero"
+        ],
+        "interactive": false,
+        "width": 90,
+        "height": 26
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-positions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "Unity 客户端工程师",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-tags",
+        "role": null,
+        "ariaLabel": null,
+        "text": "-",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-time",
+        "role": null,
+        "ariaLabel": null,
+        "text": "2026-09-17",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "className": "tw-row-actions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "opacity-zero"
+        ],
+        "interactive": false,
+        "width": 90,
+        "height": 26
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-positions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "Unity 客户端工程师",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-tags",
+        "role": null,
+        "ariaLabel": null,
+        "text": "-",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-time",
+        "role": null,
+        "ariaLabel": null,
+        "text": "2026-09-17",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "className": "tw-row-actions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "opacity-zero"
+        ],
+        "interactive": false,
+        "width": 90,
+        "height": 26
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-positions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "Unity 客户端工程师",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-tags",
+        "role": null,
+        "ariaLabel": null,
+        "text": "-",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-time",
+        "role": null,
+        "ariaLabel": null,
+        "text": "2026-09-17",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "className": "tw-row-actions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "opacity-zero"
+        ],
+        "interactive": false,
+        "width": 90,
+        "height": 26
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-positions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "Unity 客户端工程师",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-tags",
+        "role": null,
+        "ariaLabel": null,
+        "text": "-",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-time",
+        "role": null,
+        "ariaLabel": null,
+        "text": "2026-09-17",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "className": "tw-row-actions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "opacity-zero"
+        ],
+        "interactive": false,
+        "width": 90,
+        "height": 26
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-positions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "Unity 客户端工程师",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-tags",
+        "role": null,
+        "ariaLabel": null,
+        "text": "-",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-time",
+        "role": null,
+        "ariaLabel": null,
+        "text": "2026-09-17",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "className": "tw-row-actions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "opacity-zero"
+        ],
+        "interactive": false,
+        "width": 90,
+        "height": 26
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-positions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "Unity 客户端工程师",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-tags",
+        "role": null,
+        "ariaLabel": null,
+        "text": "-",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-time",
+        "role": null,
+        "ariaLabel": null,
+        "text": "2026-09-17",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "className": "tw-row-actions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "opacity-zero"
+        ],
+        "interactive": false,
+        "width": 90,
+        "height": 26
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-positions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "Unity 客户端工程师",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-tags",
+        "role": null,
+        "ariaLabel": null,
+        "text": "-",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-time",
+        "role": null,
+        "ariaLabel": null,
+        "text": "2026-09-17",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "className": "tw-row-actions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "opacity-zero"
+        ],
+        "interactive": false,
+        "width": 90,
+        "height": 26
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-positions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "Unity 客户端工程师",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-tags",
+        "role": null,
+        "ariaLabel": null,
+        "text": "-",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-time",
+        "role": null,
+        "ariaLabel": null,
+        "text": "2026-09-17",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "className": "tw-row-actions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "opacity-zero"
+        ],
+        "interactive": false,
+        "width": 90,
+        "height": 26
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-positions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "Unity 客户端工程师",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-tags",
+        "role": null,
+        "ariaLabel": null,
+        "text": "-",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-time",
+        "role": null,
+        "ariaLabel": null,
+        "text": "2026-09-17",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "className": "tw-row-actions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "opacity-zero"
+        ],
+        "interactive": false,
+        "width": 90,
+        "height": 26
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-positions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "Unity 客户端工程师",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-tags",
+        "role": null,
+        "ariaLabel": null,
+        "text": "-",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-time",
+        "role": null,
+        "ariaLabel": null,
+        "text": "2026-09-17",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "className": "tw-row-actions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "opacity-zero"
+        ],
+        "interactive": false,
+        "width": 90,
+        "height": 26
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-positions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "Unity 客户端工程师",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-tags",
+        "role": null,
+        "ariaLabel": null,
+        "text": "-",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-time",
+        "role": null,
+        "ariaLabel": null,
+        "text": "2026-09-17",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "className": "tw-row-actions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "opacity-zero"
+        ],
+        "interactive": false,
+        "width": 90,
+        "height": 26
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-positions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "Unity 客户端工程师",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-tags",
+        "role": null,
+        "ariaLabel": null,
+        "text": "-",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-time",
+        "role": null,
+        "ariaLabel": null,
+        "text": "2026-09-17",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "className": "tw-row-actions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "opacity-zero"
+        ],
+        "interactive": false,
+        "width": 90,
+        "height": 26
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-positions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "Unity 客户端工程师",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-tags",
+        "role": null,
+        "ariaLabel": null,
+        "text": "-",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "td",
+        "id": null,
+        "className": "tw-col-time",
+        "role": null,
+        "ariaLabel": null,
+        "text": "2026-09-17",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "className": "tw-row-actions",
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "opacity-zero"
+        ],
+        "interactive": false,
+        "width": 90,
+        "height": 26
+      }
+    ],
+    "assistant-empty-1440": [
+      {
+        "tag": "head",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "招聘工作台",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "meta",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "meta",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "meta",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "meta",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "title",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "招聘工作台",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "script",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "link",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "span",
+        "id": null,
+        "className": "tw-brand-mark",
+        "role": null,
+        "ariaLabel": null,
+        "text": "拾才让优秀的人更容易被看见",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "button",
+        "id": null,
+        "className": "tw-collapse",
+        "role": null,
+        "ariaLabel": "收起侧边栏",
+        "text": "收起侧边栏",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": true,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "span",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "工作台",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "span",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "候选人库",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "span",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "人才库分组",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "span",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "职位管理",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "span",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "导入候选人",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "span",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "AI 助手",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "span",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "履历检索",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "span",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "附件解析",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "className": "tw-sidebar-foot",
+        "role": null,
+        "ariaLabel": null,
+        "text": "成为企业的长期人才伙伴2026年9月17日",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "button",
+        "id": null,
+        "className": "tw-icon-plain",
+        "role": null,
+        "ariaLabel": "打开导航",
+        "text": "打开导航",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": true,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "span",
+        "id": null,
+        "className": "tw-topbar-title",
+        "role": null,
+        "ariaLabel": null,
+        "text": "工作台人才资料管理",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "className": "tw-content-stack",
+        "role": null,
+        "ariaLabel": null,
+        "text": "人才资产概览2026年9月17日新增候选人导入候选人新增职位在库人才45人才库分组（使用中）4招聘中职位4未分组人才0人",
+        "reasons": [
+          "hidden-attribute",
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      }
+    ],
+    "assistant-loading-1440": [
+      {
+        "tag": "head",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "招聘工作台",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "meta",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "meta",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "meta",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "meta",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "title",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "招聘工作台",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "script",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "link",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "span",
+        "id": null,
+        "className": "tw-brand-mark",
+        "role": null,
+        "ariaLabel": null,
+        "text": "拾才让优秀的人更容易被看见",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "button",
+        "id": null,
+        "className": "tw-collapse",
+        "role": null,
+        "ariaLabel": "收起侧边栏",
+        "text": "收起侧边栏",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": true,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "span",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "工作台",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "span",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "候选人库",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "span",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "人才库分组",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "span",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "职位管理",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "span",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "导入候选人",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "span",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "AI 助手",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "span",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "履历检索",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "span",
+        "id": null,
+        "className": null,
+        "role": null,
+        "ariaLabel": null,
+        "text": "附件解析",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "className": "tw-sidebar-foot",
+        "role": null,
+        "ariaLabel": null,
+        "text": "成为企业的长期人才伙伴2026年9月17日",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "button",
+        "id": null,
+        "className": "tw-icon-plain",
+        "role": null,
+        "ariaLabel": "打开导航",
+        "text": "打开导航",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": true,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "span",
+        "id": null,
+        "className": "tw-topbar-title",
+        "role": null,
+        "ariaLabel": null,
+        "text": "工作台人才资料管理",
+        "reasons": [
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "className": "tw-content-stack",
+        "role": null,
+        "ariaLabel": null,
+        "text": "人才资产概览2026年9月17日新增候选人导入候选人新增职位在库人才45人才库分组（使用中）4招聘中职位4未分组人才0人",
+        "reasons": [
+          "hidden-attribute",
+          "display-none"
+        ],
+        "interactive": false,
+        "width": 0,
+        "height": 0
+      }
+    ]
+  }
+}

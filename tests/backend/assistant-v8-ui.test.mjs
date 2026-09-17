@@ -50,7 +50,8 @@ test('V8 assistant UI persists only opaque session state and sends idempotent se
   assert.match(apiSource, /before_sequence: beforeSequence/)
 
   const storageWrites = [...drawerSource.matchAll(/localStorage\.setItem\(([^,\n]+)/g)].map((match) => match[1])
-  assert.deepEqual(storageWrites.sort(), ['ACTIVE_SESSION_STORAGE_KEY', 'HISTORY_OPEN_STORAGE_KEY'].sort())
+  assert.deepEqual(storageWrites.sort(), ['ACTIVE_SESSION_STORAGE_KEY'])
+  assert.doesNotMatch(drawerSource, /HISTORY_OPEN_STORAGE_KEY/)
   assert.doesNotMatch(drawerSource, /localStorage\.setItem\([^\n]*(?:message|content|phone|email|resume)/i)
 })
 
@@ -183,13 +184,13 @@ test('V8 resume evidence renders table, field, actual terms and React mark nodes
 
 test('opening a V8 search result does not depend on candidates loaded on the current page', () => {
   assert.match(drawerSource, /onOpenCandidateId\(item\.candidate_id, tab\)/)
-  assert.match(drawerSource, /candidateApi\.get\(item\.candidate_id\)/)
+  assert.doesNotMatch(drawerSource, /candidateApi\./)
   // The open-result handler must not depend on candidates already loaded on the page.
   const openResultStart = drawerSource.indexOf('async function openResult(')
   const openResultBody = drawerSource.slice(openResultStart, drawerSource.indexOf('\n  }', openResultStart))
   assert.ok(openResultStart > 0)
   assert.doesNotMatch(openResultBody, /candidates\.find\(/)
-  assert.match(openResultBody, /candidateApi\.get\(item\.candidate_id\)/)
+  assert.match(openResultBody, /onOpenCandidateId\(item\.candidate_id, tab\)/)
 })
 
 test('resume index status refresh is revision-driven instead of tab-toggle driven', () => {

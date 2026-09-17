@@ -1,5 +1,40 @@
 # 测试说明
 
+## 2026-09-17 第十四轮头像、容器与 AI 会话验收（0.5.0）
+
+本轮所有浏览器测试只使用匿名临时 SQLite、虚构候选人和本机 mock gateway；正式 `data/recruitment.db`、真实候选人和真实 model gateway 未参与验证。应用 `0.5.0` 尚未正式部署，数据库 schema 保持 `V13`，人才库领域版本保持历史 `V2`。
+
+### 自动化与构建
+
+- `npx tsc --noEmit`：通过。
+- `npm run build`：通过，构建 1863 个模块；保留既有大于 500 kB 的 bundle 警告。
+- `npm test`：733 项、719 通过、7 个与基线一致的既有失败、7 跳过。新增 `ui-cleanup-contract.test.mjs` 2/2 及混合检索修订回归 1 项通过；原 `hire-status-v11` 部署状态文档断言经文档同步后恢复通过，没有新增失败。
+- 头像组件：`node tests/browser/avatar-component-qa.mjs` 通过。真实挂载 `CandidateAvatar` 和 `TwAvatar`，覆盖无图、加载中、成功、失败四态及默认尺寸。
+- 混合检索修订修复：`hybrid-search-service-lifecycle.test.mjs` 12/12 通过；新增无关主库审计写入不中断稳定搜索、真实代际发布自动换 worker 两个用例。相关检索/Agent 组合回归 70/70 通过。
+- 正式库修订查询实测约 `3.17ms`；重启后的正式 `fast=true` 混合检索 smoke 返回 `200`、约 7.4 秒。标准检索 smoke 仍返回既有 `504 search_timeout`。
+
+### 浏览器矩阵
+
+- `node tests/browser/workspace-polish-qa.mjs`：通过。
+- 视口：375×812、768×1024、1440×900。
+- 备注区：section 与中间 composer 的 border/背景为零，textarea 保留唯一 `1px` 输入边界。
+- AI 助手：桌面会话列不超过 `880px` 并居中；移动端历史栏不占正文文档流；空态、加载、失败、成功、长文本、Markdown 表格、代码块、执行过程展开和会话新建/重命名/删除均通过。
+- 比例修复：AI 工具页全局侧栏固定为 `72px` 图标栏，历史会话使用 `<=320px` 覆盖层并带 scrim；1440/1536/1920 匿名几何复验的会话列中心偏移均为 `36px` 左右，正式 `4173` 只读复核同为 `36px`，修复前为 `218–234px`。
+- 侧栏修复：默认收起且不恢复陈旧偏好；覆盖层宽 `320px`，标题“会话历史”保持单行，标题与“新建会话/收起”操作不重叠，侧栏无横向溢出；scrim、选择会话和侧栏关闭按钮均可关闭。
+- 响应式：根节点无横向滚动；聊天区无内部横向溢出；Markdown 表格只在自身容器内滚动；移动端输入区和消息不互相遮挡。
+- 隐藏节点 DOM 审计覆盖候选人详情和 AI 助手页面，报告保存在 `qa-report.json`；无障碍隐藏、响应式列、交互状态、用户折叠区和状态性弹窗均保留。
+
+### 截图与报告
+
+- [QA 报告](evidence/round14-ui-polish/qa-report.json)
+- [头像报告](evidence/round14-ui-polish/avatar-report.json)
+- 截图目录：`docs/evidence/round14-ui-polish/screenshots/`
+- 关键截图：`avatar-states.png`、`note-composer-1440.png`、`assistant-empty-1440.png`、`assistant-loading-1440.png`、`assistant-failure-1440.png`、`assistant-success-1440.png`、`assistant-success-768.png`、`assistant-success-375.png`、`assistant-history-1440.png`、`assistant-history-375.png`。
+
+### 已知失败
+
+以下 7 个报告失败属于历史基线：V8 只读目录父套件及其中 3 个子测试、`business-search-v8` 目录策略，以及 `import-task-resilience` 缺失 `.tmp-v12-paused-server.mjs` 导致的 2 项。`hire-status-v11` 的旧版部署文案断言已由本轮文档同步修复。真实导入、正式部署、模型网关质量和数据库迁移不在本轮范围内。
+
 ## 2026-09-17 检索性能与增量索引维护验证（0.4.0）
 
 第十三轮以正式库的只读观察与匿名/临时库的自动化测试共同完成，未把正式候选人材料用于压测、截图或 fixture。

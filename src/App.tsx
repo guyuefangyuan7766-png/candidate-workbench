@@ -7,8 +7,6 @@ import {
   Check,
   ChevronDown,
   Download,
-  FileDown,
-  FileSpreadsheet,
   Filter,
   FolderKanban,
   LayoutDashboard,
@@ -1568,7 +1566,6 @@ function App() {
             candidates={candidates}
             positions={positions}
             talentPools={talentPools}
-            presentation="page"
             initialTab={toolPage === "resume-search" ? "resume-search" : toolPage === "attachment-parser" ? "attachment" : "chat"}
             onOpenCandidateId={(candidateId, tab) => void openCandidateById(candidateId, tab ?? "profile")}
             onCandidatesUpdated={() => void loadWorkspace(false)}
@@ -1593,15 +1590,6 @@ function App() {
       {permanentDeleteRequest && <PermanentDeleteDialog entity={permanentDeleteRequest.entity} requestedCount={permanentDeleteRequest.ids.length} preview={permanentDeleteRequest.preview} loading={permanentDeleteRequest.loading} committing={permanentDeleteRequest.committing} error={permanentDeleteRequest.error} onCancel={() => !permanentDeleteRequest.loading && !permanentDeleteRequest.committing && setPermanentDeleteRequest(null)} onRetry={() => void requestPermanentDeletePreview(permanentDeleteRequest.entity, permanentDeleteRequest.ids)} onConfirm={() => void commitPermanentDelete()} />}
       {toast && <div className={`tw-toast${toast.tone === "warning" ? " is-warning" : ""}`} role="status"><Check size={16} /><span>{toast.message}</span>{toast.action && <button type="button" onClick={() => { const action = toast.action; setToast(null); if (action) Promise.resolve(action()).catch((error) => notify(errorMessage(error, "撤销操作失败"), { tone: "warning" })); }}><Undo2 size={14} />{toast.actionLabel}</button>}</div>}
     </>
-  );
-}
-
-function ExportMenu({ count, onExport }: { count: number; onExport: (format: "xlsx" | "csv") => void }) {
-  return (
-    <div className="export-menu" role="menu">
-      <button type="button" role="menuitem" onClick={() => onExport("xlsx")}><FileSpreadsheet size={17} /><span><strong>Excel 工作簿</strong><small>{count} 条当前结果</small></span></button>
-      <button type="button" role="menuitem" onClick={() => onExport("csv")}><FileDown size={17} /><span><strong>CSV 文件</strong><small>UTF-8 编码</small></span></button>
-    </div>
   );
 }
 

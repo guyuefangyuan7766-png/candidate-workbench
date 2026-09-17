@@ -13,8 +13,7 @@ export function TwAvatar({ candidate, size = 40 }: { candidate: Pick<Candidate, 
 
   return (
     <span className="tw-avatar" style={{ width: size, height: size }} aria-hidden="true">
-      {label}
-      {source && failedSource !== source && (
+      {source && failedSource !== source ? (
         <img
           src={source}
           alt=""
@@ -25,7 +24,7 @@ export function TwAvatar({ candidate, size = 40 }: { candidate: Pick<Candidate, 
           referrerPolicy="no-referrer"
           onError={() => setFailedSource(source)}
         />
-      )}
+      ) : label}
     </span>
   );
 }

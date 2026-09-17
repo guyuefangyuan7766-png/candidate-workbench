@@ -11,7 +11,6 @@ import {
   Download,
   FileSearch,
   FileText,
-  History,
   LoaderCircle,
   LockKeyhole,
   Minus,
@@ -29,7 +28,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { agentSessionApi, agentTaskApi, candidateApi, getResumeSearchStatus, getResumeSearchOptions, searchCandidateResumesWithPlan, ApiError } from "../api";
+import { agentSessionApi, agentTaskApi, getResumeSearchStatus, getResumeSearchOptions, searchCandidateResumesWithPlan, ApiError } from "../api";
 import type { ResumeSearchFilters } from "../api";
 import { normalizeSearchHighlightRanges } from "../types";
 import type {
@@ -57,7 +56,6 @@ import { AssistantMarkdown } from "./AssistantMarkdown";
 import { AttachmentBatchWorkflow } from "./AttachmentBatchWorkflow";
 
 const ACTIVE_SESSION_STORAGE_KEY = "candidate-workbench.agent.active-session-id.v1";
-const HISTORY_OPEN_STORAGE_KEY = "candidate-workbench.agent.history-open.v1";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const TERMINAL_TASK_STATUSES: ReadonlySet<string> = new Set(["completed", "partial", "failed", "cancelled"]);
 
@@ -111,11 +109,8 @@ interface AssistantDrawerProps {
   positions?: Position[];
   talentPools?: TalentPool[];
   onClose: () => void;
-  onOpenCandidateId?: (candidateId: string, tab?: "profile" | "resume") => void;
-  onOpenCandidate?: (candidate: Candidate) => void;
+  onOpenCandidateId: (candidateId: string, tab?: "profile" | "resume") => void;
   onCandidatesUpdated?: () => void;
-  /** Render the assistant as an app page instead of a modal drawer. */
-  presentation?: "drawer" | "page";
   initialTab?: AssistantTab;
   /** 第十二轮：工具页三页互切时同步表面状态与 URL（导航表面互斥）。 */
   onToolChange?: (tool: "assistant" | "resume-search" | "attachment-parser") => void;
@@ -148,24 +143,6 @@ function writeStoredSessionId(value: string | null) {
     else window.localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
   } catch {
     // Storage is optional; SQLite remains the source of truth for all chat content.
-  }
-}
-
-function readStoredHistoryOpen() {
-  if (typeof window === "undefined") return false;
-  try {
-    return window.localStorage.getItem(HISTORY_OPEN_STORAGE_KEY) === "true";
-  } catch {
-    return false;
-  }
-}
-
-function writeStoredHistoryOpen(value: boolean) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(HISTORY_OPEN_STORAGE_KEY, String(value));
-  } catch {
-    // UI preferences safely fall back to their defaults when storage is unavailable.
   }
 }
 
@@ -703,9 +680,7 @@ export function AssistantDrawer({
   talentPools = [],
   onClose,
   onOpenCandidateId,
-  onOpenCandidate,
   onCandidatesUpdated,
-  presentation = "drawer",
   initialTab = "chat",
   onToolChange,
 }: AssistantDrawerProps) {
@@ -727,7 +702,7 @@ export function AssistantDrawer({
   const [sessionPage, setSessionPage] = useState(1);
   const [sessionPending, setSessionPending] = useState(false);
   const [activeSessionId, setActiveSessionIdState] = useState<string | null>(() => readStoredSessionId());
-  const [historyOpen, setHistoryOpenState] = useState(() => (presentation === "page" ? true : readStoredHistoryOpen()));
+  const [historyOpen, setHistoryOpenState] = useState(false);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<AgentSession | null>(null);
@@ -876,11 +851,6 @@ export function AssistantDrawer({
       setChatError("");
     }
     setActiveSessionId(value);
-  }
-
-  function setHistoryOpen(value: boolean) {
-    setHistoryOpenState(value);
-    writeStoredHistoryOpen(value);
   }
 
   function applyTaskUpdate(task: AgentTask, fallbackSessionId?: string | null, fallbackClientRequestId?: string | null) {
@@ -1626,11 +1596,7 @@ export function AssistantDrawer({
     setOpeningCandidateId(item.candidate_id);
     setResumeError("");
     try {
-      if (onOpenCandidateId) {
-        onOpenCandidateId(item.candidate_id, tab);
-      } else if (onOpenCandidate) {
-        onOpenCandidate(await candidateApi.get(item.candidate_id));
-      }
+      onOpenCandidateId(item.candidate_id, tab);
     } catch (error) {
       setResumeError(error instanceof Error ? error.message : "无法打开候选人详情。");
     } finally {
@@ -1650,12 +1616,11 @@ export function AssistantDrawer({
     && message.role === "user"
     && message.status === "processing"
   ));
-  const canOpenCandidate = Boolean(onOpenCandidateId || onOpenCandidate);
+  const canOpenCandidate = true;
   const taskAnswerMessageId = activeTask
     ? messages.find((message) => isTaskAnswerMessage(activeTask, message))?.id ?? null
     : null;
 
-  const pagePresentation = presentation === "page";
   const toolTitle = tab === "chat" ? "AI 助手" : tab === "resume-search" ? "履历检索" : "解析并更新候选人";
   const toolSubtitle = tab === "chat"
     ? "基于本地人才库的只读问答，回答只引用可核对的证据"
@@ -1665,7 +1630,10 @@ export function AssistantDrawer({
     <nav className="tw-tool-side" aria-label="历史会话">
       <div className="tw-tool-side-head">
         <h2>会话历史</h2>
-        <button className="tw-btn tw-btn-sm" type="button" onClick={() => void createSession()} disabled={sessionMutationPending}><Plus size={15} />新建会话</button>
+        <div className="tw-tool-side-head-actions">
+          <button className="tw-btn tw-btn-sm" type="button" onClick={() => void createSession()} disabled={sessionMutationPending}><Plus size={15} />新建会话</button>
+          <button className="tw-icon-plain tw-tool-side-close" type="button" onClick={() => setHistoryOpenState(false)} aria-label="收起历史会话" title="收起历史会话"><PanelLeftClose size={16} /></button>
+        </div>
       </div>
       {sessionPending && !sessions.length
         ? <div className="tw-tool-side-empty">正在读取历史会话…</div>
@@ -1678,7 +1646,7 @@ export function AssistantDrawer({
                 <button className="tw-icon-plain" type="button" onClick={() => setEditingSessionId(null)} aria-label="取消重命名" title="取消"><X size={14} /></button>
               </form>
               : <>
-                <button className="tw-session" type="button" onClick={() => { selectSession(session.id); if (!pagePresentation) setHistoryOpen(false); }} aria-current={session.id === activeSessionId ? "true" : undefined}>
+                <button className="tw-session" type="button" onClick={() => { selectSession(session.id); setHistoryOpenState(false); }} aria-current={session.id === activeSessionId ? "true" : undefined}>
                   <span className="tw-session-text"><strong>{session.title}</strong><small>{sessionTimeLabel(session.last_message_at) || `${session.message_count} 条消息`}</small></span>
                 </button>
                 <span className="tw-session-actions">
@@ -1697,7 +1665,7 @@ export function AssistantDrawer({
     </nav>
   ) : null;
 
-  const chatBody = configured ? <>
+  const chatBody = configured ? <div className="tw-chat-shell">
     <div className="tw-chat" ref={chatListRef}>
       {messagePagination?.has_more && <div className="tw-chat-more"><button className="tw-btn tw-btn-sm" type="button" onClick={() => void loadEarlierMessages()} disabled={messagePending}>加载更早消息</button></div>}
       {!messages.length && !messagePending && !activeTask
@@ -1730,18 +1698,18 @@ export function AssistantDrawer({
           })}
           {activeTask && !taskAnswerMessageId && <TaskResultPreview key={activeTask.task_id} task={activeTask} mutationPending={taskMutationPending === activeTask.task_id} onCancel={(task) => void cancelTask(task)} onRetryAnswer={(task) => void retryTaskAnswer(task)} />}
           {activeTask && !taskAnswerMessageId && <AgentArtifactDownloads task={activeTask} />}
-          {(pending && pendingSessionId === activeSessionId || messagePending && !messages.length) && <div className="tw-msg is-assistant is-pending"><span>{pending && pendingSessionId === activeSessionId ? pendingLabel : "正在恢复会话…"}</span></div>}
+          {(pending && pendingSessionId === activeSessionId || messagePending && !messages.length) && <div className="tw-msg is-assistant is-pending"><span className="tw-msg-pending"><LoaderCircle className="spin" size={15} aria-hidden="true" />{pending && pendingSessionId === activeSessionId ? pendingLabel : "正在恢复会话…"}</span></div>}
         </div>}
     </div>
     {chatError && (!activeTask?.error || isActiveTask(activeTask)) && <div className="tw-alert tw-alert-inline is-danger tw-chat-error" role="alert"><span>{chatError}</span></div>}
-    <form className="tw-composer" onSubmit={(event) => void submit(event)}>
-      <div className="tw-composer-box">
+    <form className="tw-chat-composer" onSubmit={(event) => void submit(event)}>
+      <div className="tw-chat-composer-surface">
         <textarea value={query} onChange={(event) => setQuery(event.target.value)} rows={2} placeholder="继续提问，例如“上海有哪些有产品设计经验的人才？”" aria-label="向拾才助手提问" />
-        <button className="tw-composer-send" type="submit" disabled={!query.trim() || pending || sessionMutationPending || hasProcessingMessage || Boolean(activeTask && isActiveTask(activeTask))} aria-label="发送" title="发送"><Send size={16} /><span>发送</span></button>
+        <button className="tw-chat-send" type="submit" disabled={!query.trim() || pending || sessionMutationPending || hasProcessingMessage || Boolean(activeTask && isActiveTask(activeTask))} aria-label="发送" title="发送"><Send size={17} /></button>
       </div>
-      <p className="tw-composer-note">拾才助手不会修改人才资料，回答仅引用本地人才库证据。</p>
+      <p className="tw-chat-composer-note">拾才助手不会修改人才资料，回答仅引用本地人才库证据。</p>
     </form>
-  </> : <div className="tw-tool-scroll">
+  </div> : <div className="tw-tool-scroll">
     <div className="tw-empty-card">
       <span className="tw-empty-icon"><Bot size={26} /></span>
       <h3>数据问答尚未配置</h3>
@@ -1916,58 +1884,29 @@ export function AssistantDrawer({
     </div>
   ) : null;
 
-  if (pagePresentation) {
-    return (
-      <section className="tw-page tw-tool-page" aria-label={toolTitle}>
-        <div className="tw-tool">
-          {tab === "chat" && configured && (historyOpen
-            ? sessionColumn
-            : <nav className="tw-tool-rail" aria-label="会话导航">
-              <button className="tw-icon-plain" type="button" onClick={() => void createSession()} disabled={sessionMutationPending} aria-label="新建会话" title="新建会话"><Plus size={19} /></button>
-              <button className="tw-icon-plain" type="button" onClick={() => setHistoryOpen(true)} aria-label="展开历史会话" title="展开历史会话" aria-expanded={false}><PanelLeftOpen size={19} /></button>
-            </nav>)}
-          <div className="tw-tool-main">
-            {tab !== "attachment" && <header className="tw-tool-head">
-              <div>
-                <h1>{toolTitle}</h1>
-                {toolSubtitle && <p className="tw-sub">{toolSubtitle}</p>}
-              </div>
-              <div className="tw-page-actions">
-                {tab === "chat" && <span className="tw-readonly" title="只读数据源：不会修改人才资料"><ShieldCheck size={13} />全量只读</span>}
-                {tab === "chat" && configured && historyOpen && <button className="tw-icon-plain" type="button" onClick={() => setHistoryOpen(false)} aria-label="收起历史会话" title="收起历史会话" aria-expanded={true}><PanelLeftClose size={18} /></button>}
-                <button className="tw-btn" type="button" onClick={onClose}><ArrowLeft size={16} />返回人才库</button>
-              </div>
-            </header>}
-            {mainBody}
-          </div>
-        </div>
-        {deleteDialog}
-      </section>
-    );
-  }
-
   return (
-    <div className="tw-modal-layer is-drawer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <aside className="tw-drawer tw-assistant-drawer" role="dialog" aria-modal="true" aria-label={toolTitle}>
-        <header className="tw-drawer-head">
-          <div><h2>{toolTitle}</h2></div>
-          <div className="tw-drawer-head-actions">
-            <span className="tw-readonly" title="受控数据源"><ShieldCheck size={13} />受控数据源</span>
-            {configured && tab === "chat" && <button className="tw-icon-plain" type="button" onClick={() => setHistoryOpen(!historyOpen)} aria-label={historyOpen ? "收起历史会话" : "打开历史会话"} aria-expanded={historyOpen} title={historyOpen ? "收起历史会话" : "历史会话"}><History size={18} /></button>}
-            <button className="tw-icon-plain" type="button" onClick={onClose} aria-label="关闭" title="关闭"><X size={18} /></button>
-          </div>
-        </header>
-        <div className="tw-seg tw-tool-tabs" role="tablist" aria-label="助手工具">
-          <button className={tab === "chat" ? "active" : ""} type="button" role="tab" aria-selected={tab === "chat"} onClick={() => selectTab("chat")}><Bot size={15} />数据问答</button>
-          <button className={tab === "resume-search" ? "active" : ""} type="button" role="tab" aria-selected={tab === "resume-search"} onClick={() => selectTab("resume-search")}><FileSearch size={15} />履历检索</button>
-          <button className={tab === "attachment" ? "active" : ""} type="button" role="tab" aria-selected={tab === "attachment"} onClick={() => selectTab("attachment")}><Paperclip size={15} />附件更新</button>
-        </div>
-        <div className="tw-drawer-body tw-tool-drawer-body">
-          {tab === "chat" && configured && historyOpen && sessionColumn}
+    <section className="tw-page tw-tool-page" aria-label={toolTitle}>
+      <div className="tw-tool">
+        {tab === "chat" && configured && historyOpen && <>
+          <button className="tw-tool-side-scrim" type="button" onClick={() => setHistoryOpenState(false)} aria-label="关闭历史会话" />
+          {sessionColumn}
+        </>}
+        <div className="tw-tool-main">
+          {tab !== "attachment" && <header className={`tw-tool-head${tab === "chat" ? " tw-chat-head" : ""}`}>
+            <div>
+              <h1>{toolTitle}</h1>
+              {toolSubtitle && <p className="tw-sub">{toolSubtitle}</p>}
+            </div>
+            <div className="tw-page-actions">
+              {tab === "chat" && <span className="tw-readonly" title="只读数据源：不会修改人才资料"><ShieldCheck size={13} />全量只读</span>}
+              {tab === "chat" && configured && <button className="tw-icon-plain" type="button" onClick={() => setHistoryOpenState((current) => !current)} aria-label={historyOpen ? "收起历史会话" : "展开历史会话"} title={historyOpen ? "收起历史会话" : "展开历史会话"} aria-expanded={historyOpen}>{historyOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}</button>}
+              <button className="tw-btn" type="button" onClick={onClose}><ArrowLeft size={16} />返回人才库</button>
+            </div>
+          </header>}
           {mainBody}
         </div>
-      </aside>
+      </div>
       {deleteDialog}
-    </div>
+    </section>
   );
 }

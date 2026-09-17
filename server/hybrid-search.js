@@ -11,6 +11,7 @@ export class HybridSearchError extends Error {
     super(message)
     this.code = code
     this.status = status
+    this.retryable = code === 'search_index_changed' || String(code).startsWith('search_vector_')
   }
 }
 const fail = (code, message, status = 400) => {

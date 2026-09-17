@@ -1306,7 +1306,8 @@ function retryableToolError(error) {
     'web_http_error',
     'web_redirect_limit',
     'web_search_challenged',
-    'web_search_invalid_response'
+    'web_search_invalid_response',
+    'search_index_changed'
   ].includes(error?.code)
 }
 

@@ -202,14 +202,14 @@ function manifestIdentity(directory) {
     return digest(readFileSync(file))
   } catch { return digest(['missing', fileStamp(file)]) }
 }
-function revision(db, databasePath) {
-  // O(1) metadata: never aggregate over candidates or document rows. Persistent
-  // connections make data_version meaningful; total_changes covers inline tests.
+function revision(db) {
+  // Only search-owned material participates in the snapshot check. Watching the
+  // database WAL or data_version made unrelated Agent audits and session writes
+  // look like resume changes and aborted otherwise stable searches. FTS5's
+  // structural rows are updated by the candidate_resume_documents triggers and
+  // provide a small, O(1) proxy for logical resume/index changes.
   return digest({
-    files: databasePath ? [fileStamp(databasePath), fileStamp(`${databasePath}-wal`)] : null,
     fts: db.prepare('SELECT * FROM candidate_resume_fts_data WHERE id IN (1,10)').all(),
-    changes: db.prepare('SELECT total_changes() n').get(),
-    version: db.prepare('PRAGMA data_version').get()
   })
 }
 function runtime(options) {
@@ -237,7 +237,7 @@ function runtime(options) {
 }
 async function execute(resource, input, options) {
   const { db, adapters, store } = resource
-  const before = revision(db, options.databasePath)
+  const before = revision(db)
   if (manifestIdentity(options.vectorDirectory) !== resource.identity) fail('search_index_changed', '检索索引已变化，请重试', 409)
   store?.assertCurrent()
   const vectorRevision = store?.status().generation ?? null
@@ -264,7 +264,7 @@ async function execute(resource, input, options) {
     rerankDocuments: !options.cached && remote && adapters.configured.rerank ? adapters.rerankDocuments : undefined,
     snapshot: options.cached?.snapshot, signal: options.signal
   })
-  if (revision(db, options.databasePath) !== before || manifestIdentity(options.vectorDirectory) !== resource.identity) fail('search_index_changed', '检索期间数据或索引已变化，请重试', 409)
+  if (revision(db) !== before || manifestIdentity(options.vectorDirectory) !== resource.identity) fail('search_index_changed', '检索期间数据或索引已变化，请重试', 409)
   store?.assertCurrent()
   if (!result.degradation.some(d => d.stage === 'planning')) {
     if (remote && plan.metadata?.source !== 'model') result.degradation.push({ code: 'model_planning_unavailable', message: '查询理解暂不可用，已使用本地条件解析', stage: 'planning' })
@@ -360,7 +360,14 @@ export class HybridSearchService {
       if (!entry || entry.fingerprint !== input.fingerprint) fail('search_cursor_stale', '分页已过期或条件已变化，请重新检索', 409)
       page = integer(token.page, 1, 10000); cached = entry.cache; id = token.id
     }
-    const output = await this.enqueue(input, { cached, page }, signal)
+    let output
+    try {
+      output = await this.enqueue(input, { cached, page }, signal)
+    } catch (error) {
+      if (error?.code !== 'search_index_changed' || input.cursor || signal?.aborted) throw error
+      await this.recycling
+      output = await this.enqueue(input, { cached: null, page: input.page }, signal)
+    }
     if (signal?.aborted) fail('search_cancelled', '检索已取消', 499)
     if (this.cache.size >= 64) this.cache.delete(this.cache.keys().next().value)
     this.cache.set(id, { fingerprint: input.fingerprint, cache: output.cache, expires: Date.now() + 300000 })

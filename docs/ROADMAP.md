@@ -7,7 +7,7 @@
 - 结构化查询使用业务 API 工具，简历等非结构化内容才考虑全文检索或 RAG。
 - 从个人版升级到多人版必须先补身份、权限、审计和集中运维能力。
 
-当前开发基线：`0.1.1` + `Unreleased`，代码数据库 schema V12；正式数据库版本和数据提交状态必须以运维证据为准。版本级变更见根目录 `CHANGELOG.md`；V11 清理基线见 `docs/superpowers/specs/2026-08-21-hire-status-design.md` 与 `docs/superpowers/plans/2026-08-21-hire-status.md`，V12 实施见 `docs/superpowers/specs/2026-08-21-hire-information-v12-design.md` 与 `docs/superpowers/plans/2026-08-21-hire-information-v12.md`。
+当前开发基线：工作区应用 `0.5.0`（尚未正式部署；上一次发布为 `0.2.0`），代码数据库 schema `V13`，人才库领域版本保持历史 `V2`；正式数据库版本和数据提交状态必须以运维证据为准。第十四轮头像、备注容器、AI 助手和无效 UI 清理见根目录 `CHANGELOG.md` 与 `docs/evidence/round14-ui-polish/`。版本级变更见根目录 `CHANGELOG.md`；V11 清理基线见 `docs/superpowers/specs/2026-08-21-hire-status-design.md` 与 `docs/superpowers/plans/2026-08-21-hire-status.md`，V12 实施见 `docs/superpowers/specs/2026-08-21-hire-information-v12-design.md` 与 `docs/superpowers/plans/2026-08-21-hire-information-v12.md`。
 
 ## 0.1 个人可用 MVP（已完成）
 

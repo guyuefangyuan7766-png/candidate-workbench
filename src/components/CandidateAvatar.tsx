@@ -16,8 +16,7 @@ export function CandidateAvatar({ candidate, size = "default" }: CandidateAvatar
 
   return (
     <span className={`avatar${size === "large" ? " avatar-large" : ""}`} aria-hidden="true">
-      {initials(candidate.name)}
-      {source && failedSource !== source && (
+      {source && failedSource !== source ? (
         <img
           className="avatar-image"
           src={source}
@@ -29,7 +28,7 @@ export function CandidateAvatar({ candidate, size = "default" }: CandidateAvatar
           referrerPolicy="no-referrer"
           onError={() => setFailedSource(source)}
         />
-      )}
+      ) : initials(candidate.name)}
     </span>
   );
 }

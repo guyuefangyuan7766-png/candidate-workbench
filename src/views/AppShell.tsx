@@ -46,17 +46,16 @@ export interface AppShellProps {
   onToggleCollapse: () => void;
   onToggleMobile: () => void;
   children: ReactNode;
-  overlays?: ReactNode;
 }
 
 export function AppShell(props: AppShellProps) {
   const {
     page, toolPage, toolOpen, importOpen = false, collapsed, mobileOpen, agentConfigured, title,
-    onNavigate, onOpenTool, onOpenImport, onToggleCollapse, onToggleMobile, children, overlays,
+    onNavigate, onOpenTool, onOpenImport, onToggleCollapse, onToggleMobile, children,
   } = props;
 
   return (
-    <div className={`tw-app${collapsed ? " is-collapsed" : ""}`}>
+    <div className={`tw-app${collapsed ? " is-collapsed" : ""}${toolOpen ? " is-tool-page" : ""}`}>
       <aside className={`tw-sidebar${mobileOpen ? " is-open" : ""}`} aria-label="主导航">
         <div className="tw-brand">
           <span className="tw-brand-mark">
@@ -155,7 +154,6 @@ export function AppShell(props: AppShellProps) {
       </div>
 
       {mobileOpen && <button className="tw-scrim" type="button" onClick={onToggleMobile} aria-label="关闭导航" />}
-      {overlays}
     </div>
   );
 }
