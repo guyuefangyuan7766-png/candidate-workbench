@@ -86,7 +86,9 @@ try {
 
   const pathname = () => new URL(page.url()).pathname
   const visibleHeadings = async () => page.locator('h1:visible').allInnerTexts()
-  const activeNavItems = async () => page.locator('.tw-nav-item.active:visible').allInnerTexts()
+  const activeNavItems = async () => page.locator('.tw-nav-item.active:visible').evaluateAll((items) =>
+    items.map((item) => item.getAttribute('aria-label') || item.textContent || '')
+  )
   const visibleSurfaces = async () => ({
     page: await page.locator('.tw-content-stack:visible').count(),
     tool: await page.locator('.tw-tool-page:visible').count(),

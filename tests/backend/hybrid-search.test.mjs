@@ -353,6 +353,66 @@ test('semantic-only own experience reaches rerank and paged evidence while sourc
   )
 })
 
+test('PM and product-manager concepts share aliases without matching embedded acronym text', async () => {
+  const database = db()
+  const expected = insertCandidate(database, {
+    name: 'Anonymous PM Alias',
+    current_title: 'Engineer'
+  })
+  section(database, expected.id, '项目', '二重螺旋 项目管理')
+  const unrelated = insertCandidate(database, {
+    name: 'Anonymous Acronym',
+    current_title: 'Engineer'
+  })
+  section(database, unrelated.id, '项目', '二重螺旋 APMCM')
+
+  const result = await hybridSearch(database, {
+    plan: plan([
+      term('二重螺旋', 'concept'),
+      term('PM', 'concept'),
+      term('产品经理', 'concept')
+    ]),
+    query: '二重螺旋 PM 产品经理',
+    page: 1,
+    page_size: 20
+  })
+
+  assert.deepEqual(result.items.map(item => item.candidate_id), [expected.id])
+  assert.deepEqual(
+    result.condition_summary.map(condition => condition.text),
+    ['二重螺旋', '产品经理']
+  )
+})
+
+test('common recruitment aliases share their concept instead of requiring separate literals', async () => {
+  const cases = [
+    ['机器学习', 'ML', '机器学习平台'],
+    ['前端工程师', 'frontend', '负责前端开发'],
+    ['招聘专员', 'recruiter', '负责招聘与人才寻访'],
+    ['UI设计', '交互设计', '负责交互设计与体验走查'],
+    ['Android', '安卓', '安卓客户端开发']
+  ]
+  for (const [left, right, content] of cases) {
+    const database = db()
+    const expected = insertCandidate(database, {
+      name: `Anonymous ${left}`,
+      current_title: 'Engineer'
+    })
+    section(database, expected.id, '项目', content)
+    const result = await hybridSearch(database, {
+      plan: plan([term(left, 'concept'), term(right, 'concept')]),
+      query: `${left} ${right}`,
+      page: 1,
+      page_size: 20
+    })
+    assert.deepEqual(
+      result.items.map(item => item.candidate_id),
+      [expected.id],
+      `${left} / ${right}`
+    )
+  }
+})
+
 test('own string skill tags qualify while nested relationship objects do not', async () => {
   const database = db()
   const c = insertCandidate(database, {

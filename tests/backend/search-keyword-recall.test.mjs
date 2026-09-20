@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { openDatabase } from '../../server/database.js'
 import { insertCandidate } from '../../server/candidates.js'
 import { hybridSearch } from '../../server/hybrid-search.js'
+import { readSearchDocuments } from '../../server/search-vector-store.js'
 
 const dbs = []
 afterEach(() => {
@@ -71,6 +72,49 @@ test('a keyword hit carries self evidence, a null score and no partial-match cla
   assert.ok(hit.evidence.every((item) => item.ownership === 'self'))
   assert.equal(hit.score, null)
   assert.ok(hit.reasons.includes('本地关键词命中'))
+})
+
+test('multiple unresolved terms use semantic candidates when their exact intersection is empty', async () => {
+  const database = db()
+  const target = insertCandidate(database, { name: '匿名语义候选', current_title: 'Engineer' })
+  section(database, target.id, '项目', '负责战斗系统与玩法设计')
+  const document = readSearchDocuments(database, { candidateIds: [target.id] })
+    .find((item) => item.source_type === 'profile_section')
+  const plan = {
+    version: 1,
+    must: [],
+    should: [],
+    minimum_should_match: 0,
+    must_not: [],
+    unresolved: ['二重螺旋', 'PM', '产品经理'].map((text) => ({
+      text,
+      span: [0, text.length],
+      reason: 'ambiguous',
+      impact: 'required'
+    })),
+    metadata: { source: 'rules', warnings: [] }
+  }
+
+  const result = await hybridSearch(database, {
+    plan,
+    query: '二重螺旋 PM 产品经理',
+    page: 1,
+    page_size: 20,
+    queryVector: [1, 0],
+    vectorStore: {
+      search: async () => [{
+        ...document,
+        start: 0,
+        end: document.content.length,
+        score: 0.9
+      }]
+    }
+  })
+
+  assert.deepEqual(result.items.map((item) => item.candidate_id), [target.id])
+  assert.ok(
+    result.degradation.some((item) => item.code === 'vector_unresolved_terms')
+  )
 })
 
 test('padding rows are labelled, never claim a hit, and stay out of the real total', async () => {

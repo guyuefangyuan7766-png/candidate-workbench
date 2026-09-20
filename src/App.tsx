@@ -67,6 +67,7 @@ import { CandidatesView, type CandidateListView } from "./views/CandidatesView";
 
 type Page = "dashboard" | "candidates" | "talent-pools" | "positions" | "position-detail";
 type ToolPage = "assistant" | "resume-search" | "attachment-parser";
+type AssistantPanel = "main" | "history";
 
 /* 第十二轮：导航表面（主页面 / 工具页 / 导入页）是互斥的单一状态。
    URL 与表面一一对应，禁止再用并列布尔量表达「哪个表面打开」。 */
@@ -249,6 +250,7 @@ function App() {
   const importOpen = surface.kind === "import";
   const toolOpen = surface.kind === "tool";
   const toolPage = surface.kind === "tool" ? surface.tool : null;
+  const [assistantPanel, setAssistantPanel] = useState<AssistantPanel>("main");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readSidebarCollapsedPreference);
   const [agentConfigured, setAgentConfigured] = useState(false);
@@ -480,6 +482,7 @@ function App() {
       setPage(route.page);
       setActivePositionId(route.positionId);
       setSurface(route.surface);
+      setAssistantPanel("main");
       setSidebarOpen(false);
     };
     window.addEventListener("popstate", handlePopState);
@@ -656,6 +659,7 @@ function App() {
   function navigate(next: Exclude<Page, "position-detail">, replace = false) {
     const path = next === "dashboard" ? "/" : `/${next}`;
     setSurface({ kind: "page" });
+    setAssistantPanel("main");
     closeTransientLayers();
     window.history[replace ? "replaceState" : "pushState"]({}, "", path);
     setPage(next);
@@ -669,6 +673,7 @@ function App() {
       closeToolPage();
       return;
     }
+    if (next !== "assistant") setAssistantPanel("main");
     setSurface({ kind: "tool", tool: next });
     setSidebarOpen(false);
     const path = toolPath(next);
@@ -677,6 +682,7 @@ function App() {
 
   function closeToolPage() {
     const returnPath = currentPagePath();
+    setAssistantPanel("main");
     setSurface({ kind: "page" });
     if (window.location.pathname !== returnPath) window.history.pushState({}, "", returnPath);
   }
@@ -687,6 +693,7 @@ function App() {
       return;
     }
     setSurface({ kind: "import" });
+    setAssistantPanel("main");
     setSidebarOpen(false);
     if (window.location.pathname !== "/import") window.history.pushState({}, "", "/import");
   }
@@ -1378,6 +1385,7 @@ function App() {
         importOpen={importOpen}
         collapsed={sidebarCollapsed}
         mobileOpen={sidebarOpen}
+        assistantHistoryOpen={assistantPanel === "history"}
         agentConfigured={agentConfigured}
         title={title}
         onNavigate={navigate}
@@ -1563,6 +1571,7 @@ function App() {
         {toolOpen && toolPage && <AssistantDrawer
             open
             configured={agentConfigured}
+            historyOpen={assistantPanel === "history"}
             candidates={candidates}
             positions={positions}
             talentPools={talentPools}
@@ -1570,6 +1579,7 @@ function App() {
             onOpenCandidateId={(candidateId, tab) => void openCandidateById(candidateId, tab ?? "profile")}
             onCandidatesUpdated={() => void loadWorkspace(false)}
             onClose={closeToolPage}
+            onHistoryOpenChange={(open) => setAssistantPanel(open ? "history" : "main")}
             onToolChange={openTool}
           />}
       </AppShell>

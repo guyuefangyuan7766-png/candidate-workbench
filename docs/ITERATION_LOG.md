@@ -2,6 +2,88 @@
 
 本文件记录每轮工作的目标、完成项、验证和遗留风险。版本级摘要同步写入根目录 `CHANGELOG.md`。
 
+## 2026-09-18 - 混合检索共享概念注册表与语义回退
+
+### 目标
+
+修复同类别名在模型规划成功后被拆成多个逐字硬条件而返回 0，以及模型规划失败后 unresolved 精确交集清空向量结果的问题。
+
+### 完成项
+
+- 新增 `server/search-concepts.js`，供 HybridSearch 与规则查询计划共用；覆盖常见技术、产品、设计、游戏、数据、运维、招聘和职能别名。
+- 同一 candidate AND 作用域内对概念组去重并保留一个可读标签，避免重复展开。
+- FTS token 边界继续排除 `APMCM` 等嵌入缩写；新增匿名回归验证。
+- unresolved 条件精确交集为空但向量召回已有候选时，保留语义候选并返回 `vector_unresolved_terms` 降级。
+- 受控停止旧正式 PID `11956`，以新 PID `6840` 重启。
+
+### 验证结果
+
+- 搜索概念/查询计划/关键词/生命周期定向 85/85，其中 `hybrid-search.test.mjs` 25/25，覆盖 PM、ML、前端、招聘、UI/UX、Android 等别名矩阵。
+- `npx tsc --noEmit`、`npm run build` 通过。
+- `npm test`：741 项、727 通过、7 个既有失败、7 跳过；失败集合未增加。
+- 正式服务 REST `二重螺旋 PM 产品经理` 返回 `HTTP 200`、`ann`、总数 `3`、约 `18.12s`；`机器学习 ML` 返回总数 `2352`、约 `11.19s`；Agent 工具端点 PM 查询返回 `HTTP 200`、总数 `3`、约 `18.11s`。以上均无降级且未输出候选人内容。
+
+### 文档与风险
+
+- 已同步 `CHANGELOG.md`、`docs/API.md`、`docs/ARCHITECTURE.md`、`docs/OPERATIONS.md`、`docs/TESTING.md` 和本记录。
+- 概念注册表覆盖已知高置信同义表达，不是任意语义等价证明；向量仍不能单独满足模型标记为 `must` 的硬条件，未登记的新同义词仍依赖模型规划、注册表维护或显式配置扩展。
+
+## 2026-09-18 - 混合检索在线查询预算调整为 30 秒
+
+### 目标
+
+将服务端单次混合检索的硬上限由 18 秒提高到 30 秒，避免典型查询在完成本地检索和重排前被提前回收，同时不改变 API 契约、数据库结构或向量索引。
+
+### 完成项
+
+- `HybridSearchService` 的默认查询预算和硬上限同步改为 30 秒；worker 启动仍使用独立预算，前端 48 秒请求上限不变。
+- 新增生命周期回归，覆盖默认值为 30 秒，以及更大的 `requestTimeoutMs` 仍被限制在 30 秒。
+- 受控停止旧正式 PID `25320`，以新 PID `23140` 重启；`/api/resume-search/status` 已返回 `query_budget_ms=30000`。
+
+### 验证结果
+
+- `tests/backend/hybrid-search-service-lifecycle.test.mjs`：13/13 通过。
+- `npx tsc --noEmit`、`npm run build` 通过。
+- `npm test`：738 项、724 通过、7 个既有失败、7 跳过；新增 1 项预算回归通过，失败集合未增加。
+- 正式服务只读角色查询 smoke：`Unity 客户端工程师` 返回 `HTTP 200`、`hybrid_reranked`、`vector_candidates=106`，约 `7.36s`，无降级。
+
+### 文档与风险
+
+- 已同步 `CHANGELOG.md`、`docs/API.md`、`docs/ARCHITECTURE.md`、`docs/OPERATIONS.md`、`docs/TESTING.md` 和本记录。
+- 提高 deadline 只减少 18–30 秒区间的误超时，不降低本地检索实际耗时；更长的慢查询会延长 worker 占用时间。
+
+## 2026-09-18 - AI 助手 A 方案、互斥侧栏与执行时间线
+
+### 目标
+
+在不改变后端、API 和数据库结构的前提下，修复 AI 助手主导航意外压缩、历史栏定位和 Escape/焦点层级问题，采用 A 方案「雾气蓝工作台」，并把执行过程重构为可验证的时间线。
+
+### 完成项
+
+- `App.tsx` 增加 `assistantPanel: "main" | "history"`；历史栏打开时隐藏并 inert 主导航，关闭时恢复原展开/收起偏好。≥1180px 为左侧停靠侧栏，窄屏为固定覆盖层。
+- 历史入口移到 AI 页面左上角，历史栏关闭按钮位于其左上角。Escape、面板关闭、scrim 和会话选择共用明确关闭路径，并恢复触发按钮焦点。
+- 会话、草稿、消息和滚动容器继续由 `AssistantDrawer` 持有；切换左栏不重新加载消息或重置输入。
+- 新增 `AssistantExecutionTimeline`，按排队、规划、检索与读取、整理证据、生成回答展示阶段、状态、耗时、来源和已调用工具名；不展示私有推理。
+- 采用低对比蓝青渐变、蓝绿琥珀状态色谱、无重边框助手正文、浅色用户气泡和单层输入表面。
+
+### 验证结果
+
+- `npx tsc --noEmit`、`npm run build` 通过，构建 1864 个模块，保留既有大 chunk 警告。
+- `npm test`：737 项、723 通过、7 个既有失败、7 跳过；新增 4 项 AI 助手契约通过，失败集合未增加。
+- AI 助手定向 22/22、A 方案浏览器 QA 8 项/8 截图/0 console error、workspace polish 和导航表面 11/11 均通过。
+- 浏览器覆盖 375×812、768×1024、1440×900，验证主导航偏好、侧栏互斥、焦点/草稿/滚动保持、Escape 层级和执行时间线。
+- 修复历史栏对聊天主体设置 `inert` 导致的输入/发送失效：≥721px 历史栏停靠且聊天保持交互；Enter 直接发送，Shift+Enter 换行，连续两轮发送与反复开关不卡死。
+
+### 文档与证据
+
+- [A 方案 QA](evidence/assistant-a-20260918/qa-report.json) 与 `evidence/assistant-a-20260918/screenshots/`。
+- 已同步 README、CHANGELOG、docs/README、PRODUCT_SPEC、ARCHITECTURE、UI_DESIGN、TESTING 和本迭代记录。
+
+### 遗留风险
+
+- 现有任务 API 不返回单工具耗时和独立工具状态，因此时间线只展示阶段耗时与已调用工具名，不推断单工具结果。
+- 历史 7 项测试失败和既有 bundle 大小警告继续保留，不代表本轮新增。
+
 ## 2026-09-17 - 0.5.0 头像、容器、AI 会话与 UI 清理
 
 ### 目标

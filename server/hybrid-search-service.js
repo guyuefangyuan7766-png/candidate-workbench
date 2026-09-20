@@ -325,7 +325,7 @@ export class HybridSearchService {
     this.recycling = Promise.resolve()
     this.lastStatus = { model: { remote_enabled: options.remoteEnabled === true }, vector: { available: false, generation: null } }
     this.maxQueued = Number.isInteger(options.maxQueued) && options.maxQueued >= 0 ? Math.min(options.maxQueued, 32) : 8
-    this.timeoutMs = Math.min(18000, Math.max(1, Number(options.requestTimeoutMs) || 18000))
+    this.timeoutMs = Math.min(30_000, Math.max(1, Number(options.requestTimeoutMs) || 30_000))
     this.warmupTimeoutMs = Math.min(120000, Math.max(1, Number(options.warmupTimeoutMs) || 120000))
     // Worker startup opens the vector generation and the resume database, which is
     // I/O bound and unrelated to how fast a query can run. It gets its own bounded

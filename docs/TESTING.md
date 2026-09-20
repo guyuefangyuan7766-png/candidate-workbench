@@ -1,5 +1,43 @@
 # 测试说明
 
+## 2026-09-18 AI 助手 A 方案、互斥侧栏与执行时间线
+
+本轮浏览器测试只使用匿名临时 SQLite、虚构候选人和本机 mock gateway；未使用真实模型网关，也未修改正式 `data/recruitment.db`。正式服务仅执行只读状态核对和聚合型角色查询 smoke，不输出候选人内容。应用仍为开发中的 `0.5.0`，schema 保持 `V13`；同日增加了混合检索在线查询预算调整，不改 API 字段或数据库结构。
+
+### 自动化与构建
+
+- `npx tsc --noEmit`：通过。
+- `npm run build`：通过，构建 1864 个模块；保留既有主 chunk 大于 500 kB 警告。
+- `npm test`：741 项、727 通过、7 失败、7 跳过。失败集合仍是历史基线中的 V8 只读目录/业务搜索目录策略 4 项，以及缺失 `.tmp-v12-paused-server.mjs` 导致的维护脚本 2 项和连带 1 项；本轮新增 AI 助手 A 方案/交互契约、混合检索预算、共享概念注册表、跨岗位别名和语义回退回归均通过，无新增失败。
+- 混合检索生命周期定向：`tests/backend/hybrid-search-service-lifecycle.test.mjs` 13/13 通过，覆盖默认和上限均为 30 秒，以及超时、取消、换代恢复和队列行为。
+- 搜索概念/查询计划/关键词/生命周期定向 85/85；其中 `hybrid-search.test.mjs` 25/25、`search-keyword-recall.test.mjs` 5/5、查询计划与旧履历检索 42/42、生命周期 13/13。覆盖 PM、机器学习/ML、前端/frontend、招聘/recruiter、UI 设计/交互设计、Android/安卓、`APMCM` 负例和未解析条件语义回退。
+- AI 助手相关定向：22/22 通过，覆盖会话状态、Markdown、任务恢复、旧执行过程可访问性、A 方案侧栏状态、Escape 所有权、历史栏开放输入、Enter/Shift+Enter、工具动作时间线和无效 UI 清理。
+
+### 浏览器矩阵
+
+- `node tests/browser/assistant-navigation-timeline-qa.mjs`：8 项通过，生成 8 张截图，console error 0。
+- 视口：375×812、768×1024、1440×900。
+- 侧栏：进入 AI 页面后，1440px 展开态主导航保持 200px，768/375 保持响应式宽度或不显示离屏入口；历史栏打开时主导航 `display:none`，历史栏 `position:fixed` 且 `x=0`。721px 以上停靠且不显示 scrim，≤720px 显示 scrim。
+- 入口：历史入口位于页面左上角，不遮挡页面标题；历史栏关闭按钮位于侧栏左上角。
+- 状态：关闭历史栏及按 Escape 后，路径保持 `/assistant`，输入草稿、当前会话和 `.tw-chat` 滚动位置保持，焦点恢复到历史入口；主导航展开/收起偏好恢复。
+- 输入：历史上方输入框在 768/1440 停靠模式下保持可输入；Enter 每次触发一次消息请求并在发送后清空，Shift+Enter 不提交；历史栏保持打开时连续发送两轮不卡死。
+- 时间线：成功任务展示 5 个业务阶段、阶段耗时、数据库来源、结果数、首批证据和已调用工具名；只使用 `AgentTask` 已持久化字段，不展示私有推理或伪造单工具耗时。
+- `node tests/browser/workspace-polish-qa.mjs`：通过。空态、加载、失败、成功、长文本、Markdown 表格、代码块、会话 CRUD、输入单层容器和三视口布局保持。
+- `node tests/browser/surface-navigation-qa.mjs`：11/11 通过，console error 0；AI 助手与导入/主页面表面仍保持互斥。
+- 正式服务重启后只读核对 `/api/resume-search/status` 返回 `query_budget_ms=30000`；`二重螺旋 PM 产品经理` REST smoke 返回 `HTTP 200`、`ann`、`200` 个向量候选、总数 `3`、约 `18.12s`；`机器学习 ML` 返回总数 `2352`、约 `11.19s`，均无降级且未输出候选人内容。
+- Agent 实际工具端点 `/api/agent/tools/search_candidate_resumes` 对 PM 查询返回 `HTTP 200`、`ann`、`200` 个向量候选、总数 `3`、约 `18.11s`，无降级；未输出候选人内容。
+
+### 截图与报告
+
+- [A 方案 QA 报告](evidence/assistant-a-20260918/qa-report.json)
+- 截图目录：`docs/evidence/assistant-a-20260918/screenshots/`
+- 关键截图：`assistant-main-375.png`、`assistant-main-768.png`、`assistant-main-1440.png`、`assistant-history-375.png`、`assistant-history-768.png`、`assistant-history-1440.png`、`assistant-timeline-375.png`、`assistant-timeline-1440.png`。
+
+### 已知边界
+
+- API 的 `tools_used` 只持久化工具名，没有每个工具独立的开始、结束、状态和耗时字段；本轮时间线不能展示单工具耗时或推断工具成功/失败。若必须获得这些数据，需要单独批准 API/数据库契约变更。
+- 历史 7 项失败继续保留为已知基线，不被描述为本轮新增或已修复。
+
 ## 2026-09-17 第十四轮头像、容器与 AI 会话验收（0.5.0）
 
 本轮所有浏览器测试只使用匿名临时 SQLite、虚构候选人和本机 mock gateway；正式 `data/recruitment.db`、真实候选人和真实 model gateway 未参与验证。应用 `0.5.0` 尚未正式部署，数据库 schema 保持 `V13`，人才库领域版本保持历史 `V2`。

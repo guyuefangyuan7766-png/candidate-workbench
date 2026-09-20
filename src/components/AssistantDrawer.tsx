@@ -5,7 +5,6 @@ import {
   BookOpen,
   Bot,
   Check,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Download,
@@ -13,7 +12,6 @@ import {
   FileText,
   LoaderCircle,
   LockKeyhole,
-  Minus,
   PanelLeftClose,
   PanelLeftOpen,
   Paperclip,
@@ -54,6 +52,8 @@ import type {
 import { TwAvatar } from "../views/TwAvatar";
 import { AssistantMarkdown } from "./AssistantMarkdown";
 import { AttachmentBatchWorkflow } from "./AttachmentBatchWorkflow";
+import { AssistantExecutionTimeline } from "./AssistantExecutionTimeline";
+import { useDismissableLayer } from "../useDismissableLayer";
 
 const ACTIVE_SESSION_STORAGE_KEY = "candidate-workbench.agent.active-session-id.v1";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -68,13 +68,6 @@ const TASK_STAGE_LABELS: Record<string, string> = {
   processing: "处理中",
 };
 
-const TASK_WORKFLOW_STAGES = [
-  { key: "queued", label: "进入队列" },
-  { key: "planning", label: "分析问题" },
-  { key: "querying", label: "查询数据" },
-  { key: "retrieving", label: "整理证据" },
-  { key: "composing", label: "生成回答" },
-] as const;
 const TASK_RECOVERY_INITIAL_DELAY_MS = 700;
 const TASK_RECOVERY_MAX_DELAY_MS = 3_000;
 const TASK_RECOVERY_RESUBMIT_INTERVAL = 4;
@@ -105,10 +98,12 @@ const TASK_ERROR_LABELS: Record<string, string> = {
 interface AssistantDrawerProps {
   open: boolean;
   configured: boolean;
+  historyOpen: boolean;
   candidates: Candidate[];
   positions?: Position[];
   talentPools?: TalentPool[];
   onClose: () => void;
+  onHistoryOpenChange: (open: boolean) => void;
   onOpenCandidateId: (candidateId: string, tab?: "profile" | "resume") => void;
   onCandidatesUpdated?: () => void;
   initialTab?: AssistantTab;
@@ -277,43 +272,6 @@ function isTaskAnswerMessage(task: AgentTask, message: AgentMessage) {
   if (task.assistant_message?.id && message.id === task.assistant_message.id) return true;
   if (task.user_message_id && message.reply_to_message_id) return message.reply_to_message_id === task.user_message_id;
   return Boolean(task.client_request_id && message.client_request_id === task.client_request_id);
-}
-
-function taskStageLabel(task: AgentTask) {
-  return TASK_STAGE_LABELS[task.stage ?? task.status] ?? task.stage ?? task.status;
-}
-
-function taskDurationLabel(milliseconds: number) {
-  return milliseconds < 1_000
-    ? `${Math.max(0, Math.round(milliseconds))} ms`
-    : `${(milliseconds / 1_000).toFixed(1)} 秒`;
-}
-
-function taskWorkflowStageIndex(task: AgentTask) {
-  const current = task.error?.stage ?? task.stage ?? task.status;
-  const index = TASK_WORKFLOW_STAGES.findIndex((step) => step.key === current);
-  if (index >= 0) return index;
-  if (task.status === "completed" || task.status === "partial") {
-    const timedStage = [...TASK_WORKFLOW_STAGES]
-      .map((step, stepIndex) => ({ step, stepIndex }))
-      .filter(({ step }) => typeof task.timings?.[step.key] === "number")
-      .at(-1);
-    if (timedStage) return timedStage.stepIndex;
-    return TASK_WORKFLOW_STAGES.length - 1;
-  }
-  return 0;
-}
-
-function taskWorkflowStepState(task: AgentTask, stepIndex: number) {
-  if (task.status === "completed") {
-    const hasTiming = Object.keys(task.timings ?? {}).some((key) => TASK_WORKFLOW_STAGES.some((step) => step.key === key));
-    if (!hasTiming) return "complete";
-    return typeof task.timings?.[TASK_WORKFLOW_STAGES[stepIndex].key] === "number" ? "complete" : "skipped";
-  }
-  const currentIndex = taskWorkflowStageIndex(task);
-  if (stepIndex < currentIndex) return "complete";
-  if (stepIndex > currentIndex) return "pending";
-  return isActiveTask(task) ? "current" : "stopped";
 }
 
 function taskErrorCopy(error: AgentTaskError | null | undefined) {
@@ -564,13 +522,9 @@ function TaskResultPreview({ task, mutationPending, onCancel, onRetryAnswer }: T
   const rows = taskResultRows(result);
   const retained = Boolean(task.error?.retained_result || result);
   const canRetry = Boolean(task.can_retry_answer || (task.status === "partial" && task.result));
-  const resultCount = task.result_count ?? result?.result_count ?? rows.length;
   const more = Boolean(task.has_more ?? result?.has_more);
   const resultEvidence = taskResultEvidence(result);
   const active = isActiveTask(task);
-  const toolNames = (task.tools_used ?? []).map((tool) => typeof tool === "string" ? tool : tool.name ?? "").filter(Boolean);
-  const usedWeb = toolNames.some((name) => name === "search_web" || name === "fetch_web_page");
-  const usedDatabase = toolNames.some((name) => name !== "search_web" && name !== "fetch_web_page");
   const [processExpanded, setProcessExpanded] = useState(() => defaultTaskProcessExpanded(task));
   const previousTaskState = useRef({ taskId: task.task_id, status: task.status });
 
@@ -586,58 +540,12 @@ function TaskResultPreview({ task, mutationPending, onCancel, onRetryAnswer }: T
     previousTaskState.current = { taskId: task.task_id, status: task.status };
   }, [task.task_id, task.status]);
 
-  const processRegionId = `assistant-task-process-${task.task_id}`;
-  const resultLabel = active
-    ? taskStageLabel(task)
-    : task.status === "partial"
-      ? "已保留部分结果"
-      : task.status === "completed"
-        ? "查询完成"
-        : task.status === "cancelled"
-          ? "任务已取消"
-          : "查询未完成";
-
   return (
-    <section className={`assistant-task-result ${active ? "is-active" : ""} ${task.status === "partial" ? "is-partial" : ""}`} role={active ? "status" : task.error ? "alert" : undefined} aria-live="polite">
-      <button
-        className="assistant-task-result-header assistant-task-process-toggle"
-        type="button"
-        onClick={() => setProcessExpanded((expanded) => !expanded)}
-        aria-expanded={processExpanded}
-        aria-controls={processRegionId}
-        aria-label={processExpanded ? "收起执行过程" : "展开执行过程"}
-        title={processExpanded ? "收起执行过程" : "展开执行过程"}
-      >
-        <div className="assistant-task-result-title">
-          {active ? <LoaderCircle className="spin" size={14} /> : task.error ? <AlertTriangle size={14} /> : <Check size={14} />}
-          <strong>执行过程</strong>
-          <small className="assistant-task-result-state">{resultLabel}</small>
-          {typeof task.elapsed_ms === "number" && <small>{(task.elapsed_ms / 1000).toFixed(1)} 秒</small>}
-        </div>
-        <span className="assistant-task-result-meta">
-          {usedDatabase && <span className="assistant-task-source is-database">数据库</span>}
-          {usedWeb && <span className="assistant-task-source is-web">互联网</span>}
-          {typeof resultCount === "number" && resultCount > 0 && <span className="assistant-task-result-count">已找到 {resultCount} 条</span>}
-          <ChevronDown className={`assistant-task-process-chevron ${processExpanded ? "is-expanded" : ""}`} size={15} aria-hidden="true" />
-        </span>
-      </button>
-      <div className="assistant-task-process-content" id={processRegionId} hidden={!processExpanded} role="region" aria-label="执行过程详情">
-        <ol className="assistant-task-workflow" aria-label="Agent 工作流程">
-          {TASK_WORKFLOW_STAGES.map((step, index) => {
-            const state = taskWorkflowStepState(task, index);
-            const duration = task.timings?.[step.key];
-            return <li className={`is-${state}`} key={step.key} aria-current={state === "current" ? "step" : undefined}>
-              <span className="assistant-task-workflow-marker">
-                {state === "complete" ? <Check size={9} /> : state === "current" ? <LoaderCircle className="spin" size={9} /> : state === "stopped" ? <AlertTriangle size={9} /> : state === "skipped" ? <Minus size={9} /> : index + 1}
-              </span>
-              <span className="assistant-task-workflow-label">
-                <span>{step.label}</span>
-                {typeof duration === "number" && <small>{taskDurationLabel(duration)}</small>}
-              </span>
-            </li>;
-          })}
-        </ol>
-        {typeof task.timings?.first_evidence_ms === "number" && <small className="assistant-task-first-evidence">首批证据 {taskDurationLabel(task.timings.first_evidence_ms)}</small>}
+    <AssistantExecutionTimeline
+      task={task}
+      expanded={processExpanded}
+      onToggle={() => setProcessExpanded((expanded) => !expanded)}
+    >
         {task.error && <p className="assistant-task-result-error">{taskErrorCopy(task.error)}</p>}
         {typeof result?.summary === "string" && result.summary && <p className="assistant-task-result-summary">{result.summary}</p>}
         {rows.length > 0 && <div className="assistant-task-result-rows">
@@ -667,18 +575,19 @@ function TaskResultPreview({ task, mutationPending, onCancel, onRetryAnswer }: T
           {!active && canRetry && <button className="tw-btn tw-btn-sm" type="button" onClick={() => onRetryAnswer(task)} disabled={mutationPending}><RefreshCw size={13} />继续生成结果</button>}
         </div>}
         {!active && !task.error && !retained && task.status === "cancelled" && <span className="assistant-task-result-more">没有产生可展示的结果。</span>}
-      </div>
-    </section>
+    </AssistantExecutionTimeline>
   );
 }
 
 export function AssistantDrawer({
   open,
   configured,
+  historyOpen,
   candidates,
   positions = [],
   talentPools = [],
   onClose,
+  onHistoryOpenChange,
   onOpenCandidateId,
   onCandidatesUpdated,
   initialTab = "chat",
@@ -702,7 +611,6 @@ export function AssistantDrawer({
   const [sessionPage, setSessionPage] = useState(1);
   const [sessionPending, setSessionPending] = useState(false);
   const [activeSessionId, setActiveSessionIdState] = useState<string | null>(() => readStoredSessionId());
-  const [historyOpen, setHistoryOpenState] = useState(false);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<AgentSession | null>(null);
@@ -741,6 +649,7 @@ export function AssistantDrawer({
   const resumeStatusAbort = useRef<AbortController | null>(null);
   const resumeCursors = useRef<Map<number, string | null>>(new Map([[1, null]]));
   const resumeInputComposing = useRef(false);
+  const chatInputComposing = useRef(false);
   const sendAbort = useRef<AbortController | null>(null);
   const taskMutationAbort = useRef<AbortController | null>(null);
   const taskRecoveryAbort = useRef<AbortController | null>(null);
@@ -750,12 +659,53 @@ export function AssistantDrawer({
   const messageRetryDelay = useRef(MESSAGE_RECOVERY_INITIAL_DELAY_MS);
   const agentTasksRef = useRef<Record<string, AgentTask>>({});
   const chatListRef = useRef<HTMLDivElement | null>(null);
+  const historyPanelRef = useRef<HTMLElement | null>(null);
+  const historyTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const historyWasOpenRef = useRef(historyOpen);
+  const historyFocusStateRef = useRef({
+    chatScrollTop: 0,
+    windowX: 0,
+    windowY: 0,
+  });
   const activeSessionRef = useRef(activeSessionId);
   const submitLockRef = useRef(false);
   // Keep an ambiguous POST visible and recoverable until the server gives us
   // an authoritative terminal message. This prevents a dropped response from
   // being replaced by a second client_request_id.
   const pendingRequestRecovery = useRef<Map<string, PendingRequestRecovery>>(new Map());
+
+  const setHistoryOpen = (next: boolean) => {
+    onHistoryOpenChange(next);
+  };
+  const rememberHistoryViewport = () => {
+    historyFocusStateRef.current = {
+      chatScrollTop: chatListRef.current?.scrollTop ?? 0,
+      windowX: window.scrollX,
+      windowY: window.scrollY,
+    };
+  };
+
+  useDismissableLayer({
+    open: historyOpen,
+    onClose: () => setHistoryOpen(false),
+    within: historyPanelRef,
+    dismissOnOutside: false,
+  });
+
+  useEffect(() => {
+    const wasOpen = historyWasOpenRef.current;
+    historyWasOpenRef.current = historyOpen;
+    const frame = requestAnimationFrame(() => {
+      if (historyOpen) {
+        historyPanelRef.current?.focus({ preventScroll: true });
+      } else if (wasOpen) {
+        historyTriggerRef.current?.focus({ preventScroll: true });
+        if (chatListRef.current) chatListRef.current.scrollTop = historyFocusStateRef.current.chatScrollTop;
+        window.scrollTo(historyFocusStateRef.current.windowX, historyFocusStateRef.current.windowY);
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [historyOpen]);
 
   function upsertTask(task: AgentTask, fallbackSessionId?: string | null, fallbackClientRequestId?: string | null) {
     const normalized = normalizeTask(task, fallbackSessionId, fallbackClientRequestId);
@@ -1627,12 +1577,19 @@ export function AssistantDrawer({
     : "用自然语言描述你要找的人才";
 
   const sessionColumn = configured ? (
-    <nav className="tw-tool-side" aria-label="历史会话">
+    <nav
+      className="tw-tool-side"
+      id="assistant-history-panel"
+      ref={historyPanelRef}
+      tabIndex={-1}
+      aria-label="历史会话"
+      aria-labelledby="assistant-history-title"
+    >
       <div className="tw-tool-side-head">
-        <h2>会话历史</h2>
+        <button className="tw-icon-plain tw-tool-side-close" type="button" onClick={() => setHistoryOpen(false)} aria-label="收起历史会话" title="收起历史会话"><PanelLeftClose size={16} /></button>
+        <h2 id="assistant-history-title">会话历史</h2>
         <div className="tw-tool-side-head-actions">
           <button className="tw-btn tw-btn-sm" type="button" onClick={() => void createSession()} disabled={sessionMutationPending}><Plus size={15} />新建会话</button>
-          <button className="tw-icon-plain tw-tool-side-close" type="button" onClick={() => setHistoryOpenState(false)} aria-label="收起历史会话" title="收起历史会话"><PanelLeftClose size={16} /></button>
         </div>
       </div>
       {sessionPending && !sessions.length
@@ -1646,7 +1603,7 @@ export function AssistantDrawer({
                 <button className="tw-icon-plain" type="button" onClick={() => setEditingSessionId(null)} aria-label="取消重命名" title="取消"><X size={14} /></button>
               </form>
               : <>
-                <button className="tw-session" type="button" onClick={() => { selectSession(session.id); setHistoryOpenState(false); }} aria-current={session.id === activeSessionId ? "true" : undefined}>
+                <button className="tw-session" type="button" onClick={() => { selectSession(session.id); setHistoryOpen(false); }} aria-current={session.id === activeSessionId ? "true" : undefined}>
                   <span className="tw-session-text"><strong>{session.title}</strong><small>{sessionTimeLabel(session.last_message_at) || `${session.message_count} 条消息`}</small></span>
                 </button>
                 <span className="tw-session-actions">
@@ -1704,7 +1661,21 @@ export function AssistantDrawer({
     {chatError && (!activeTask?.error || isActiveTask(activeTask)) && <div className="tw-alert tw-alert-inline is-danger tw-chat-error" role="alert"><span>{chatError}</span></div>}
     <form className="tw-chat-composer" onSubmit={(event) => void submit(event)}>
       <div className="tw-chat-composer-surface">
-        <textarea value={query} onChange={(event) => setQuery(event.target.value)} rows={2} placeholder="继续提问，例如“上海有哪些有产品设计经验的人才？”" aria-label="向拾才助手提问" />
+        <textarea
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          onCompositionStart={() => { chatInputComposing.current = true; }}
+          onCompositionEnd={() => { chatInputComposing.current = false; }}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter" || event.shiftKey || chatInputComposing.current || event.nativeEvent.isComposing) return;
+            event.preventDefault();
+            void submit();
+          }}
+          rows={2}
+          enterKeyHint="send"
+          placeholder="继续提问，例如“上海有哪些有产品设计经验的人才？”"
+          aria-label="向拾才助手提问"
+        />
         <button className="tw-chat-send" type="submit" disabled={!query.trim() || pending || sessionMutationPending || hasProcessingMessage || Boolean(activeTask && isActiveTask(activeTask))} aria-label="发送" title="发送"><Send size={17} /></button>
       </div>
       <p className="tw-chat-composer-note">拾才助手不会修改人才资料，回答仅引用本地人才库证据。</p>
@@ -1885,10 +1856,25 @@ export function AssistantDrawer({
   ) : null;
 
   return (
-    <section className="tw-page tw-tool-page" aria-label={toolTitle}>
+    <section className={`tw-page tw-tool-page${tab === "chat" ? " is-assistant-chat" : ""}`} aria-label={toolTitle}>
       <div className="tw-tool">
+        {tab === "chat" && configured && !historyOpen && <button
+          className="tw-assistant-history-trigger"
+          ref={historyTriggerRef}
+          type="button"
+          onClick={() => {
+            rememberHistoryViewport();
+            setHistoryOpen(true);
+          }}
+          aria-label="展开历史会话"
+          title="展开历史会话"
+          aria-expanded={false}
+          aria-controls="assistant-history-panel"
+        >
+          <PanelLeftOpen size={18} />
+        </button>}
         {tab === "chat" && configured && historyOpen && <>
-          <button className="tw-tool-side-scrim" type="button" onClick={() => setHistoryOpenState(false)} aria-label="关闭历史会话" />
+          <button className="tw-tool-side-scrim" type="button" onClick={() => setHistoryOpen(false)} aria-label="关闭历史会话" />
           {sessionColumn}
         </>}
         <div className="tw-tool-main">
@@ -1899,7 +1885,6 @@ export function AssistantDrawer({
             </div>
             <div className="tw-page-actions">
               {tab === "chat" && <span className="tw-readonly" title="只读数据源：不会修改人才资料"><ShieldCheck size={13} />全量只读</span>}
-              {tab === "chat" && configured && <button className="tw-icon-plain" type="button" onClick={() => setHistoryOpenState((current) => !current)} aria-label={historyOpen ? "收起历史会话" : "展开历史会话"} title={historyOpen ? "收起历史会话" : "展开历史会话"} aria-expanded={historyOpen}>{historyOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}</button>}
               <button className="tw-btn" type="button" onClick={onClose}><ArrowLeft size={16} />返回人才库</button>
             </div>
           </header>}

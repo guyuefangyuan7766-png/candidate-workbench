@@ -212,3 +212,14 @@ test('early planning failure settles prestarted embedding before the caller obse
     assert.equal(settled, true)
   } finally { await service.close() }
 }))
+
+test('query deadline defaults to 30 seconds and caps larger requests at the same budget', async () => {
+  const defaultBudget = new HybridSearchService({ db: {} })
+  const longerRequest = new HybridSearchService({ db: {}, requestTimeoutMs: 60_000 })
+  try {
+    assert.equal(defaultBudget.status().worker.query_budget_ms, 30_000)
+    assert.equal(longerRequest.status().worker.query_budget_ms, 30_000)
+  } finally {
+    await Promise.all([defaultBudget.close(), longerRequest.close()])
+  }
+})

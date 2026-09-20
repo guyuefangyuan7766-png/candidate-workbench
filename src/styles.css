@@ -1806,11 +1806,13 @@ p {
   flex-direction: column;
   gap: 7px;
   margin: 10px 14px 0;
-  padding: 9px 10px;
+  padding: 11px 12px;
   color: var(--ink-soft);
-  background: var(--surface-soft);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  background:
+    linear-gradient(135deg, #f8fbff 0%, #fbfdfc 58%, #fffaf2 100%);
+  border: 1px solid color-mix(in srgb, var(--primary) 16%, var(--line));
+  border-left: 3px solid color-mix(in srgb, var(--primary) 68%, var(--green));
+  border-radius: 8px;
   overflow: hidden;
 }
 .assistant-task-result.is-active { border-color: color-mix(in srgb, var(--primary) 42%, var(--line)); }
@@ -1861,20 +1863,20 @@ p {
   position: relative;
   display: grid;
   min-width: 0;
-  grid-template-rows: 18px minmax(18px, auto);
+  grid-template-rows: 20px minmax(20px, auto);
   justify-items: center;
   gap: 3px;
   color: var(--muted-light);
   text-align: center;
-  font-size: 8px;
-  line-height: 1.25;
+  font-size: 10px;
+  line-height: 1.35;
 }
 .assistant-task-workflow li:not(:last-child)::after {
   position: absolute;
   z-index: 0;
-  top: 8px;
-  left: calc(50% + 9px);
-  width: calc(100% - 18px);
+  top: 9px;
+  left: calc(50% + 10px);
+  width: calc(100% - 20px);
   height: 1px;
   background: var(--line-strong);
   content: "";
@@ -1884,20 +1886,20 @@ p {
   position: relative;
   z-index: 1;
   display: inline-flex;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   align-items: center;
   justify-content: center;
   color: var(--muted);
-  background: var(--surface);
+  background: #ffffff;
   border: 1px solid var(--line-strong);
   border-radius: 50%;
-  font-size: 8px;
+  font-size: 9px;
   font-variant-numeric: tabular-nums;
 }
 .assistant-task-workflow-label { display: grid; min-width: 0; gap: 1px; overflow-wrap: anywhere; }
-.assistant-task-workflow-label small { color: inherit; font-size: 7px; font-variant-numeric: tabular-nums; font-weight: 500; opacity: .82; }
-.assistant-task-first-evidence { display: block; margin: 1px 0 0; color: var(--muted); font-size: 8px; text-align: right; }
+.assistant-task-workflow-label small { color: inherit; font-size: 8px; font-variant-numeric: tabular-nums; font-weight: 500; line-height: 1.35; opacity: .82; }
+.assistant-task-first-evidence { display: block; margin: 1px 0 0; color: var(--muted); font-size: 9px; text-align: right; }
 .assistant-task-workflow li.is-complete { color: var(--green); }
 .assistant-task-workflow li.is-complete .assistant-task-workflow-marker { color: white; background: var(--green); border-color: var(--green); }
 .assistant-task-workflow li.is-current { color: var(--primary); font-weight: 650; }
@@ -1906,6 +1908,22 @@ p {
 .assistant-task-workflow li.is-stopped .assistant-task-workflow-marker { color: white; background: var(--red); border-color: var(--red); }
 .assistant-task-workflow li.is-skipped { color: var(--muted-light); }
 .assistant-task-workflow li.is-skipped .assistant-task-workflow-marker { color: var(--muted-light); border-style: dashed; }
+.assistant-task-tool-list {
+  grid-column: 1 / -1;
+  justify-self: stretch;
+  min-width: 0;
+  margin-top: 4px;
+  padding: 7px 8px;
+  border: 1px solid color-mix(in srgb, var(--primary) 14%, var(--line));
+  border-radius: 6px;
+  background: rgb(255 255 255 / 78%);
+  text-align: left;
+}
+.assistant-task-tool-list > span { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 9px; font-weight: 650; }
+.assistant-task-tool-list ul { display: flex; min-width: 0; flex-wrap: wrap; gap: 5px; margin: 6px 0 0; padding: 0; list-style: none; }
+.assistant-task-tool-list li { display: inline-flex; min-width: 0; align-items: center; gap: 5px; padding: 3px 6px; border-radius: 5px; background: color-mix(in srgb, var(--primary-soft) 60%, white); color: var(--ink-soft); font-size: 9px; }
+.assistant-task-tool-list li b { min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+.assistant-task-tool-list li small { flex: 0 0 auto; color: var(--green); font-size: 8px; }
 .assistant-task-result-summary,
 .assistant-task-result-error,
 .assistant-task-result-more { margin: 0; font-size: 9px; line-height: 1.55; overflow-wrap: anywhere; }
@@ -2024,6 +2042,23 @@ p {
   .assistant-task-result { margin-right: 10px; margin-left: 10px; }
   .assistant-task-result-header { align-items: flex-start; }
   .assistant-task-result-count { align-self: flex-start; text-align: left; }
+  .assistant-task-workflow { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .assistant-task-workflow li {
+    grid-template-columns: 24px minmax(0, 1fr);
+    grid-template-rows: auto;
+    justify-items: start;
+    gap: 8px;
+    padding-bottom: 12px;
+    text-align: left;
+  }
+  .assistant-task-workflow li:not(:last-child)::after {
+    top: 20px;
+    bottom: 0;
+    left: 10px;
+    width: 1px;
+    height: auto;
+  }
+  .assistant-task-tool-list { grid-column: 2; }
   
   
   .attachment-confirm-bar .button { width: 100%; min-height: 44px; }

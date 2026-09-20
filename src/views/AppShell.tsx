@@ -38,6 +38,7 @@ export interface AppShellProps {
   importOpen?: boolean;
   collapsed: boolean;
   mobileOpen: boolean;
+  assistantHistoryOpen?: boolean;
   agentConfigured: boolean;
   title: string;
   onNavigate: (page: Exclude<NavPage, "position-detail">) => void;
@@ -50,13 +51,20 @@ export interface AppShellProps {
 
 export function AppShell(props: AppShellProps) {
   const {
-    page, toolPage, toolOpen, importOpen = false, collapsed, mobileOpen, agentConfigured, title,
+    page, toolPage, toolOpen, importOpen = false, collapsed, mobileOpen, assistantHistoryOpen = false, agentConfigured, title,
     onNavigate, onOpenTool, onOpenImport, onToggleCollapse, onToggleMobile, children,
   } = props;
+  const isAssistantPage = toolOpen && toolPage === "assistant";
+  const isAssistantHistoryOpen = isAssistantPage && assistantHistoryOpen;
 
   return (
-    <div className={`tw-app${collapsed ? " is-collapsed" : ""}${toolOpen ? " is-tool-page" : ""}`}>
-      <aside className={`tw-sidebar${mobileOpen ? " is-open" : ""}`} aria-label="主导航">
+    <div className={`tw-app${collapsed ? " is-collapsed" : ""}${toolOpen ? " is-tool-page" : ""}${isAssistantPage ? " is-assistant-page" : ""}${isAssistantHistoryOpen ? " is-assistant-history-open" : ""}`}>
+      <aside
+        className={`tw-sidebar${mobileOpen ? " is-open" : ""}`}
+        aria-label="主导航"
+        aria-hidden={isAssistantHistoryOpen || undefined}
+        inert={isAssistantHistoryOpen || undefined}
+      >
         <div className="tw-brand">
           <span className="tw-brand-mark">
             <strong>拾才</strong>

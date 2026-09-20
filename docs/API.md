@@ -6,17 +6,17 @@
 
 `GET /api/resume-search/status` 保留既有本地索引状态，新增 `hybrid` 与 `vector_maintenance`。`hybrid.model` 为远程开关/配置布尔值；`hybrid.vector` 包含 available、loaded、current、generation、chunks、vectors、dimensions、memory_mapped；`hybrid.worker` 包含 ready、active、queued、max_queue 和 query_budget_ms。`vector_maintenance` 包含 enabled、**schedule、boot_marker、ran_this_boot**、running、state、last_success、脱敏计数和稳定错误码；调度自 `0.4.0` 起为「每个开机周期执行一次」，不再返回 `interval_ms`（`SEARCH_VECTOR_MAINTENANCE_INTERVAL_MS` 不再参与调度）。状态不含网关、密钥、数据库路径或候选人正文，配置布尔值不是最近请求成功率。
 
-单常驻检索 worker，默认最多排队 8 项；新查询默认 18 秒总预算，满队列返回 `search_busy/429`，超时 `search_timeout/504`，取消 `search_cancelled/499`。数据或向量代际改变时游标返回 409，客户端保留输入并允许直接重试。前端仍是输入框加结果，所有条件摘要/降级/完整性信息均非阻塞。
+单常驻检索 worker，默认最多排队 8 项；新查询默认 30 秒总预算，满队列返回 `search_busy/429`，超时 `search_timeout/504`，取消 `search_cancelled/499`。数据或向量代际改变时游标返回 409，客户端保留输入并允许直接重试。前端仍是输入框加结果，所有条件摘要/降级/完整性信息均非阻塞。
 
 `GET /api/resume-search` 和 `POST /api/resume-search` 共用结构化查询计划，POST 使用 JSON body。保留 `q/query`、`keywords`、`phrases`、`match_mode`、字段/来源/职位/人才库/归档筛选和分页；客户端不接受 `plan` 或 SQL。
 
-结果保留 `items/pagination`，增加 `condition_summary`、`completeness`、`degradation`。证据的 `source_label/ownership/match_kind` 表达业务来源、本人归属和等价命中；分数仅作相对排序。`search_candidate_resumes` 工具复用相同执行器，通用业务记录查询仍用 `search_all_records`。
+结果保留 `items/pagination`，增加 `condition_summary`、`completeness`、`degradation`。证据的 `source_label/ownership/match_kind` 表达业务来源、本人归属和等价命中；分数仅作相对排序。HybridSearch 与规则计划共用高置信概念注册表，覆盖常见技术、产品、设计、游戏、数据、运维、招聘和职能别名；同一 AND 作用域内的等价概念只执行一次。多个未解析条件无法同时命中但向量召回已有候选时，返回 `vector_unresolved_terms` 降级并保留语义结果，而不是清空结果。`search_candidate_resumes` 工具复用相同执行器，通用业务记录查询仍用 `search_all_records`。
 
 `GET /api/resume-search/options?kind=position|talent_pool&page=1&page_size=100` 独立返回全部活动筛选选项，每页最多100项。
 
-游标绑定查询、筛选、页大小、缓存排序、数据库修改和向量代际，有效期5分钟。每页返回 `pagination.current_cursor`，返回第一页也复用该凭据；下一页使用 `next_cursor`。未携带游标的首轮检索在向量代际发布导致 `search_index_changed` 时会回收旧 worker 并自动重试一次；分页或缓存快照失效仍返回 `409 search_cursor_stale/search_index_changed`，过期后重新检索。取消返回 `search_cancelled`；worker最多并发2、45秒预算。页面旧结果在重试期间保留，但明确显示状态。
+游标绑定查询、筛选、页大小、缓存排序、数据库修改和向量代际，有效期5分钟。每页返回 `pagination.current_cursor`，返回第一页也复用该凭据；下一页使用 `next_cursor`。未携带游标的首轮检索在向量代际发布导致 `search_index_changed` 时会回收旧 worker 并自动重试一次；分页或缓存快照失效仍返回 `409 search_cursor_stale/search_index_changed`，过期后重新检索。取消返回 `search_cancelled`；worker 最多同时执行 1 项，默认查询预算 30 秒。页面旧结果在重试期间保留，但明确显示状态。
 
-兼容原 `stage`、`include_archived`、`evidence_limit`、camelCase 年限/字段/职位/页大小别名。阶段为硬条件，`evidence_limit` 为1至5。查询理解默认最多30秒（`SEARCH_QUERY_TIMEOUT_MS`只可缩短），查询Embedding及Rerank每请求最多5秒；客户端48秒。原18秒总体和10秒p95目标未通过；正式启用保留这些预算并以明确降级交付，不把未达性能门禁伪装成完整混合成功。
+兼容原 `stage`、`include_archived`、`evidence_limit`、camelCase 年限/字段/职位/页大小别名。阶段为硬条件，`evidence_limit` 为1至5。查询理解默认最多30秒（`SEARCH_QUERY_TIMEOUT_MS`只可缩短），查询Embedding及Rerank每请求最多5秒；客户端48秒。原18秒总体和10秒p95目标未通过；当前在线查询预算已调整为30秒，并以明确降级交付，不把未达性能门禁伪装成完整混合成功。
 
 `SEARCH_REMOTE_ENABLED=false` 为默认值，远程理解/Embedding/Rerank 需要显式启用。补充前“正式数据外发和向量回填另行安排”是历史状态；2026-09-17 第十三轮增量维护改造后，正式 generation 为 `generation-2dfa743f-c1b4-4e41-8d9f-3d61c963e78a`，维护状态为 `ready`，共 `429,630` 文档和 `630,978` vectors。未配置或未 ready 的向量仍返回明确本地降级，不能声称语义检索可用；最新匿名质量中仍有正常降级和 p95 `14,821.83ms`，详见补充交接记录。
 

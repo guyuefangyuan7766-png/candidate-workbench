@@ -5,6 +5,7 @@ import test from "node:test";
 const appSource = readFileSync(new URL("../../src/App.tsx", import.meta.url), "utf8");
 const appShellSource = readFileSync(new URL("../../src/views/AppShell.tsx", import.meta.url), "utf8");
 const assistantSource = readFileSync(new URL("../../src/components/AssistantDrawer.tsx", import.meta.url), "utf8");
+const timelineSource = readFileSync(new URL("../../src/components/AssistantExecutionTimeline.tsx", import.meta.url), "utf8");
 const stylesSource = readFileSync(new URL("../../src/styles.css", import.meta.url), "utf8");
 const workspaceSource = readFileSync(new URL("../../src/workspace.css", import.meta.url), "utf8");
 
@@ -47,7 +48,7 @@ test("orphan legacy CSS is removed without deleting functional hidden states", (
   assert.doesNotMatch(workspaceSource, /\.tw-session\.active\b/, "无匹配 JSX 的会话 active 选择器必须删除");
 
   assert.match(workspaceSource, /\.tw-content-stack\[hidden\]\s*\{\s*display:\s*none;\s*\}/);
-  assert.match(assistantSource, /hidden=\{!processExpanded\} role="region" aria-label="执行过程详情"/);
+  assert.match(timelineSource, /hidden=\{!expanded\} role="region" aria-label="执行过程详情"/);
   assert.match(stylesSource, /\.assistant-task-process-content\[hidden\]\s*\{\s*display:\s*none;\s*\}/);
   assert.match(stylesSource, /\.sr-only\s*\{/, "无障碍隐藏内容必须保留");
 });

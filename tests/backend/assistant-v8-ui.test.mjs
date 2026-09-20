@@ -6,8 +6,10 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { normalizeSearchHighlightRanges } from '../../src/types.ts'
 
 const drawerSource = readFileSync(new URL('../../src/components/AssistantDrawer.tsx', import.meta.url), 'utf8')
+const timelineSource = readFileSync(new URL('../../src/components/AssistantExecutionTimeline.tsx', import.meta.url), 'utf8')
 const apiSource = readFileSync(new URL('../../src/api.ts', import.meta.url), 'utf8')
 const stylesSource = readFileSync(new URL('../../src/styles.css', import.meta.url), 'utf8')
+const assistantTaskSource = `${drawerSource}\n${timelineSource}`
 
 function renderHighlightedText(text, ranges) {
   const children = []
@@ -57,7 +59,7 @@ test('V8 assistant UI persists only opaque session state and sends idempotent se
 
 test('V9 assistant task UI exposes bounded progress, cancellation, recovery and answer-only retry', () => {
   for (const status of ['queued', 'planning', 'querying', 'retrieving', 'composing', 'partial', 'cancelled']) {
-    assert.match(drawerSource, new RegExp(`['"]${status}['"]`))
+    assert.match(assistantTaskSource, new RegExp(`['"]${status}['"]`))
   }
   assert.match(drawerSource, /agentTaskApi\.get\(taskId, controller\.signal\)/)
   assert.match(drawerSource, /agentTaskApi\.sessionTasks\(sessionId, signal\)/)
@@ -71,12 +73,12 @@ test('V9 assistant task UI exposes bounded progress, cancellation, recovery and 
   assert.match(drawerSource, /retained_result/)
   assert.match(drawerSource, /继续生成结果/)
   assert.match(drawerSource, /取消任务/)
-  assert.match(drawerSource, /TASK_WORKFLOW_STAGES/)
-  assert.match(drawerSource, /aria-label="Agent 工作流程"/)
-  assert.match(drawerSource, /taskDurationLabel\(duration\)/)
-  assert.match(drawerSource, /first_evidence_ms/)
-  for (const label of ['进入队列', '分析问题', '查询数据', '整理证据', '生成回答']) {
-    assert.match(drawerSource, new RegExp(label))
+  assert.match(timelineSource, /TASK_WORKFLOW_STAGES/)
+  assert.match(timelineSource, /aria-label="Agent 工作流程"/)
+  assert.match(timelineSource, /taskDurationLabel\(duration\)/)
+  assert.match(timelineSource, /first_evidence_ms/)
+  for (const label of ['进入队列', '规划任务', '检索与读取', '整理证据', '生成回答']) {
+    assert.match(timelineSource, new RegExp(label))
   }
   assert.doesNotMatch(drawerSource, /发送失败，可重新提问/)
 })
@@ -96,10 +98,10 @@ test('assistant execution process precedes its answer and follows accessible col
   assert.match(drawerSource, /enteredTerminalState = previous\.status !== task\.status && TERMINAL_TASK_STATUSES\.has\(task\.status\)/)
   assert.match(drawerSource, /resumed = TERMINAL_TASK_STATUSES\.has\(previous\.status\) && !TERMINAL_TASK_STATUSES\.has\(task\.status\)/)
   assert.match(drawerSource, /setProcessExpanded\(defaultTaskProcessExpanded\(task\)\)/)
-  assert.match(drawerSource, /onClick=\{\(\) => setProcessExpanded\(\(expanded\) => !expanded\)\}/)
-  assert.match(drawerSource, /aria-expanded=\{processExpanded\}/)
-  assert.match(drawerSource, /aria-controls=\{processRegionId\}/)
-  assert.match(drawerSource, /hidden=\{!processExpanded\} role="region" aria-label="执行过程详情"/)
+  assert.match(drawerSource, /onToggle=\{\(\) => setProcessExpanded\(\(expanded\) => !expanded\)\}/)
+  assert.match(timelineSource, /aria-expanded=\{expanded\}/)
+  assert.match(timelineSource, /aria-controls=\{processRegionId\}/)
+  assert.match(timelineSource, /hidden=\{!expanded\} role="region" aria-label="执行过程详情"/)
 
   // Fresh and restored tasks can anchor to the persisted assistant message,
   // its reply relationship, or the idempotent request identity.
@@ -139,8 +141,8 @@ test('V9 waits through task completion and continuously recovers by idempotent r
   assert.match(drawerSource, /isRetryableAgentRequest\(error\)/)
   assert.match(drawerSource, /authoritative: error instanceof ApiError/)
   assert.match(drawerSource, /controller\.signal\.aborted \|\| activeSessionRef\.current !== sessionId/)
-  assert.match(drawerSource, /task\.timings\?\./)
-  assert.match(drawerSource, /return .*\? "complete" : "skipped"/)
+  assert.match(timelineSource, /task\.timings\?\./)
+  assert.match(timelineSource, /return .*\? "complete" : "skipped"/)
   assert.match(drawerSource, /if \(sendAbort\.current === controller\) \{[\s\S]*?setPending\(false\)/)
   assert.match(drawerSource, /submitLockRef\.current/)
   assert.doesNotMatch(drawerSource, /刷新会话后可继续查看/)

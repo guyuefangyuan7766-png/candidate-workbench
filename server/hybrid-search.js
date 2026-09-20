@@ -5,6 +5,7 @@ import {
 } from './business-search.js'
 import { readSearchDocuments } from './search-vector-store.js'
 import { readSearchIdentities, redactSearchText } from './search-data-minimization.js'
+import { conceptGroupFor, conceptTermsFor } from './search-concepts.js'
 
 export class HybridSearchError extends Error {
   constructor(code, message, { status = 400 } = {}) {
@@ -51,15 +52,42 @@ const SELF_DOCS_SEARCH_SOURCES = [
   'candidate_profile_sections',
   'candidate_attachments'
 ]
-const EQUIVALENTS = new Map([
-  ['unity', ['Unity', 'Unity3D', 'Unity 3D']],
-  ['unreal', ['Unreal', 'UE4', 'UE5', '虚幻引擎']],
-  ['后端工程师', ['后端工程师', '后端开发', '服务端开发', 'backend engineer']],
-  ['数值策划', ['数值策划', '数值体系设计', '数值平衡设计', '成长曲线设计']]
-])
+function equivalentConceptKey(node) {
+  if (node?.kind !== 'term' || node.match !== 'concept') return null
+  const group = conceptGroupFor(node.text)
+  if (!group) return null
+  return `${node.evidence_scope}:${group.key}`
+}
+function flattenCandidateAll(nodes, output = []) {
+  for (const node of nodes) {
+    if (node?.kind === 'all' && node.scope === 'candidate') flattenCandidateAll(node.children, output)
+    else output.push(node)
+  }
+  return output
+}
+function normalizeEquivalentConceptTerms(plan) {
+  if (!plan || !Array.isArray(plan.must)) return plan
+  const output = []
+  const positions = new Map()
+  for (const node of flattenCandidateAll(plan.must)) {
+    const key = equivalentConceptKey(node)
+    if (!key) {
+      output.push(node)
+      continue
+    }
+    const position = positions.get(key)
+    if (position === undefined) {
+      positions.set(key, output.length)
+      output.push(node)
+    } else if (node.text.length > output[position].text.length) {
+      output[position] = node
+    }
+  }
+  return { ...plan, must: output }
+}
 function terms(node) {
   return node.match === 'concept'
-    ? (EQUIVALENTS.get(node.text.toLowerCase()) ?? [node.text])
+    ? conceptTermsFor(node.text)
     : [node.text]
 }
 function leaves(nodes, output = []) {
@@ -801,6 +829,7 @@ export async function hybridSearch(
   } = {}
 ) {
   const started = performance.now()
+  plan = normalizeEquivalentConceptTerms(plan)
   const check = () => {
     if (signal?.aborted) fail('search_cancelled', '检索已取消', 499)
   }
@@ -1046,8 +1075,19 @@ export async function hybridSearch(
   const recall = keywords.length ? recallKeywordCandidates(db, keywords, options) : null
   if (recall) {
     const scoped = head.filter((id) => recall.has(id))
-    scoped.sort((a, b) => recall.get(b).score - recall.get(a).score || a.localeCompare(b))
-    head = scoped
+    if (scoped.length) {
+      scoped.sort((a, b) => recall.get(b).score - recall.get(a).score || a.localeCompare(b))
+      head = scoped
+    } else if (vectorRows.length) {
+      head = [...new Set(vectorRows.map((row) => row.candidate_id))]
+      degradation.push({
+        code: 'vector_unresolved_terms',
+        message: '本地关键词未同时满足全部未解析条件，已保留语义召回结果',
+        stage: 'embedding'
+      })
+    } else {
+      head = []
+    }
   }
   const selected = head.slice(offset, offset + pageSize)
   const padded = []

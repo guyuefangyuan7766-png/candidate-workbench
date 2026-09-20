@@ -1,6 +1,6 @@
 # 项目文档索引
 
-2026-09-10 已按用户授权应用并启动正式本机服务，当时版本为应用 `0.2.0` / 数据库 schema `V13`；随后正式混合检索补充已启用并留下独立部署证据。当前工作区为应用 `0.5.0`（开发中，尚未正式部署），第十二至第十四轮均已完成当前工作区实现与验证，数据库保持 `V13`，人才库领域版本保持历史 `V2`。正式部署历史见 [正式部署记录](evidence/search-formal-deployment.json)，第十二轮实现与 G1–G6 结果见 [第十二轮验收](evidence/talent-redesign/acceptance.md)，第十四轮头像、备注容器和 AI 会话验收见 [第十四轮 QA](evidence/round14-ui-polish/qa-report.json) 与 [头像报告](evidence/round14-ui-polish/avatar-report.json)。
+2026-09-10 已按用户授权应用并启动正式本机服务，当时版本为应用 `0.2.0` / 数据库 schema `V13`；随后正式混合检索补充已启用并留下独立部署证据。当前工作区为应用 `0.5.0`（开发中，尚未正式部署），第十二至第十四轮以及 2026-09-18 AI 助手 A 方案增量均已完成当前工作区实现与验证，数据库保持 `V13`，人才库领域版本保持历史 `V2`。正式部署历史见 [正式部署记录](evidence/search-formal-deployment.json)，第十二轮实现与 G1–G6 结果见 [第十二轮验收](evidence/talent-redesign/acceptance.md)，第十四轮头像、备注容器和 AI 会话验收见 [第十四轮 QA](evidence/round14-ui-polish/qa-report.json) 与 [头像报告](evidence/round14-ui-polish/avatar-report.json)，A 方案侧栏互斥、焦点保持和执行时间线见 [AI 助手 A 方案 QA](evidence/assistant-a-20260918/qa-report.json)。
 
 本文档集对应招聘工作台应用 `0.5.0`（开发中；上一次发布为 `0.2.0`）个人版、schema `V13`，并保留此前工作年限、导入等迭代的历史记录。当前代码基线为 schema V13：`years_experience` 是可空数值投影，`years_experience_raw` 是 `TEXT NOT NULL DEFAULT ''` 的来源原文，`years_experience_display` 为计算展示文本。明确 `0`、未知文本和真实空值必须分别显示为 `0`、原文和空白；导入格式本身不拒绝行，电话/邮箱冲突仍阻断。Task 7 已完成最多 100 条历史只读样本预览，脱敏证据见 [v13-years-experience-import-20260825.json](evidence/v13-years-experience-import-20260825.json)；正式库已完成 V13 加法迁移，schema 为 V1-V13。历史 V11 候选人入职信息迭代引入 `hire_status`（入职状态）和 `hire_date`（入职日期）；V12 增加 `hire_position`（入职职位），日期有值而状态为空时使用精确文本 `不确定`，三项全空时详情隐藏入职信息区块。V12 历史正式 HTTP 记录不构成本轮批量导入证据。代码行为是事实来源，文档与实现不一致时，应先修正文档或通过技术决策记录明确变更。
 
@@ -36,6 +36,7 @@
 | [evidence/round14-ui-polish/qa-report.json](evidence/round14-ui-polish/qa-report.json) | 第十四轮头像、备注容器、AI 助手三视口与隐藏节点审计证据 |
 | [evidence/round14-ui-polish/avatar-report.json](evidence/round14-ui-polish/avatar-report.json) | 两个头像组件的加载、成功、失败和无图状态证据 |
 | [evidence/round14-ui-polish/hidden-ui-audit.md](evidence/round14-ui-polish/hidden-ui-audit.md) | 永久无效 UI 删除依据与功能性隐藏节点保留清单 |
+| [evidence/assistant-a-20260918/qa-report.json](evidence/assistant-a-20260918/qa-report.json) | A 方案 AI 助手三视口、侧栏互斥、焦点/草稿/滚动保持和执行时间线证据 |
 | [../SECURITY.md](../SECURITY.md) | 安全假设、数据保护要求和漏洞处理 |
 | [../CHANGELOG.md](../CHANGELOG.md) | 面向版本的新增、变更、修复和限制 |
 | [../CONTRIBUTING.md](../CONTRIBUTING.md) | 开发、测试、数据安全和文档维护规范 |

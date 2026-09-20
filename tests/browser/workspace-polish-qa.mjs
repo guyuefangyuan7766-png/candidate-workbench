@@ -175,15 +175,38 @@ async function verifyAssistantLayout(viewport) {
       width: rect.width,
       mainX: element.parentElement?.getBoundingClientRect().x ?? 0,
       mainWidth: element.parentElement?.getBoundingClientRect().width ?? 0,
-      centerOffset: rect.x + rect.width / 2 - window.innerWidth / 2,
+      centerOffsetInMain: rect.x + rect.width / 2 - ((element.parentElement?.getBoundingClientRect().x ?? 0) + (element.parentElement?.getBoundingClientRect().width ?? window.innerWidth) / 2),
       appSidebarWidth: appSidebar?.width ?? 0,
       navDotDisplay: getComputedStyle(document.querySelector(".tw-nav-dot")).display,
     };
   });
   assert.ok(shell.width <= 880, `${viewport.width}px 会话列超过 880px`);
-  assert.ok(shell.appSidebarWidth <= 72, `${viewport.width}px 工具页全局侧栏未压缩为图标栏`);
+  if (viewport.width >= 1366) {
+    assert.ok(shell.appSidebarWidth >= 160, `${viewport.width}px 展开态主导航不得被 AI 工具页强制压缩`);
+  } else {
+    assert.ok(shell.appSidebarWidth <= 72, `${viewport.width}px 响应式主导航应保持图标栏`);
+  }
   assert.notEqual(shell.navDotDisplay, "none", "工具页压缩侧栏不得隐藏助手在线状态点");
-  assert.ok(Math.abs(shell.centerOffset) <= 80, `${viewport.width}px 会话列整体偏斜过大`);
+  assert.ok(Math.abs(shell.centerOffsetInMain) <= 3, `${viewport.width}px 会话列未在当前内容列居中`);
+  const triggerLayout = await assistantPage.locator(".tw-assistant-history-trigger").evaluate((trigger) => {
+    const triggerRect = trigger.getBoundingClientRect();
+    const headingRect = document.querySelector(".tw-chat-head h1")?.getBoundingClientRect();
+    return {
+      x: triggerRect.x,
+      y: triggerRect.y,
+      position: getComputedStyle(trigger).position,
+      overlapsHeading: Boolean(
+        headingRect
+        && triggerRect.left < headingRect.right
+        && triggerRect.right > headingRect.left
+        && triggerRect.top < headingRect.bottom
+        && triggerRect.bottom > headingRect.top
+      ),
+    };
+  });
+  assert.equal(triggerLayout.position, "fixed", `${viewport.width}px 历史入口未固定定位`);
+  assert.equal(triggerLayout.overlapsHeading, false, `${viewport.width}px 历史入口不得遮挡页面标题`);
+  assert.ok(triggerLayout.x <= 240, `${viewport.width}px 历史入口未固定在页面或所属侧栏左侧`);
   assert.equal(await assistantPage.locator(".tw-tool-side").count(), 0, "历史会话首次进入应保持收起");
   assert.equal(await assistantPage.locator(".tw-tool-rail").count(), 0, "不应保留额外历史窄轨");
   await assistantPage.getByRole("button", { name: "展开历史会话" }).click();
@@ -212,33 +235,68 @@ async function verifyAssistantLayout(viewport) {
     "历史侧栏不得产生横向溢出",
   );
   assert.equal(await assistantPage.locator(".tw-tool-side-scrim").count(), 1, "历史覆盖层需要可关闭 scrim");
+  const historyLayout = await assistantPage.evaluate(() => {
+    const sidebar = document.querySelector(".tw-sidebar");
+    const panel = document.querySelector(".tw-tool-side");
+    const scrim = document.querySelector(".tw-tool-side-scrim");
+    return {
+      sidebarDisplay: sidebar ? getComputedStyle(sidebar).display : null,
+      panelPosition: panel ? getComputedStyle(panel).position : null,
+      panelX: panel?.getBoundingClientRect().x ?? null,
+      scrimDisplay: scrim ? getComputedStyle(scrim).display : null,
+    };
+  });
+  assert.equal(historyLayout.sidebarDisplay, "none", "历史栏打开时必须隐藏主导航");
+  assert.equal(historyLayout.panelPosition, "fixed", "历史栏必须以独立侧栏定位");
+  assert.equal(historyLayout.panelX, 0, "历史栏必须从页面左边界开始");
+  if (viewport.width > 720) {
+    assert.equal(historyLayout.scrimDisplay, "none", "桌面停靠历史栏不应使用 scrim");
+  } else {
+    assert.equal(historyLayout.scrimDisplay, "block", "窄屏历史栏必须提供 scrim");
+  }
   const overlayShell = await assistantPage.locator(".tw-chat-shell").evaluate((element) => {
     const rect = element.getBoundingClientRect();
-    return rect.x + rect.width / 2 - window.innerWidth / 2;
+    const parent = element.parentElement?.getBoundingClientRect();
+    return rect.x + rect.width / 2 - ((parent?.x ?? 0) + (parent?.width ?? window.innerWidth) / 2);
   });
-  assert.ok(Math.abs(overlayShell) <= 80, "打开历史覆盖层不得推动会话列");
+  assert.ok(Math.abs(overlayShell) <= 3, "历史栏打开后会话列仍须在剩余内容区居中");
   if (viewport.width === 1440 || viewport.width === 375) {
     await shot(assistantPage, `assistant-history-${viewport.width}.png`);
   }
-  const scrimBox = await computedBox(assistantPage, ".tw-tool-side-scrim");
-  await assistantPage.locator(".tw-tool-side-scrim").click({
-    position: {
-      x: Math.min(scrimBox.width - 20, overlaySide.width + 20),
-      y: 20,
-    },
-  });
+  if (viewport.width <= 720) {
+    const scrimBox = await computedBox(assistantPage, ".tw-tool-side-scrim");
+    await assistantPage.locator(".tw-tool-side-scrim").click({
+      position: {
+        x: Math.min(scrimBox.width - 20, overlaySide.width + 20),
+        y: 20,
+      },
+    });
+  } else {
+    await assistantPage.locator(".tw-tool-side-close").click();
+  }
   await assistantPage.locator(".tw-tool-side").waitFor({ state: "detached" });
+  assert.equal(await assistantPage.locator(".tw-sidebar").evaluate((element) => getComputedStyle(element).display), "flex", "关闭历史栏必须恢复主导航");
   await assistantPage.getByRole("button", { name: "展开历史会话" }).click();
   await assistantPage.locator(".tw-tool-side-close").click();
   await assistantPage.locator(".tw-tool-side").waitFor({ state: "detached" });
-  if (viewport.width >= 1024) {
-    const leftInset = shell.x - shell.mainX;
-    const rightInset = shell.mainWidth - shell.width - leftInset;
-    assert.ok(Math.abs(leftInset - rightInset) < 2, "桌面会话列未居中");
+  if (viewport.width > 720) {
+    const centered = await assistantPage.locator(".tw-chat-shell").evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const parent = element.parentElement?.getBoundingClientRect();
+      return Math.abs(rect.x + rect.width / 2 - ((parent?.x ?? 0) + (parent?.width ?? window.innerWidth) / 2));
+    });
+    assert.ok(centered < 3, "桌面会话列未在主导航右侧居中");
   }
 
   const longQuestion = `BROWSER_TOOL ${"请筛选上海有产品设计经验且近期活跃的候选人。".repeat(24)}`;
   await assistantPage.getByLabel("向拾才助手提问").fill(longQuestion);
+  await assistantPage.getByRole("button", { name: "展开历史会话" }).click();
+  await assistantPage.locator(".tw-tool-side").waitFor({ state: "visible" });
+  await assistantPage.keyboard.press("Escape");
+  await assistantPage.locator(".tw-tool-side").waitFor({ state: "detached" });
+  assert.equal(new URL(assistantPage.url()).pathname, "/assistant", "Escape 应先关闭历史栏而不是关闭 AI 助手");
+  assert.equal(await assistantPage.getByLabel("向拾才助手提问").inputValue(), longQuestion, "关闭历史栏不得丢失输入草稿");
+  assert.equal(await assistantPage.getByRole("button", { name: "展开历史会话" }).evaluate((element) => element === document.activeElement), true, "关闭历史栏必须恢复到触发按钮");
   await assistantPage.getByRole("button", { name: "发送" }).click();
   await assistantPage.locator(".assistant-markdown").last().waitFor({ state: "visible" });
   await assistantPage.locator(".assistant-markdown-table-scroll table").last().waitFor({ state: "visible" });

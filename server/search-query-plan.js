@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import Ajv2020 from 'ajv/dist/2020.js'
+import { SEARCH_CONCEPT_GROUPS } from './search-concepts.js'
 
 export const searchQueryPlanSchema = JSON.parse(fs.readFileSync(new URL('./search-query-plan.schema.json', import.meta.url), 'utf8'))
 const validateSchema = new Ajv2020({ strict: true, allErrors: false, validateFormats: false }).compile(searchQueryPlanSchema)
@@ -7,12 +8,13 @@ const MAX_NODES = 32
 const MAX_DEPTH = 4
 const MAX_QUERY_LENGTH = 500
 const CITIES = ['上海', '北京', '深圳', '广州', '杭州', '成都', '南京', '苏州', '武汉', '西安', '重庆', '天津']
-const KNOWN_TERMS = [
+const KNOWN_TERMS = [...new Set([
   '游戏策划', '战斗系统', '战斗策划', '后端工程师', '前端工程师', '后端开发', '前端开发',
   '数值策划', '数值体系', '成长曲线', '游戏开发', '机器学习', '人工智能', '后端', '前端',
   'Unity3D', 'Unity', 'Unreal', 'Redis', 'Python', 'JavaScript', 'TypeScript', 'Java', 'Golang',
   'React', 'Node.js', 'C++', 'C#', 'SQL', '外包', '数据库', '系统设计', '分布式', '高并发',
-].sort((a, b) => b.length - a.length)
+  ...SEARCH_CONCEPT_GROUPS.flatMap(group => group.terms)
+])].sort((a, b) => b.length - a.length)
 const FILLER = /(?:请帮我|帮我|请找|寻找|找|请|候选人|的人|人员|熟悉|精通|擅长|了解|具有|具备|拥有|需要|要求|经验的|经验|工作年限|总工作|工作|的|年限不限|经验不限|不限|至少|最多)/gu
 const clone = value => structuredClone(value)
 const normalized = value => String(value).normalize('NFKC').replace(/\s+/gu, ' ').trim()

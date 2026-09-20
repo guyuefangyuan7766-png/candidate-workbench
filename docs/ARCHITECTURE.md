@@ -1,5 +1,15 @@
 # 人才库工作台架构说明
 
+## 2026-09-18 AI 助手 A 方案与执行时间线（应用 0.5.0 / schema V13）
+
+本轮只修改 AI 助手直接相关的前端组件、样式、测试和文档，不新增依赖、不修改 API 契约、数据库结构或后端行为。`src/App.tsx` 用 `assistantPanel: "main" | "history"` 表达 AI 页面左栏状态；`src/views/AppShell.tsx` 只据此添加外壳 class，不覆盖主导航的 `sidebarCollapsed` 偏好。历史栏打开时主导航变为 `display:none`、`aria-hidden` 和 `inert`，关闭后恢复；聊天主体始终保持交互，≥721px 为左侧停靠侧栏，≤720px 为固定覆盖层。聊天 Enter 直接发送，Shift+Enter 换行。
+
+`AssistantDrawer` 仍持有会话、草稿、任务轮询和滚动容器状态，仅把历史栏开关提升到 App，因此切换左栏不重建消息列表。历史入口固定在页面左上角，面板关闭和 Escape 均恢复触发按钮焦点。执行过程拆分为 `src/components/AssistantExecutionTimeline.tsx`：只读取 `AgentTask.status`、`stage`、`timings`、`tools_used`、`error`、`result_count` 等持久字段，展示阶段状态、阶段耗时和已调用工具名，不展示私有推理，也不补造 API 未提供的单工具耗时。
+
+同日将混合检索的在线查询预算由 18 秒调整为 30 秒，默认值和硬上限同步；worker 启动仍使用独立预算，前端请求仍最多等待 48 秒。该改动只调整查询 deadline，不改变 API 响应字段、数据库结构或向量代际。
+
+HybridSearch 与规则查询计划共用 `server/search-concepts.js` 概念注册表，覆盖常见技术、产品、设计、游戏、数据、运维、招聘和职能别名；同一 candidate AND 作用域内只执行一次概念组，避免同义条件重复展开和逐字 AND 造成零命中。模型规划失败时，规则计划中的多个 unresolved 条件仍先做本地关键词交集；如果交集为空但向量召回已有候选，则保留语义结果并写入 `vector_unresolved_terms` 降级。`APMCM` 等嵌入缩写仍由 FTS token 边界排除。未登记的新同义词仍依赖模型规划、维护概念注册表或后续显式扩展，不能让静态表无条件推断任意语义等价。
+
 ## 2026-09 人才混合检索补充（应用 0.2.0 / schema V13）
 
 当前代码新增 `search-query-plan`、`search-model-adapters`、`hybrid-search` 与 `hybrid-search-service`。HTTP GET/POST人才检索及应用注入的Agent人才检索工具共用候选人级执行器：模型严格Schema计划→固定SQL资格约束→FTS5/向量召回→RRF融合→最多50人重排→本人/关联证据。查询worker只读，未添加主库迁移；原导航、列表/按职位、筛选和输入框加结果模式保留。
@@ -8,7 +18,7 @@
 
 稀疏资格集合在最多 10,000 个事实内精确评分；宽集合转有界 ANN，按 400→800→1600→3200→6400 扩召回，最多累计 12,400 个事实/12,800 个来源行。在本地完整复核硬条件、排除及当前 source hash，重复事实仍可寻找有效替代来源。候选人级融合窗口最多 400，重排最多 50 人；窗口之外的合格候选人仍可稳定深分页。向量近似召回及排序窗口通过 completeness 如实标注。
 
-正式使用单常驻只读 worker 与 mmap；启动预热完整校验，同代只廉价检查，新代先回收旧 worker 释放 Windows 映射。查询规划和查询 Embedding 并行，总请求预算 18 秒（含有界排队），规划 12 秒，Embedding/Rerank 各请求 5 秒；分页复用排序快照。查询理解采用规则约束辅助的 `qwen3.8-flash / none` 模型计划，本地完整 Schema、原文 span 和布尔逻辑校验仍为执行前提。
+正式使用单常驻只读 worker 与 mmap；启动预热完整校验，同代只廉价检查，新代先回收旧 worker 释放 Windows 映射。查询规划和查询 Embedding 并行，总请求预算 30 秒（含有界排队），规划 12 秒，Embedding/Rerank 各请求 5 秒；分页复用排序快照。查询理解采用规则约束辅助的 `qwen3.8-flash / none` 模型计划，本地完整 Schema、原文 span 和布尔逻辑校验仍为执行前提。
 
 维护 CLI 增加明确 `--formal` 模式，源库只读 keyset 扫描，网络期间不持源库事务，缓存支持失败后重启。后台维护使用独立进程（异常退出后 PID 锁可恢复），默认并发 4、最大 8、批量 10；维护专用 Embedding 请求上限 30 秒，不改变在线检索的 5 秒请求预算。只改独立索引、不迁移主库。具体授权、实际回填/启用与验收见 [0.2.0 / V13 补充交付](handoffs/2026-09-10-search-hybrid-formal-supplement.md)。
 
@@ -33,7 +43,7 @@
 ### 前端头像与 AI 会话结构
 
 - `CandidateAvatar` 和 `TwAvatar` 是头像显示的唯一组件边界。两者由 `has_photo`、候选人 ID 和 `updated_at` 派生受保护头像 URL，并在本地保存失败来源；渲染树在图片和姓名首字之间二选一，不通过绝对定位叠放两个视觉节点。
-- `AssistantDrawer` 在当前架构中只渲染 `/assistant` 页面表面，历史会话、正文和输入区位于同一页面状态机内。`tw-content-stack` 在工具页打开时使用条件 `hidden` 保留页面状态并避免双表面；工具页全局导航压缩为图标栏，历史会话在桌面、平板和手机统一使用带 scrim 的覆盖层，不推动会话列。
+- `AssistantDrawer` 在当前架构中只渲染 `/assistant` 页面表面，历史会话、正文和输入区位于同一页面状态机内。`tw-content-stack` 在工具页打开时使用条件 `hidden` 保留页面状态并避免双表面；AI 页面保留主导航原有展开/收起偏好，历史栏与主导航显式互斥，执行时间线由独立组件渲染。
 - Agent 会话、消息、任务和 artifact 事实仍来自既有 API 与 SQLite；本轮只改变 DOM 层级、CSS 布局和展示状态，不修改接口字段、任务状态机或持久化协议。
 
 > 当前仍是个人本机版。服务只允许监听 `127.0.0.1`、`localhost` 或 `::1`，没有登录、认证、RBAC、字段级权限、租户隔离或可靠的多人审计，也没有 SQLite 静态加密。不能把它直接部署成部门多人服务，`CORS_ORIGIN` 也不会改变这一边界。
@@ -167,6 +177,7 @@ Express 中间件顺序把 Origin 写保护放在 `express.json()` 和后续 mul
 | `server/readonly-query*.js` | 文件型数据库独立只读子进程、schema 目录、单语句边界、SQLite authorizer、分工具超时/取消、RSS 采样、结构化查询与 CSV 导出。 |
 | `server/business-search.js` | V8 业务表/字段政策、JSON 展开、4,000 字符分段、中文 token、搜索文档/FTS5、dirty 同步、coverage 核验、全记录与候选人级检索。 |
 | `server/resume-search.js` | 自然语言关键词/同义词和结构化条件标准化，将既有履历检索 API 路由到 V8 全业务搜索并保持候选人级响应兼容。 |
+| `server/search-concepts.js` | HybridSearch 与规则查询计划共享的高置信岗位、技能、缩写、地点别名注册表和去重键。 |
 | `server/talent.js` | 人才库 CRUD、成员关联、版本绑定的批量归档/恢复/容器永久删除、求职偏好和履历区块写入。 |
 | `server/import-export.js` | ExcelJS/`xls-reader` 服务端解析、格式签名校验、预览提交、导出及北森导入分派。 |
 | `server/beisen-import.js` | 北森单表识别、候选人/申请/职位预览、重放安全写入、逐行计数和数据血缘。 |
@@ -414,7 +425,7 @@ Agent 消息到达前端后，只有 `assistant` 角色内容进入 Markdown/GFM
 
 最近上下文最多 12 条/96 KiB；达到 12 条消息或 96 KiB 后，摘要任务最多读取 256 KiB，保留最近 6 条不压缩，摘要正文最多 16,000 字符。摘要调用复用已配置模型网关、使用 strict JSON Schema 且不提供 tools；历史与摘要均包装为不可信数据。摘要失败只停止本次压缩，不回滚已经完成的问答。
 
-浏览器 `localStorage` 只保存符合 UUID 格式的活动会话 ID 和历史面板开关；消息正文、摘要、手机号、邮箱、薪资和简历都只从 SQLite 会话 API 读取。消息按 `before_sequence` 游标加载，删除会话由外键级联删除消息与摘要。API 支持归档/恢复会话，归档状态拒绝继续发送；当前抽屉历史面板只列活动会话，提供新建、重命名和永久删除。
+浏览器 `localStorage` 只保存符合 UUID 格式的活动会话 ID；消息正文、摘要、手机号、邮箱、薪资、简历和历史栏开关都不写入浏览器存储。消息按 `before_sequence` 游标加载，删除会话由外键级联删除消息与摘要。API 支持归档/恢复会话，归档状态拒绝继续发送；当前历史栏只列活动会话，提供新建、重命名和永久删除。
 
 V8 搜索字段由显式 `TABLE_POLICIES` 和每张表实时 `PRAGMA table_xinfo` 的交集确定：所有非隐藏、非 BLOB 且未显式排除的字段进入 `search_documents_v2`；JSON 字段递归展开为稳定 `field_path`，长文本按 4,000 Unicode code point 分段且可无损拼回，中文搜索文本补充二元/三元 token。`candidate_attachments.storage_path`、`candidate_resume_vectors.vector`、会话/消息/摘要、附件预览/清理、迁移账本及搜索内部表不进入普通 Agent 目录或业务 FTS；`agent_query_audits` 可只读查询但不参与 FTS，避免审计写入反复污染索引。
 
