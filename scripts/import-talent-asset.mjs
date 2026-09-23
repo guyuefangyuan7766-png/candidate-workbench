@@ -103,6 +103,7 @@ function parseArgs(argv) {
     limit: 0,
     attachmentMode: 'copy',
     reset: false,
+    confirmDeleteAll: false,
   }
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index]
@@ -117,6 +118,7 @@ function parseArgs(argv) {
     else if (arg === '--limit') options.limit = Number(next())
     else if (arg === '--attachment-mode') options.attachmentMode = next()
     else if (arg === '--reset') options.reset = true
+    else if (arg === '--confirm-delete-all') options.confirmDeleteAll = true
     else throw new Error(`未知参数：${arg}`)
   }
   options.attachmentDir = options.attachmentDir ?? join(dirname(options.dbPath), 'private', 'attachments', 'files')
@@ -1074,6 +1076,12 @@ async function main() {
   try {
     ensureAssetSchema(db)
     if (options.reset) {
+      // 这个库是要永久保留的资产副本，清空必须显式确认，避免误跑 --reset 抹掉 47 GB。
+      if (!options.confirmDeleteAll) {
+        throw new Error(
+          '--reset 会清空候选人、附件引用与资产元数据。确认要清空时请显式追加 --confirm-delete-all。',
+        )
+      }
       const before = db.prepare('SELECT COUNT(*) AS n FROM candidates').get().n
       db.exec('DELETE FROM candidates')
       db.exec('DELETE FROM talent_pools')
