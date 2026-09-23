@@ -4041,7 +4041,7 @@ export function createAttachmentService({
     if (!candidate) throw attachmentError(404, 'not_found', '候选人不存在')
     return db.prepare(`
       SELECT * FROM candidate_attachments
-      WHERE candidate_id = ? AND attachment_type = 'resume'
+      WHERE candidate_id = ? AND attachment_type IN ('resume', 'resume_origin')
       ORDER BY created_at DESC, id
     `).all(candidateId).map(attachmentRow)
   }
@@ -4050,7 +4050,7 @@ export function createAttachmentService({
     const row = db.prepare(`
       SELECT a.* FROM candidate_attachments a
       JOIN candidates c ON c.id = a.candidate_id
-      WHERE a.id = ? AND a.attachment_type = 'resume'
+      WHERE a.id = ? AND a.attachment_type IN ('resume', 'resume_origin')
     `).get(id)
     if (!row) throw attachmentError(404, 'not_found', '附件不存在')
     return includeText ? { ...attachmentRow(row), extracted_text: row.extracted_text } : attachmentRow(row)
@@ -4068,7 +4068,7 @@ export function createAttachmentService({
         SELECT a.*, c.archived_at AS candidate_archived_at
         FROM candidate_attachments a
         JOIN candidates c ON c.id = a.candidate_id
-        WHERE a.id = ? AND a.attachment_type = 'resume'
+        WHERE a.id = ? AND a.attachment_type IN ('resume', 'resume_origin')
       `).get(attachmentId)
       if (!row) throw attachmentError(404, 'not_found', '附件不存在')
       if (row.candidate_archived_at) {
@@ -4118,7 +4118,7 @@ export function createAttachmentService({
     const row = db.prepare(`
       SELECT a.* FROM candidate_attachments a
       JOIN candidates c ON c.id = a.candidate_id
-      WHERE a.id = ? AND a.attachment_type = 'resume'
+      WHERE a.id = ? AND a.attachment_type IN ('resume', 'resume_origin')
     `).get(id)
     if (!row) throw attachmentError(404, 'not_found', '附件不存在')
     const path = assertInside(filesRoot, row.storage_path)
