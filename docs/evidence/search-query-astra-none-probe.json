@@ -1,0 +1,346 @@
+{
+  "anonymous": true,
+  "database_access": false,
+  "cold_queries": true,
+  "reasoning_effort": "none",
+  "concurrency": 2,
+  "at": "2026-09-10T05:59:16.243Z",
+  "summary": [
+    {
+      "model": "gpt-6-astra",
+      "count": 6,
+      "model_accepted": 0,
+      "condition_correct": 6,
+      "latency_ms": {
+        "p50": 1080.1179,
+        "p95": 2055.8492000000006,
+        "max": 2055.8492000000006
+      }
+    }
+  ],
+  "rows": [
+    {
+      "model": "gpt-6-astra",
+      "id": "q-0",
+      "query": "上海 游戏策划 战斗系统",
+      "milliseconds": 768.5176,
+      "source": "rules",
+      "correct": true,
+      "error_code": "search_model_http_error",
+      "warnings": [
+        "model_planning_unavailable"
+      ],
+      "plan": {
+        "version": 1,
+        "must": [
+          {
+            "kind": "filter",
+            "field": "current_location",
+            "op": "eq",
+            "value": "上海",
+            "span": [
+              0,
+              2
+            ]
+          },
+          {
+            "kind": "term",
+            "text": "游戏策划",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              3,
+              7
+            ]
+          },
+          {
+            "kind": "term",
+            "text": "战斗系统",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              8,
+              12
+            ]
+          }
+        ],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [],
+        "unresolved": [],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_planning_unavailable"
+          ],
+          "query": "上海 游戏策划 战斗系统",
+          "schemaVersion": 1
+        }
+      },
+      "proposed": null,
+      "validation_issue": null
+    },
+    {
+      "model": "gpt-6-astra",
+      "id": "q-1",
+      "query": "找3到5年经验的后端工程师",
+      "milliseconds": 1080.1179,
+      "source": "rules",
+      "correct": true,
+      "error_code": "search_model_http_error",
+      "warnings": [
+        "model_planning_unavailable"
+      ],
+      "plan": {
+        "version": 1,
+        "must": [
+          {
+            "kind": "filter",
+            "field": "years",
+            "op": "gte",
+            "value": 3,
+            "span": [
+              1,
+              5
+            ]
+          },
+          {
+            "kind": "filter",
+            "field": "years",
+            "op": "lte",
+            "value": 5,
+            "span": [
+              1,
+              5
+            ]
+          },
+          {
+            "kind": "term",
+            "text": "后端工程师",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              8,
+              13
+            ]
+          }
+        ],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [],
+        "unresolved": [],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_planning_unavailable"
+          ],
+          "query": "找3到5年经验的后端工程师",
+          "schemaVersion": 1
+        }
+      },
+      "proposed": null,
+      "validation_issue": null
+    },
+    {
+      "model": "gpt-6-astra",
+      "id": "q-3",
+      "query": "Unity 或 Unreal",
+      "milliseconds": 894.6152000000002,
+      "source": "rules",
+      "correct": true,
+      "error_code": "search_model_http_error",
+      "warnings": [
+        "model_planning_unavailable"
+      ],
+      "plan": {
+        "version": 1,
+        "must": [
+          {
+            "kind": "any",
+            "scope": "candidate",
+            "children": [
+              {
+                "kind": "term",
+                "text": "Unity",
+                "match": "concept",
+                "evidence_scope": "self",
+                "span": [
+                  0,
+                  5
+                ]
+              },
+              {
+                "kind": "term",
+                "text": "Unreal",
+                "match": "concept",
+                "evidence_scope": "self",
+                "span": [
+                  8,
+                  14
+                ]
+              }
+            ]
+          }
+        ],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [],
+        "unresolved": [],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_planning_unavailable"
+          ],
+          "query": "Unity 或 Unreal",
+          "schemaVersion": 1
+        }
+      },
+      "proposed": null,
+      "validation_issue": null
+    },
+    {
+      "model": "gpt-6-astra",
+      "id": "q-2",
+      "query": "找3年以下经验的后端工程师",
+      "milliseconds": 1949.6135000000002,
+      "source": "rules",
+      "correct": true,
+      "error_code": "search_model_http_error",
+      "warnings": [
+        "model_planning_unavailable"
+      ],
+      "plan": {
+        "version": 1,
+        "must": [
+          {
+            "kind": "filter",
+            "field": "years",
+            "op": "lte",
+            "value": 3,
+            "span": [
+              1,
+              5
+            ]
+          },
+          {
+            "kind": "term",
+            "text": "后端工程师",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              8,
+              13
+            ]
+          }
+        ],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [],
+        "unresolved": [],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_planning_unavailable"
+          ],
+          "query": "找3年以下经验的后端工程师",
+          "schemaVersion": 1
+        }
+      },
+      "proposed": null,
+      "validation_issue": null
+    },
+    {
+      "model": "gpt-6-astra",
+      "id": "q-5",
+      "query": "找熟悉数值策划的人",
+      "milliseconds": 999.4256999999998,
+      "source": "rules",
+      "correct": true,
+      "error_code": "search_model_http_error",
+      "warnings": [
+        "model_planning_unavailable"
+      ],
+      "plan": {
+        "version": 1,
+        "must": [
+          {
+            "kind": "term",
+            "text": "数值策划",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              3,
+              7
+            ]
+          }
+        ],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [],
+        "unresolved": [],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_planning_unavailable"
+          ],
+          "query": "找熟悉数值策划的人",
+          "schemaVersion": 1
+        }
+      },
+      "proposed": null,
+      "validation_issue": null
+    },
+    {
+      "model": "gpt-6-astra",
+      "id": "q-4",
+      "query": "Unity 不要外包",
+      "milliseconds": 2055.8492000000006,
+      "source": "rules",
+      "correct": true,
+      "error_code": "search_model_http_error",
+      "warnings": [
+        "model_planning_unavailable"
+      ],
+      "plan": {
+        "version": 1,
+        "must": [
+          {
+            "kind": "term",
+            "text": "Unity",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              0,
+              5
+            ]
+          }
+        ],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [
+          {
+            "kind": "term",
+            "text": "外包",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              8,
+              10
+            ]
+          }
+        ],
+        "unresolved": [],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_planning_unavailable"
+          ],
+          "query": "Unity 不要外包",
+          "schemaVersion": 1
+        }
+      },
+      "proposed": null,
+      "validation_issue": null
+    }
+  ]
+}

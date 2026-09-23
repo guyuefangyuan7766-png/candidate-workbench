@@ -1,0 +1,521 @@
+{
+  "anonymous": true,
+  "database_access": false,
+  "cold_queries": true,
+  "reasoning_effort": "none",
+  "concurrency": 2,
+  "at": "2026-09-10T06:02:37.036Z",
+  "summary": [
+    {
+      "model": "qwen3.8-max",
+      "count": 6,
+      "model_accepted": 4,
+      "condition_correct": 6,
+      "latency_ms": {
+        "p50": 3163.8688999999995,
+        "p95": 4189.4843,
+        "max": 4189.4843
+      }
+    }
+  ],
+  "rows": [
+    {
+      "model": "qwen3.8-max",
+      "id": "q-0",
+      "query": "上海 游戏策划 战斗系统",
+      "milliseconds": 2931.3626,
+      "source": "rules",
+      "correct": true,
+      "error_code": null,
+      "warnings": [
+        "model_plan_constraints_changed"
+      ],
+      "plan": {
+        "version": 1,
+        "must": [
+          {
+            "kind": "filter",
+            "field": "current_location",
+            "op": "eq",
+            "value": "上海",
+            "span": [
+              0,
+              2
+            ]
+          },
+          {
+            "kind": "term",
+            "text": "游戏策划",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              3,
+              7
+            ]
+          },
+          {
+            "kind": "term",
+            "text": "战斗系统",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              8,
+              12
+            ]
+          }
+        ],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [],
+        "unresolved": [],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_plan_constraints_changed"
+          ],
+          "query": "上海 游戏策划 战斗系统",
+          "schemaVersion": 1
+        }
+      },
+      "proposed": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              3,
+              7
+            ],
+            "text": "游戏策划"
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              8,
+              12
+            ],
+            "text": "战斗系统"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [
+          {
+            "impact": "required",
+            "reason": "unsupported",
+            "span": [
+              0,
+              2
+            ],
+            "text": "上海"
+          }
+        ],
+        "version": 1
+      },
+      "validation_issue": null
+    },
+    {
+      "model": "qwen3.8-max",
+      "id": "q-1",
+      "query": "找3到5年经验的后端工程师",
+      "milliseconds": 4189.4843,
+      "source": "rules",
+      "correct": true,
+      "error_code": "search_planner_invalid",
+      "warnings": [
+        "model_planning_unavailable"
+      ],
+      "plan": {
+        "version": 1,
+        "must": [
+          {
+            "kind": "filter",
+            "field": "years",
+            "op": "gte",
+            "value": 3,
+            "span": [
+              1,
+              5
+            ]
+          },
+          {
+            "kind": "filter",
+            "field": "years",
+            "op": "lte",
+            "value": 5,
+            "span": [
+              1,
+              5
+            ]
+          },
+          {
+            "kind": "term",
+            "text": "后端工程师",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              8,
+              13
+            ]
+          }
+        ],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [],
+        "unresolved": [],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_planning_unavailable"
+          ],
+          "query": "找3到5年经验的后端工程师",
+          "schemaVersion": 1
+        }
+      },
+      "proposed": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              13,
+              18
+            ],
+            "text": "后端工程师"
+          },
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "gte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 3
+          },
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "lte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 5
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1
+      },
+      "validation_issue": "条件位置超出查询范围"
+    },
+    {
+      "model": "qwen3.8-max",
+      "id": "q-2",
+      "query": "找3年以下经验的后端工程师",
+      "milliseconds": 3012.0016,
+      "source": "model",
+      "correct": true,
+      "error_code": null,
+      "warnings": [],
+      "plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              8,
+              13
+            ],
+            "text": "后端工程师"
+          },
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "lte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 3
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "找3年以下经验的后端工程师",
+          "schemaVersion": 1
+        }
+      },
+      "proposed": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              8,
+              13
+            ],
+            "text": "后端工程师"
+          },
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "lte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 3
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1
+      },
+      "validation_issue": null
+    },
+    {
+      "model": "qwen3.8-max",
+      "id": "q-3",
+      "query": "Unity 或 Unreal",
+      "milliseconds": 4127.3488,
+      "source": "model",
+      "correct": true,
+      "error_code": null,
+      "warnings": [],
+      "plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "kind": "any",
+            "scope": "candidate",
+            "children": [
+              {
+                "evidence_scope": "self",
+                "kind": "term",
+                "match": "concept",
+                "span": [
+                  0,
+                  5
+                ],
+                "text": "Unity"
+              },
+              {
+                "evidence_scope": "self",
+                "kind": "term",
+                "match": "concept",
+                "span": [
+                  8,
+                  14
+                ],
+                "text": "Unreal"
+              }
+            ]
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "Unity 或 Unreal",
+          "schemaVersion": 1
+        }
+      },
+      "proposed": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "children": [
+              {
+                "evidence_scope": "self",
+                "kind": "term",
+                "match": "concept",
+                "span": [
+                  0,
+                  5
+                ],
+                "text": "Unity"
+              },
+              {
+                "evidence_scope": "self",
+                "kind": "term",
+                "match": "concept",
+                "span": [
+                  8,
+                  14
+                ],
+                "text": "Unreal"
+              }
+            ],
+            "kind": "any",
+            "scope": "candidate"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1
+      },
+      "validation_issue": null
+    },
+    {
+      "model": "qwen3.8-max",
+      "id": "q-4",
+      "query": "Unity 不要外包",
+      "milliseconds": 2539.490700000001,
+      "source": "model",
+      "correct": true,
+      "error_code": null,
+      "warnings": [],
+      "plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              0,
+              5
+            ],
+            "text": "Unity"
+          }
+        ],
+        "must_not": [
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              8,
+              10
+            ],
+            "text": "外包"
+          }
+        ],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "Unity 不要外包",
+          "schemaVersion": 1
+        }
+      },
+      "proposed": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "children": [
+              {
+                "evidence_scope": "self",
+                "kind": "term",
+                "match": "concept",
+                "span": [
+                  0,
+                  5
+                ],
+                "text": "Unity"
+              }
+            ],
+            "kind": "any",
+            "scope": "candidate"
+          }
+        ],
+        "must_not": [
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              8,
+              10
+            ],
+            "text": "外包"
+          }
+        ],
+        "should": [],
+        "unresolved": [],
+        "version": 1
+      },
+      "validation_issue": null
+    },
+    {
+      "model": "qwen3.8-max",
+      "id": "q-5",
+      "query": "找熟悉数值策划的人",
+      "milliseconds": 3163.8688999999995,
+      "source": "model",
+      "correct": true,
+      "error_code": null,
+      "warnings": [],
+      "plan": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              3,
+              7
+            ],
+            "text": "数值策划"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1,
+        "metadata": {
+          "source": "model",
+          "warnings": [],
+          "query": "找熟悉数值策划的人",
+          "schemaVersion": 1
+        }
+      },
+      "proposed": {
+        "minimum_should_match": 0,
+        "must": [
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              3,
+              7
+            ],
+            "text": "数值策划"
+          }
+        ],
+        "must_not": [],
+        "should": [],
+        "unresolved": [],
+        "version": 1
+      },
+      "validation_issue": null
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+# 项目文档索引
+
+2026-09-10 已按用户授权应用并启动正式本机服务，当时版本为应用 `0.2.0` / 数据库 schema `V13`；随后正式混合检索补充已启用并留下独立部署证据。当前工作区为应用 `0.5.0`（开发中，尚未正式部署），第十二至第十四轮以及 2026-09-18 AI 助手 A 方案增量均已完成当前工作区实现与验证，数据库保持 `V13`，人才库领域版本保持历史 `V2`。正式部署历史见 [正式部署记录](evidence/search-formal-deployment.json)，第十二轮实现与 G1–G6 结果见 [第十二轮验收](evidence/talent-redesign/acceptance.md)，第十四轮头像、备注容器和 AI 会话验收见 [第十四轮 QA](evidence/round14-ui-polish/qa-report.json) 与 [头像报告](evidence/round14-ui-polish/avatar-report.json)，A 方案侧栏互斥、焦点保持和执行时间线见 [AI 助手 A 方案 QA](evidence/assistant-a-20260918/qa-report.json)。
+
+本文档集对应招聘工作台应用 `0.5.0`（开发中；上一次发布为 `0.2.0`）个人版、schema `V13`，并保留此前工作年限、导入等迭代的历史记录。当前代码基线为 schema V13：`years_experience` 是可空数值投影，`years_experience_raw` 是 `TEXT NOT NULL DEFAULT ''` 的来源原文，`years_experience_display` 为计算展示文本。明确 `0`、未知文本和真实空值必须分别显示为 `0`、原文和空白；导入格式本身不拒绝行，电话/邮箱冲突仍阻断。Task 7 已完成最多 100 条历史只读样本预览，脱敏证据见 [v13-years-experience-import-20260825.json](evidence/v13-years-experience-import-20260825.json)；正式库已完成 V13 加法迁移，schema 为 V1-V13。历史 V11 候选人入职信息迭代引入 `hire_status`（入职状态）和 `hire_date`（入职日期）；V12 增加 `hire_position`（入职职位），日期有值而状态为空时使用精确文本 `不确定`，三项全空时详情隐藏入职信息区块。V12 历史正式 HTTP 记录不构成本轮批量导入证据。代码行为是事实来源，文档与实现不一致时，应先修正文档或通过技术决策记录明确变更。
+
+| 文档 | 主要用途 |
+| --- | --- |
+| [PRODUCT_SPEC.md](PRODUCT_SPEC.md) | 当前用户、目标、功能范围、非目标和验收口径 |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | 系统边界、模块职责和运行数据流 |
+| [API.md](API.md) | 本地业务 API、导入导出和 Agent 端点 |
+| [DATA_MODEL.md](DATA_MODEL.md) | 数据表、候选人字段、血缘和去重规则 |
+| [UI_DESIGN.md](UI_DESIGN.md) | 信息架构、视觉变量、组件、交互和响应式规范 |
+| [IMPORT_GUIDE.md](IMPORT_GUIDE.md) | 北森及自有表格的准备、映射、预览和导入流程 |
+| [FIELD_MAPPING.md](FIELD_MAPPING.md) | 三份北森字段审计、逐物理列处理策略和阶段 B 映射基线 |
+| [AGENT_SECURITY.md](AGENT_SECURITY.md) | Agent 工具、数据最小化和安全边界 |
+| [PRIVACY.md](PRIVACY.md) | 候选人数据分类、生命周期、模型外发和真实数据启用清单 |
+| [OPERATIONS.md](OPERATIONS.md) | 启动、配置、备份、恢复、升级和排障 |
+| [DEPLOYMENT_LOCAL_SERVER.md](DEPLOYMENT_LOCAL_SERVER.md) | 公司本地服务器的硬件配置、部署步骤、备份恢复和多人访问改造前置条件 |
+| [SERVER_DEPLOYMENT_RECORD.md](SERVER_DEPLOYMENT_RECORD.md) | **实际服务器（192.168.8.12）的部署记录**：架构、环境变量、防火墙、开机自启、白名单与待验证项 |
+| [TESTING.md](TESTING.md) | 自动化测试、手工验收和发布门槛 |
+| [ROADMAP.md](ROADMAP.md) | 从个人 PoC 到可选部门版的阶段规划 |
+| [DECISIONS.md](DECISIONS.md) | 已采纳的关键技术和产品决策 |
+| [ITERATION_LOG.md](ITERATION_LOG.md) | 每轮目标、完成项、验证结果和遗留问题 |
+| [superpowers/specs/2026-08-21-hire-status-design.md](superpowers/specs/2026-08-21-hire-status-design.md) | V11 入职字段与工作簿清理设计 |
+| [superpowers/plans/2026-08-21-hire-status.md](superpowers/plans/2026-08-21-hire-status.md) | V11 分任务实施计划和完成证据 |
+| [evidence/v11-formal-deployment.json](evidence/v11-formal-deployment.json) | V11 正式迁移、完整性、健康检查和数据清理的脱敏证据 |
+| [superpowers/specs/2026-08-21-hire-information-v12-design.md](superpowers/specs/2026-08-21-hire-information-v12-design.md) | V12 入职职位、日期兜底和北森关联职位设计 |
+| [superpowers/plans/2026-08-21-hire-information-v12.md](superpowers/plans/2026-08-21-hire-information-v12.md) | V12 分任务实施计划、100 人验收口径和门禁 |
+| [evidence/v12-hire-information-import-20260821.json](evidence/v12-hire-information-import-20260821.json) | 隔离 100 人导入、字段/人才库/来源/职位关系的脱敏证据 |
+| [evidence/v12-hire-information-formal-import-20260824.json](evidence/v12-hire-information-formal-import-20260824.json) | 正式 HTTP 100 人预览/提交的脱敏聚合证据；不含全库后检或恢复结论 |
+| [superpowers/specs/2026-08-25-years-experience-tolerant-import-design.md](superpowers/specs/2026-08-25-years-experience-tolerant-import-design.md) | V13 工作年限原文保留、数值投影和兼容迁移设计 |
+| [superpowers/plans/2026-08-25-years-experience-tolerant-import.md](superpowers/plans/2026-08-25-years-experience-tolerant-import.md) | V13 实施、测试与最多 100 条只读验证计划 |
+| [evidence/v13-years-experience-import-20260825.json](evidence/v13-years-experience-import-20260825.json) | V13 Task 7 的历史只读工作簿预览脱敏聚合证据；不代表本轮正式批量导入结果 |
+| [superpowers/specs/2026-09-15-responsive-scale-and-surface-isolation-design.md](superpowers/specs/2026-09-15-responsive-scale-and-surface-isolation-design.md) | 第十二轮断点尺度分档、列优先级与导航表面状态机设计（已完成） |
+| [superpowers/plans/2026-09-15-responsive-scale-and-surface-isolation.md](superpowers/plans/2026-09-15-responsive-scale-and-surface-isolation.md) | 第十二轮分阶段实施计划与 G1–G6 验收门禁（阶段 0–6 已完成） |
+| [evidence/talent-redesign/acceptance.md](evidence/talent-redesign/acceptance.md) | 第十二轮实现、G1–G6 结果、93 张截图矩阵与已知偏离 |
+| [evidence/round14-ui-polish/qa-report.json](evidence/round14-ui-polish/qa-report.json) | 第十四轮头像、备注容器、AI 助手三视口与隐藏节点审计证据 |
+| [evidence/round14-ui-polish/avatar-report.json](evidence/round14-ui-polish/avatar-report.json) | 两个头像组件的加载、成功、失败和无图状态证据 |
+| [evidence/round14-ui-polish/hidden-ui-audit.md](evidence/round14-ui-polish/hidden-ui-audit.md) | 永久无效 UI 删除依据与功能性隐藏节点保留清单 |
+| [evidence/assistant-a-20260918/qa-report.json](evidence/assistant-a-20260918/qa-report.json) | A 方案 AI 助手三视口、侧栏互斥、焦点/草稿/滚动保持和执行时间线证据 |
+| [superpowers/specs/2026-09-21-ldap-auth-and-network-binding-design.md](superpowers/specs/2026-09-21-ldap-auth-and-network-binding-design.md) | LDAP 统一认证、账号白名单、受控网络监听与鉴权边界设计规范（阶段 1 已实施） |
+| [superpowers/plans/2026-09-21-ldap-auth-and-network-binding.md](superpowers/plans/2026-09-21-ldap-auth-and-network-binding.md) | 上述规范的六阶段实施计划、文档同步清单与验收门禁 |
+| [handoffs/2026-09-21-ldap-auth-server-handover.md](handoffs/2026-09-21-ldap-auth-server-handover.md) | 给 IT/运维的交接单：域名与证书、反向代理、LDAP 连通性、服务器规格与上线检查清单 |
+| [../SECURITY.md](../SECURITY.md) | 安全假设、数据保护要求和漏洞处理 |
+| [../CHANGELOG.md](../CHANGELOG.md) | 面向版本的新增、变更、修复和限制 |
+| [../CONTRIBUTING.md](../CONTRIBUTING.md) | 开发、测试、数据安全和文档维护规范 |
+| [../THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) | 直接依赖版本与开源许可证 |
+
+## 建议阅读顺序
+
+个人使用者：`README -> PRODUCT_SPEC -> OPERATIONS -> IMPORT_GUIDE`。
+
+准备部署到公司服务器：先读 `DEPLOYMENT_LOCAL_SERVER`，再按需要回到 `OPERATIONS` 查配置和排障细节。
+
+接手已部署的服务器：先读 `SERVER_DEPLOYMENT_RECORD`，它记录的是**当前实际状态**；待办事项见 `handoffs/2026-09-21-ldap-auth-server-handover.md`。
+
+开发维护者：`ARCHITECTURE -> DATA_MODEL -> API -> UI_DESIGN -> DECISIONS -> TESTING`；涉及 V13 工作年限或北森工作簿时，再阅读对应的设计、实施计划和后续 evidence。
+
+处理真实候选人数据前：必须先阅读 `FIELD_MAPPING`、`PRIVACY` 和根目录 `SECURITY`。
+
+准备开放内网访问或接入公司账号体系前：先读 `superpowers/specs/2026-09-21-ldap-auth-and-network-binding-design.md`，再读 `DEPLOYMENT_LOCAL_SERVER`。
+
+接入模型网关前：必须先阅读 `AGENT_SECURITY`、`PRIVACY` 和根目录 `SECURITY`。
+
+准备升级为部门多人版前：先阅读 `ROADMAP` 中的多人版准入条件。当前代码没有认证、RBAC、HTTPS 或租户隔离，不能直接承担该场景。
+
+## 2026-08-27 导入收尾
+
+真实北森批量导入已按 A 组优先、B 组双空过滤和分片顺序完成。B 组 62,861 行中保留 1,390 行，正式提交 1,390 更新、0 失败；收尾报告和脱敏证据位于 `output/candidate-import-final-report-20260827.md` 与 `docs/evidence/beisen-candidate-import-b-20260827.json`。服务按任务生命周期管理预览 token，报告/证据不复制 token 或候选人级值。

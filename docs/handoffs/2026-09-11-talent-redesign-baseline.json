@@ -1,0 +1,191 @@
+{
+  "captured_at": "2026-09-11",
+  "purpose": "Handoff starting snapshot, not proof of an earlier clean state",
+  "cwd": "C:\\Users\\cboy\\Documents\\北森",
+  "head": "8470f1cdb3664948c5ca5f6650b2fe92b99c5c64",
+  "working_tree_dirty": true,
+  "source_files": [
+    {
+      "file": "src/App.tsx",
+      "sha256": "9bf9750fe06b886bd25a66fd03c84e698f1d04e35be96b184362bfe51ce520d4"
+    },
+    {
+      "file": "src/main.tsx",
+      "sha256": "b86438d9f52878a857459d720cebd88bb9283f281b5eb539cf77ce1460674f2c"
+    },
+    {
+      "file": "src/styles.css",
+      "sha256": "c627a0157ba0ecf7fb214aca61db79445de3a348289c43f79610b8a2d73162fe"
+    },
+    {
+      "file": "src/preview-theme.css",
+      "sha256": "0b71de49dc90035c7fa1a160b74ccbdceec2881657b1e7876125b572b976f23f"
+    },
+    {
+      "file": "src/search.css",
+      "sha256": "b8100e4bd2675b83eda8b7f4faeb877b5447398a5823dd7f106f8016f4f8c994"
+    },
+    {
+      "file": "src/components/TalentPoolPage.tsx",
+      "sha256": "b7dbb58a9f79fc6bf3e0a06be6dbfcd300463fc03630e0b6c740146e8a82ad3d"
+    },
+    {
+      "file": "src/components/AssistantDrawer.tsx",
+      "sha256": "73fbc3526cd9a8e3bce8ad3392f09a162093f015d37860dc2e112b3665f07e35"
+    },
+    {
+      "file": "src/components/ImportWizard.tsx",
+      "sha256": "0b496083242ea9451c2e6ff6418a9a701beb770a2fc317dbb7b6ce7127aead29"
+    },
+    {
+      "file": "src/api.ts",
+      "sha256": "b01dd2c134ee6387365bdcbe1983303dba0ffca29aab68d44dda2ebef6e35c3b"
+    },
+    {
+      "file": "src/types.ts",
+      "sha256": "a7bf1333a00aecdf12a2e376733fb903c5212d003a33e21ef476090761124c92"
+    },
+    {
+      "file": "package.json",
+      "sha256": "3794429462e29be2c4030145e6f7bc8d853f4c62f2dcf398db264126e941eb50"
+    },
+    {
+      "file": "package-lock.json",
+      "sha256": "57f972f99f87c8057903b3ee58514eaadebb8bb2ddfe34a35cf89d14f0586885"
+    }
+  ],
+  "approved_images": [
+    {
+      "id": "01-overview",
+      "title": "工作台",
+      "file": "C:\\Users\\cboy\\Documents\\北森\\output\\design-atlas\\01-overview.png",
+      "sha256": "d00c642703119fe6ee2c5d10ab8827d5c4f604c07ed61a4d8e21123821bfd16e"
+    },
+    {
+      "id": "02-candidates",
+      "title": "候选人库",
+      "file": "C:\\Users\\cboy\\Documents\\北森\\output\\design-atlas\\02-candidates.png",
+      "sha256": "e3e66020b038ba60216c31b852bb54083a0393ef722add3b1768f04ba6afe180"
+    },
+    {
+      "id": "03-groups",
+      "title": "人才库分组",
+      "file": "C:\\Users\\cboy\\Documents\\北森\\output\\design-atlas\\03-groups.png",
+      "sha256": "4d9960f7a752df2b35490509cfd4ab0adc78ea9c0a930df509362a74e6853d41"
+    },
+    {
+      "id": "04-positions",
+      "title": "职位管理",
+      "file": "C:\\Users\\cboy\\Documents\\北森\\output\\design-atlas\\04-positions.png",
+      "sha256": "dfe647e6b25478c94b2332309932212d568c850015f4102e038e6145f32c08d3"
+    },
+    {
+      "id": "05-import",
+      "title": "数据导入 · 选择文件",
+      "file": "C:\\Users\\cboy\\Documents\\北森\\output\\design-atlas\\05-import.png",
+      "sha256": "7860de825da075e76e6ef680bafb05f8bce931a676c31f93f2ffd7670deb17bf"
+    },
+    {
+      "id": "06-ai",
+      "title": "AI 助手",
+      "file": "C:\\Users\\cboy\\Documents\\北森\\output\\design-atlas\\06-ai.png",
+      "sha256": "952dc72b5e9b0b5e4e406881630e5600fa31abf915530f4a722fe376bafe6b9e"
+    },
+    {
+      "id": "07-search",
+      "title": "履历检索",
+      "file": "C:\\Users\\cboy\\Documents\\北森\\output\\design-atlas\\07-search.png",
+      "sha256": "dea27c4457e21cbcab1995257512a35c2bac0b9bc91f52a96e6c4b63a3f51b7a"
+    },
+    {
+      "id": "08-attachments",
+      "title": "附件解析",
+      "file": "C:\\Users\\cboy\\Documents\\北森\\output\\design-atlas\\08-attachments.png",
+      "sha256": "2e23856dad8b968fd2e8eb69437a53476ff03f4aec0e46e46a04c37455be4036"
+    },
+    {
+      "id": "09-profile",
+      "title": "候选人详情 · 档案",
+      "file": "C:\\Users\\cboy\\Documents\\北森\\output\\design-atlas\\09-profile-v2.png",
+      "sha256": "b5a9ac3b911b7ecc6e997f02f4a71a63508ab219d0a83653e6e47c5317f67ecb"
+    },
+    {
+      "id": "10-resume",
+      "title": "候选人详情 · 履历",
+      "file": "C:\\Users\\cboy\\Documents\\北森\\output\\design-atlas\\10-resume.png",
+      "sha256": "5f13055d3cfb06eb8d34d7342df672ab43ccf18874f1d8505911b5062441d25f"
+    },
+    {
+      "id": "11-assessment",
+      "title": "候选人详情 · 历史评估",
+      "file": "C:\\Users\\cboy\\Documents\\北森\\output\\design-atlas\\11-assessment-v2.png",
+      "sha256": "b2e9acdfc540fc7e61b93e756386378885ba7b28f97804f2d2f22306042adbff"
+    },
+    {
+      "id": "12-activity",
+      "title": "候选人详情 · 备注与动态",
+      "file": "C:\\Users\\cboy\\Documents\\北森\\output\\design-atlas\\12-activity.png",
+      "sha256": "1490b7f01534bb95b357848dbce29cc511874a9f39f3dbd2dc33fa3aaed6e70b"
+    },
+    {
+      "id": "13-advanced",
+      "title": "候选人详情 · 高级信息",
+      "file": "C:\\Users\\cboy\\Documents\\北森\\output\\design-atlas\\13-advanced-v2.png",
+      "sha256": "0dc913ca84711f022dfb5011c2d2b445f4c529f727dd018d09501a75c77bb060"
+    },
+    {
+      "id": "14-candidate-edit",
+      "title": "新增 / 编辑候选人",
+      "file": "C:\\Users\\cboy\\Documents\\北森\\output\\design-atlas\\14-candidate-edit.png",
+      "sha256": "12d3017f3983408afcd3e9175833b1d362594153fe2b56a781c51fc38d4f4b08"
+    },
+    {
+      "id": "15-position-detail",
+      "title": "职位详情",
+      "file": "C:\\Users\\cboy\\Documents\\北森\\output\\design-atlas\\15-position-detail.png",
+      "sha256": "5e9bc85ee912a8957b29271b69c187918238d49266b21516b717c0970b6e0667"
+    },
+    {
+      "id": "16-position-edit",
+      "title": "新增 / 编辑职位",
+      "file": "C:\\Users\\cboy\\Documents\\北森\\output\\design-atlas\\16-position-edit.png",
+      "sha256": "7b7c4971105f0eb72d5aeff35d0d7c901d2dd7e116e7c1edb0b9d46b32d9513e"
+    },
+    {
+      "id": "17-group-picker",
+      "title": "人才库管理 · 加入候选人",
+      "file": "C:\\Users\\cboy\\Documents\\北森\\output\\design-atlas\\17-group-picker.png",
+      "sha256": "cd2af3614427c65b8fa92553fe8be46a4f40accd05043a9b85e1f566c5f36bcd"
+    },
+    {
+      "id": "18-import-mapping",
+      "title": "数据导入 · 字段映射",
+      "file": "C:\\Users\\cboy\\Documents\\北森\\output\\design-atlas\\18-import-mapping.png",
+      "sha256": "2c44de3e4f8928fa43550a9b94def1006dedbb2b4926151944126e3d7a5e198c"
+    },
+    {
+      "id": "19-import-preview",
+      "title": "数据导入 · 预览与校验",
+      "file": "C:\\Users\\cboy\\Documents\\北森\\output\\design-atlas\\19-import-preview.png",
+      "sha256": "814d6e24a586202d786a833a1566d03796fd807223caaca4ea7d51354bce5804"
+    },
+    {
+      "id": "20-attachment-review",
+      "title": "附件解析 · 差异确认",
+      "file": "C:\\Users\\cboy\\Documents\\北森\\output\\design-atlas\\20-attachment-review.png",
+      "sha256": "fed35d7bcb7687d4cfebc40125f075ca8f8438c489933338c05f764832a8c54e"
+    },
+    {
+      "id": "21-group-edit",
+      "title": "人才库管理 · 新建 / 编辑",
+      "file": "C:\\Users\\cboy\\Documents\\北森\\output\\design-atlas\\21-group-edit.png",
+      "sha256": "e2c30857b339182b107a521348d911f4c559f1a4b73d618ac77b4e405b33b540"
+    },
+    {
+      "id": "22-archive",
+      "title": "批量操作 · 归档确认",
+      "file": "C:\\Users\\cboy\\Documents\\北森\\output\\design-atlas\\22-archive.png",
+      "sha256": "ff79d7a07a12da076ce3dac6432cf0e5c8d124c942333f394c90cbc4eeaf1470"
+    }
+  ]
+}

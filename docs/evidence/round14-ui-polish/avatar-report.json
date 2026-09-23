@@ -1,0 +1,15 @@
+{
+  "generated_at": "2026-09-17T07:18:04.984Z",
+  "states": [
+    "no-photo",
+    "loading",
+    "success",
+    "failure"
+  ],
+  "components": [
+    "CandidateAvatar",
+    "TwAvatar"
+  ],
+  "screenshot": "screenshots/avatar-states.png",
+  "console_errors": []
+}

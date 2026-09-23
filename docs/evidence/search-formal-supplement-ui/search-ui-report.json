@@ -1,0 +1,835 @@
+{
+  "generated_at": "2026-09-10T06:40:48.838Z",
+  "target": "http://127.0.0.1:4398",
+  "anonymous": true,
+  "navigation": [
+    "工作台",
+    "候选人库",
+    "人才库分组",
+    "职位管理",
+    "导入候选人",
+    "AI 助手",
+    "履历检索",
+    "附件解析"
+  ],
+  "viewports": [
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "cases": [
+        {
+          "name": "entry:工作台",
+          "passed": true
+        },
+        {
+          "name": "entry:候选人库",
+          "passed": true
+        },
+        {
+          "name": "entry:人才库分组",
+          "passed": true
+        },
+        {
+          "name": "entry:职位管理",
+          "passed": true
+        },
+        {
+          "name": "entry:导入候选人",
+          "passed": true
+        },
+        {
+          "name": "entry:AI 助手",
+          "passed": true
+        },
+        {
+          "name": "entry:履历检索",
+          "passed": true
+        },
+        {
+          "name": "entry:附件解析",
+          "passed": true
+        },
+        {
+          "name": "independent-select-options",
+          "passed": true
+        },
+        {
+          "name": "query:上海 游戏策划 战斗系统",
+          "passed": true
+        },
+        {
+          "name": "query:找3到5年经验的后端工程师",
+          "passed": true
+        },
+        {
+          "name": "query:找3年以下经验的后端工程师",
+          "passed": true
+        },
+        {
+          "name": "query:Unity 或 Unreal",
+          "passed": true
+        },
+        {
+          "name": "query:Unity 不要外包",
+          "passed": true
+        },
+        {
+          "name": "query:找熟悉数值策划的人",
+          "passed": true
+        },
+        {
+          "name": "evidence-and-keyboard",
+          "passed": true
+        },
+        {
+          "name": "stable-pagination-and-filter-reset",
+          "passed": true
+        },
+        {
+          "name": "archive-field-source-controls",
+          "passed": true
+        },
+        {
+          "name": "candidate-detail-open-close",
+          "passed": true
+        },
+        {
+          "name": "cancel-and-no-late-overwrite",
+          "passed": true
+        },
+        {
+          "name": "error-retry-and-stale-pagination",
+          "passed": true
+        },
+        {
+          "name": "long-text-and-empty-state",
+          "passed": true
+        },
+        {
+          "name": "composition-does-not-submit",
+          "passed": true
+        }
+      ],
+      "screenshots": [
+        "search-ui-1440-entry-1.png",
+        "search-ui-1440-entry-2.png",
+        "search-ui-1440-entry-3.png",
+        "search-ui-1440-entry-4.png",
+        "search-ui-1440-entry-5.png",
+        "search-ui-1440-entry-6.png",
+        "search-ui-1440-entry-7.png",
+        "search-ui-1440-entry-8.png",
+        "search-ui-1440-search-evidence.png",
+        "search-ui-1440-candidate-detail.png",
+        "search-ui-1440-long-text.png",
+        "search-ui-1440-empty.png"
+      ],
+      "layout": [
+        {
+          "name": "工作台",
+          "width": 1440,
+          "root_width": 1440,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "候选人库",
+          "width": 1440,
+          "root_width": 1440,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "候选人按职位",
+          "width": 1440,
+          "root_width": 1440,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "候选人表格横向滚动",
+          "width": 1440,
+          "root_width": 1440,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "人才库分组",
+          "width": 1440,
+          "root_width": 1440,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "职位管理",
+          "width": 1440,
+          "root_width": 1440,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "导入候选人",
+          "width": 1440,
+          "root_width": 1440,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "AI 助手",
+          "width": 1440,
+          "root_width": 1440,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "履历检索",
+          "width": 1440,
+          "root_width": 1440,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "附件解析",
+          "width": 1440,
+          "root_width": 1440,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "上海 游戏策划 战斗系统",
+          "width": 1440,
+          "root_width": 1440,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "找3到5年经验的后端工程师",
+          "width": 1440,
+          "root_width": 1440,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "找3年以下经验的后端工程师",
+          "width": 1440,
+          "root_width": 1440,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "Unity 或 Unreal",
+          "width": 1440,
+          "root_width": 1440,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "Unity 不要外包",
+          "width": 1440,
+          "root_width": 1440,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "找熟悉数值策划的人",
+          "width": 1440,
+          "root_width": 1440,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "展开证据",
+          "width": 1440,
+          "root_width": 1440,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "候选人详情",
+          "width": 1440,
+          "root_width": 1440,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "长文本展开",
+          "width": 1440,
+          "root_width": 1440,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "空结果",
+          "width": 1440,
+          "root_width": 1440,
+          "blocked": [],
+          "nested_interactive": 0
+        }
+      ],
+      "console_errors": [],
+      "console_warnings": [],
+      "page_errors": [],
+      "unexpected_http": [],
+      "expected_http": [
+        {
+          "path": "/api/resume-search",
+          "status": 503
+        },
+        "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+        {
+          "path": "/api/resume-search",
+          "status": 409
+        },
+        "Failed to load resource: the server responded with a status of 409 (Conflict)"
+      ],
+      "passed": true
+    },
+    {
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "cases": [
+        {
+          "name": "entry:工作台",
+          "passed": true
+        },
+        {
+          "name": "entry:候选人库",
+          "passed": true
+        },
+        {
+          "name": "entry:人才库分组",
+          "passed": true
+        },
+        {
+          "name": "entry:职位管理",
+          "passed": true
+        },
+        {
+          "name": "entry:导入候选人",
+          "passed": true
+        },
+        {
+          "name": "entry:AI 助手",
+          "passed": true
+        },
+        {
+          "name": "entry:履历检索",
+          "passed": true
+        },
+        {
+          "name": "entry:附件解析",
+          "passed": true
+        },
+        {
+          "name": "independent-select-options",
+          "passed": true
+        },
+        {
+          "name": "query:上海 游戏策划 战斗系统",
+          "passed": true
+        },
+        {
+          "name": "query:找3到5年经验的后端工程师",
+          "passed": true
+        },
+        {
+          "name": "query:找3年以下经验的后端工程师",
+          "passed": true
+        },
+        {
+          "name": "query:Unity 或 Unreal",
+          "passed": true
+        },
+        {
+          "name": "query:Unity 不要外包",
+          "passed": true
+        },
+        {
+          "name": "query:找熟悉数值策划的人",
+          "passed": true
+        },
+        {
+          "name": "evidence-and-keyboard",
+          "passed": true
+        },
+        {
+          "name": "stable-pagination-and-filter-reset",
+          "passed": true
+        },
+        {
+          "name": "archive-field-source-controls",
+          "passed": true
+        },
+        {
+          "name": "candidate-detail-open-close",
+          "passed": true
+        },
+        {
+          "name": "cancel-and-no-late-overwrite",
+          "passed": true
+        },
+        {
+          "name": "error-retry-and-stale-pagination",
+          "passed": true
+        },
+        {
+          "name": "long-text-and-empty-state",
+          "passed": true
+        },
+        {
+          "name": "composition-does-not-submit",
+          "passed": true
+        }
+      ],
+      "screenshots": [
+        "search-ui-768-entry-1.png",
+        "search-ui-768-entry-2.png",
+        "search-ui-768-entry-3.png",
+        "search-ui-768-entry-4.png",
+        "search-ui-768-entry-5.png",
+        "search-ui-768-entry-6.png",
+        "search-ui-768-entry-7.png",
+        "search-ui-768-entry-8.png",
+        "search-ui-768-search-evidence.png",
+        "search-ui-768-candidate-detail.png",
+        "search-ui-768-long-text.png",
+        "search-ui-768-empty.png"
+      ],
+      "layout": [
+        {
+          "name": "工作台",
+          "width": 768,
+          "root_width": 768,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "候选人库",
+          "width": 768,
+          "root_width": 768,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "候选人按职位",
+          "width": 768,
+          "root_width": 768,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "候选人表格横向滚动",
+          "width": 768,
+          "root_width": 768,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "人才库分组",
+          "width": 768,
+          "root_width": 768,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "职位管理",
+          "width": 768,
+          "root_width": 768,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "导入候选人",
+          "width": 768,
+          "root_width": 768,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "AI 助手",
+          "width": 768,
+          "root_width": 768,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "履历检索",
+          "width": 768,
+          "root_width": 768,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "附件解析",
+          "width": 768,
+          "root_width": 768,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "上海 游戏策划 战斗系统",
+          "width": 768,
+          "root_width": 768,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "找3到5年经验的后端工程师",
+          "width": 768,
+          "root_width": 768,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "找3年以下经验的后端工程师",
+          "width": 768,
+          "root_width": 768,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "Unity 或 Unreal",
+          "width": 768,
+          "root_width": 768,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "Unity 不要外包",
+          "width": 768,
+          "root_width": 768,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "找熟悉数值策划的人",
+          "width": 768,
+          "root_width": 768,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "展开证据",
+          "width": 768,
+          "root_width": 768,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "候选人详情",
+          "width": 768,
+          "root_width": 768,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "长文本展开",
+          "width": 768,
+          "root_width": 768,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "空结果",
+          "width": 768,
+          "root_width": 768,
+          "blocked": [],
+          "nested_interactive": 0
+        }
+      ],
+      "console_errors": [],
+      "console_warnings": [],
+      "page_errors": [],
+      "unexpected_http": [],
+      "expected_http": [
+        {
+          "path": "/api/resume-search",
+          "status": 503
+        },
+        "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+        {
+          "path": "/api/resume-search",
+          "status": 409
+        },
+        "Failed to load resource: the server responded with a status of 409 (Conflict)"
+      ],
+      "passed": true
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "cases": [
+        {
+          "name": "entry:工作台",
+          "passed": true
+        },
+        {
+          "name": "entry:候选人库",
+          "passed": true
+        },
+        {
+          "name": "entry:人才库分组",
+          "passed": true
+        },
+        {
+          "name": "entry:职位管理",
+          "passed": true
+        },
+        {
+          "name": "entry:导入候选人",
+          "passed": true
+        },
+        {
+          "name": "entry:AI 助手",
+          "passed": true
+        },
+        {
+          "name": "entry:履历检索",
+          "passed": true
+        },
+        {
+          "name": "entry:附件解析",
+          "passed": true
+        },
+        {
+          "name": "independent-select-options",
+          "passed": true
+        },
+        {
+          "name": "query:上海 游戏策划 战斗系统",
+          "passed": true
+        },
+        {
+          "name": "query:找3到5年经验的后端工程师",
+          "passed": true
+        },
+        {
+          "name": "query:找3年以下经验的后端工程师",
+          "passed": true
+        },
+        {
+          "name": "query:Unity 或 Unreal",
+          "passed": true
+        },
+        {
+          "name": "query:Unity 不要外包",
+          "passed": true
+        },
+        {
+          "name": "query:找熟悉数值策划的人",
+          "passed": true
+        },
+        {
+          "name": "evidence-and-keyboard",
+          "passed": true
+        },
+        {
+          "name": "stable-pagination-and-filter-reset",
+          "passed": true
+        },
+        {
+          "name": "archive-field-source-controls",
+          "passed": true
+        },
+        {
+          "name": "candidate-detail-open-close",
+          "passed": true
+        },
+        {
+          "name": "cancel-and-no-late-overwrite",
+          "passed": true
+        },
+        {
+          "name": "error-retry-and-stale-pagination",
+          "passed": true
+        },
+        {
+          "name": "long-text-and-empty-state",
+          "passed": true
+        },
+        {
+          "name": "composition-does-not-submit",
+          "passed": true
+        }
+      ],
+      "screenshots": [
+        "search-ui-390-entry-1.png",
+        "search-ui-390-entry-2.png",
+        "search-ui-390-entry-3.png",
+        "search-ui-390-entry-4.png",
+        "search-ui-390-entry-5.png",
+        "search-ui-390-entry-6.png",
+        "search-ui-390-entry-7.png",
+        "search-ui-390-entry-8.png",
+        "search-ui-390-search-evidence.png",
+        "search-ui-390-candidate-detail.png",
+        "search-ui-390-long-text.png",
+        "search-ui-390-empty.png"
+      ],
+      "layout": [
+        {
+          "name": "工作台",
+          "width": 390,
+          "root_width": 390,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "候选人库",
+          "width": 390,
+          "root_width": 390,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "候选人按职位",
+          "width": 390,
+          "root_width": 390,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "人才库分组",
+          "width": 390,
+          "root_width": 390,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "职位管理",
+          "width": 390,
+          "root_width": 390,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "导入候选人",
+          "width": 390,
+          "root_width": 390,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "AI 助手",
+          "width": 390,
+          "root_width": 390,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "履历检索",
+          "width": 390,
+          "root_width": 390,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "附件解析",
+          "width": 390,
+          "root_width": 390,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "上海 游戏策划 战斗系统",
+          "width": 390,
+          "root_width": 390,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "找3到5年经验的后端工程师",
+          "width": 390,
+          "root_width": 390,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "找3年以下经验的后端工程师",
+          "width": 390,
+          "root_width": 390,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "Unity 或 Unreal",
+          "width": 390,
+          "root_width": 390,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "Unity 不要外包",
+          "width": 390,
+          "root_width": 390,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "找熟悉数值策划的人",
+          "width": 390,
+          "root_width": 390,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "展开证据",
+          "width": 390,
+          "root_width": 390,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "候选人详情",
+          "width": 390,
+          "root_width": 390,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "长文本展开",
+          "width": 390,
+          "root_width": 390,
+          "blocked": [],
+          "nested_interactive": 0
+        },
+        {
+          "name": "空结果",
+          "width": 390,
+          "root_width": 390,
+          "blocked": [],
+          "nested_interactive": 0
+        }
+      ],
+      "console_errors": [],
+      "console_warnings": [],
+      "page_errors": [],
+      "unexpected_http": [],
+      "expected_http": [
+        {
+          "path": "/api/resume-search",
+          "status": 503
+        },
+        "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+        {
+          "path": "/api/resume-search",
+          "status": 409
+        },
+        "Failed to load resource: the server responded with a status of 409 (Conflict)"
+      ],
+      "passed": true
+    }
+  ],
+  "limitations": [
+    "AI assistant uses the existing unconfigured state; no remote chat, real resume, file upload or production data was used.",
+    "No prior browser screenshots exist for pixel comparison. App.tsx is verified against the approved worktree fingerprint."
+  ],
+  "app_baseline_unchanged": true,
+  "passed": true
+}

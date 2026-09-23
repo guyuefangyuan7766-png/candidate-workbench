@@ -1,0 +1,84 @@
+{
+  "evidence_type": "formal_http_import_minimum_safeguards",
+  "recorded_at": "2026-08-24T10:12:00.629Z",
+  "scope": "V12 hire information production import through the existing candidate HTTP import entry",
+  "source": {
+    "format": "XLSX",
+    "basename": "北森候选人入职信息导入样本-100人.xlsx",
+    "sha256": "7D92DB6C37B892F3237E490E5424CC367CE14C9CAAE3F3584FB3083AD0A6C741",
+    "bytes": 220573,
+    "column_count": 191,
+    "selected_rows": 100,
+    "rows_with_hire_position": 100,
+    "rows_with_hire_date": 100,
+    "rows_with_explicit_hire_status": 0,
+    "rows_with_last_position_delivery_key": 36
+  },
+  "predeployment_safeguards": {
+    "backup_manifest": "backups/pre-v12-hire-information-import-20260824-023402/backup-manifest.json",
+    "backup_verified_before_import": true,
+    "approved_basename_and_sha256_verified": true,
+    "formal_database_binding_verified": true,
+    "background_writers_paused_during_import": true
+  },
+  "preview": {
+    "transport": "POST /api/candidates/import/tasks",
+    "profile": "beisen_talent",
+    "total_rows": 100,
+    "valid_rows": 100,
+    "invalid_rows": 0,
+    "existing_duplicates": 100,
+    "displayed_rows_hire_fields_verified": 20,
+    "talent_pool_preview_present": true,
+    "source_preview_present": true,
+    "position_mapping": "最后职位类投递的职位id",
+    "positions_created": 0,
+    "positions_matched": 32,
+    "position_links": 36,
+    "position_conflicts": 0,
+    "task_hash": "5233E19BA9EF82D7"
+  },
+  "commit": {
+    "transport": "POST /api/candidates/import/commit",
+    "duplicate_policy": "update",
+    "imported_rows": 0,
+    "updated_rows": 100,
+    "failed_rows": 0,
+    "skipped_rows": 0,
+    "candidate_count": 100,
+    "positions_created": 0,
+    "positions_matched": 32,
+    "links_created": 0,
+    "pools_created": 0,
+    "application_count": 0,
+    "task_hash": "BA0A2D7D1445F0AD"
+  },
+  "service": {
+    "normal_runtime_restored": true,
+    "url": "http://127.0.0.1:4173",
+    "health_status": "ok",
+    "health_checked_at": "2026-08-24T10:13:33.072Z",
+    "maintenance_endpoint_status_after_restore": 404
+  },
+  "verification_scope": {
+    "http_preview_and_commit_aggregates": true,
+    "preview_sample_hire_fields_checked": true,
+    "whole_database_digest_scan": false,
+    "postcommit_full_row_database_scan": false,
+    "whole_database_checks_waived_by_user": true
+  },
+  "interpretation": {
+    "date_only_status_fallback": "不确定",
+    "hire_position_projection": "candidate.hire_position",
+    "last_position_delivery_key_projection": "candidate_positions",
+    "talent_pool_projection": "candidate_talent_pools",
+    "source_projection": "candidate_source_records",
+    "unmodeled_source_fields": "candidate_source_records.raw_payload",
+    "formal_database_commit": true
+  },
+  "notes": [
+    "The HTTP task responses were reduced to aggregate counts; no names, contact values, raw payloads, preview tokens, or candidate identifiers are stored here.",
+    "The user explicitly stopped the retry-copy and production 22 GB full-table digest scans and authorized direct deployment with the minimum safeguards recorded above.",
+    "This evidence proves the formal HTTP preview and commit result, but it does not claim a post-commit whole-database digest, full-row production query, integrity check, or foreign-key scan."
+  ]
+}

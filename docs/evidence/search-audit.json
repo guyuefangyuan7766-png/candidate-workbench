@@ -1,0 +1,14 @@
+{
+  "date": "2026-09-10",
+  "command": "npm audit --audit-level=low --json",
+  "exit_code": 1,
+  "passed": false,
+  "counts": {"high": 3, "moderate": 1, "total": 4},
+  "findings": [
+    {"package": "@xmldom/xmldom", "severity": "high", "version": "0.8.13", "original_lock_version": "0.8.13"},
+    {"package": "multer", "severity": "high", "version": "2.2.0", "original_lock_version": "2.2.0"},
+    {"package": "nanoid", "severity": "high", "version": "3.3.16", "original_lock_version": "3.3.16"},
+    {"package": "qs", "severity": "moderate", "version": "6.15.3", "original_lock_version": "6.15.3"}
+  ],
+  "scope": "Audit result summarized from actual npm output. Versions compared with original workspace lockfile; these four packages were not introduced or changed by this task. No automatic unrelated dependency upgrade was performed."
+}

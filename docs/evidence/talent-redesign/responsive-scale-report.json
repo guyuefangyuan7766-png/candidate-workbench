@@ -1,0 +1,8797 @@
+{
+  "generated_at": "2026-09-16T03:11:41.389Z",
+  "target": "http://127.0.0.1:4396",
+  "anonymous": true,
+  "gate": "G1 分辨率矩阵 + G3 布局",
+  "viewports": [
+    "1024x768",
+    "1152x864",
+    "1280x720",
+    "1366x768",
+    "1440x900",
+    "1536x864",
+    "1600x900",
+    "1680x1050",
+    "1728x1117",
+    "1920x1080",
+    "2560x1440",
+    "3840x2160",
+    "768x1024",
+    "820x1180",
+    "390x844"
+  ],
+  "pages": [
+    "dashboard",
+    "candidates",
+    "talent-pools",
+    "positions",
+    "assistant",
+    "resume-search"
+  ],
+  "cases": [
+    {
+      "name": "1024x768 · dashboard",
+      "ok": true,
+      "detail": {
+        "h1": 24,
+        "columns": 0,
+        "rows": null,
+        "problems": []
+      }
+    },
+    {
+      "name": "1024x768 · candidates",
+      "ok": true,
+      "detail": {
+        "h1": 24,
+        "columns": 9,
+        "rows": 8,
+        "problems": []
+      }
+    },
+    {
+      "name": "1024x768 · talent-pools",
+      "ok": true,
+      "detail": {
+        "h1": 24,
+        "columns": 8,
+        "rows": 4,
+        "problems": []
+      }
+    },
+    {
+      "name": "1024x768 · positions",
+      "ok": true,
+      "detail": {
+        "h1": 24,
+        "columns": 10,
+        "rows": 8,
+        "problems": []
+      }
+    },
+    {
+      "name": "1024x768 · assistant",
+      "ok": true,
+      "detail": {
+        "h1": 24,
+        "columns": 0,
+        "rows": null,
+        "problems": []
+      }
+    },
+    {
+      "name": "1024x768 · resume-search",
+      "ok": true,
+      "detail": {
+        "h1": 24,
+        "columns": 7,
+        "rows": 20,
+        "problems": []
+      }
+    },
+    {
+      "name": "1152x864 · dashboard",
+      "ok": true,
+      "detail": {
+        "h1": 26,
+        "columns": 0,
+        "rows": null,
+        "problems": []
+      }
+    },
+    {
+      "name": "1152x864 · candidates",
+      "ok": true,
+      "detail": {
+        "h1": 26,
+        "columns": 9,
+        "rows": 9,
+        "problems": []
+      }
+    },
+    {
+      "name": "1152x864 · talent-pools",
+      "ok": true,
+      "detail": {
+        "h1": 26,
+        "columns": 8,
+        "rows": 4,
+        "problems": []
+      }
+    },
+    {
+      "name": "1152x864 · positions",
+      "ok": true,
+      "detail": {
+        "h1": 26,
+        "columns": 10,
+        "rows": 9,
+        "problems": []
+      }
+    },
+    {
+      "name": "1152x864 · assistant",
+      "ok": true,
+      "detail": {
+        "h1": 26,
+        "columns": 0,
+        "rows": null,
+        "problems": []
+      }
+    },
+    {
+      "name": "1152x864 · resume-search",
+      "ok": true,
+      "detail": {
+        "h1": 26,
+        "columns": 7,
+        "rows": 20,
+        "problems": []
+      }
+    },
+    {
+      "name": "1280x720 · dashboard",
+      "ok": true,
+      "detail": {
+        "h1": 26,
+        "columns": 0,
+        "rows": null,
+        "problems": []
+      }
+    },
+    {
+      "name": "1280x720 · candidates",
+      "ok": true,
+      "detail": {
+        "h1": 26,
+        "columns": 9,
+        "rows": 6,
+        "problems": []
+      }
+    },
+    {
+      "name": "1280x720 · talent-pools",
+      "ok": true,
+      "detail": {
+        "h1": 26,
+        "columns": 8,
+        "rows": 4,
+        "problems": []
+      }
+    },
+    {
+      "name": "1280x720 · positions",
+      "ok": true,
+      "detail": {
+        "h1": 26,
+        "columns": 10,
+        "rows": 7,
+        "problems": []
+      }
+    },
+    {
+      "name": "1280x720 · assistant",
+      "ok": true,
+      "detail": {
+        "h1": 26,
+        "columns": 0,
+        "rows": null,
+        "problems": []
+      }
+    },
+    {
+      "name": "1280x720 · resume-search",
+      "ok": true,
+      "detail": {
+        "h1": 26,
+        "columns": 7,
+        "rows": 20,
+        "problems": []
+      }
+    },
+    {
+      "name": "1366x768 · dashboard",
+      "ok": true,
+      "detail": {
+        "h1": 28,
+        "columns": 0,
+        "rows": null,
+        "problems": []
+      }
+    },
+    {
+      "name": "1366x768 · candidates",
+      "ok": true,
+      "detail": {
+        "h1": 28,
+        "columns": 9,
+        "rows": 6,
+        "problems": []
+      }
+    },
+    {
+      "name": "1366x768 · talent-pools",
+      "ok": true,
+      "detail": {
+        "h1": 28,
+        "columns": 8,
+        "rows": 4,
+        "problems": []
+      }
+    },
+    {
+      "name": "1366x768 · positions",
+      "ok": true,
+      "detail": {
+        "h1": 28,
+        "columns": 10,
+        "rows": 7,
+        "problems": []
+      }
+    },
+    {
+      "name": "1366x768 · assistant",
+      "ok": true,
+      "detail": {
+        "h1": 28,
+        "columns": 0,
+        "rows": null,
+        "problems": []
+      }
+    },
+    {
+      "name": "1366x768 · resume-search",
+      "ok": true,
+      "detail": {
+        "h1": 28,
+        "columns": 7,
+        "rows": 20,
+        "problems": []
+      }
+    },
+    {
+      "name": "1440x900 · dashboard",
+      "ok": true,
+      "detail": {
+        "h1": 28,
+        "columns": 0,
+        "rows": null,
+        "problems": []
+      }
+    },
+    {
+      "name": "1440x900 · candidates",
+      "ok": true,
+      "detail": {
+        "h1": 28,
+        "columns": 9,
+        "rows": 9,
+        "problems": []
+      }
+    },
+    {
+      "name": "1440x900 · talent-pools",
+      "ok": true,
+      "detail": {
+        "h1": 28,
+        "columns": 8,
+        "rows": 4,
+        "problems": []
+      }
+    },
+    {
+      "name": "1440x900 · positions",
+      "ok": true,
+      "detail": {
+        "h1": 28,
+        "columns": 10,
+        "rows": 9,
+        "problems": []
+      }
+    },
+    {
+      "name": "1440x900 · assistant",
+      "ok": true,
+      "detail": {
+        "h1": 28,
+        "columns": 0,
+        "rows": null,
+        "problems": []
+      }
+    },
+    {
+      "name": "1440x900 · resume-search",
+      "ok": true,
+      "detail": {
+        "h1": 28,
+        "columns": 7,
+        "rows": 20,
+        "problems": []
+      }
+    },
+    {
+      "name": "1536x864 · dashboard",
+      "ok": true,
+      "detail": {
+        "h1": 28,
+        "columns": 0,
+        "rows": null,
+        "problems": []
+      }
+    },
+    {
+      "name": "1536x864 · candidates",
+      "ok": true,
+      "detail": {
+        "h1": 28,
+        "columns": 9,
+        "rows": 8,
+        "problems": []
+      }
+    },
+    {
+      "name": "1536x864 · talent-pools",
+      "ok": true,
+      "detail": {
+        "h1": 28,
+        "columns": 8,
+        "rows": 4,
+        "problems": []
+      }
+    },
+    {
+      "name": "1536x864 · positions",
+      "ok": true,
+      "detail": {
+        "h1": 28,
+        "columns": 10,
+        "rows": 8,
+        "problems": []
+      }
+    },
+    {
+      "name": "1536x864 · assistant",
+      "ok": true,
+      "detail": {
+        "h1": 28,
+        "columns": 0,
+        "rows": null,
+        "problems": []
+      }
+    },
+    {
+      "name": "1536x864 · resume-search",
+      "ok": true,
+      "detail": {
+        "h1": 28,
+        "columns": 7,
+        "rows": 20,
+        "problems": []
+      }
+    },
+    {
+      "name": "1600x900 · dashboard",
+      "ok": true,
+      "detail": {
+        "h1": 32,
+        "columns": 0,
+        "rows": null,
+        "problems": []
+      }
+    },
+    {
+      "name": "1600x900 · candidates",
+      "ok": true,
+      "detail": {
+        "h1": 32,
+        "columns": 9,
+        "rows": 8,
+        "problems": []
+      }
+    },
+    {
+      "name": "1600x900 · talent-pools",
+      "ok": true,
+      "detail": {
+        "h1": 32,
+        "columns": 8,
+        "rows": 4,
+        "problems": []
+      }
+    },
+    {
+      "name": "1600x900 · positions",
+      "ok": true,
+      "detail": {
+        "h1": 32,
+        "columns": 10,
+        "rows": 8,
+        "problems": []
+      }
+    },
+    {
+      "name": "1600x900 · assistant",
+      "ok": true,
+      "detail": {
+        "h1": 32,
+        "columns": 0,
+        "rows": null,
+        "problems": []
+      }
+    },
+    {
+      "name": "1600x900 · resume-search",
+      "ok": true,
+      "detail": {
+        "h1": 32,
+        "columns": 7,
+        "rows": 20,
+        "problems": []
+      }
+    },
+    {
+      "name": "1680x1050 · dashboard",
+      "ok": true,
+      "detail": {
+        "h1": 32,
+        "columns": 0,
+        "rows": null,
+        "problems": []
+      }
+    },
+    {
+      "name": "1680x1050 · candidates",
+      "ok": true,
+      "detail": {
+        "h1": 32,
+        "columns": 9,
+        "rows": 10,
+        "problems": []
+      }
+    },
+    {
+      "name": "1680x1050 · talent-pools",
+      "ok": true,
+      "detail": {
+        "h1": 32,
+        "columns": 8,
+        "rows": 4,
+        "problems": []
+      }
+    },
+    {
+      "name": "1680x1050 · positions",
+      "ok": true,
+      "detail": {
+        "h1": 32,
+        "columns": 10,
+        "rows": 10,
+        "problems": []
+      }
+    },
+    {
+      "name": "1680x1050 · assistant",
+      "ok": true,
+      "detail": {
+        "h1": 32,
+        "columns": 0,
+        "rows": null,
+        "problems": []
+      }
+    },
+    {
+      "name": "1680x1050 · resume-search",
+      "ok": true,
+      "detail": {
+        "h1": 32,
+        "columns": 7,
+        "rows": 20,
+        "problems": []
+      }
+    },
+    {
+      "name": "1728x1117 · dashboard",
+      "ok": true,
+      "detail": {
+        "h1": 32,
+        "columns": 0,
+        "rows": null,
+        "problems": []
+      }
+    },
+    {
+      "name": "1728x1117 · candidates",
+      "ok": true,
+      "detail": {
+        "h1": 32,
+        "columns": 9,
+        "rows": 11,
+        "problems": []
+      }
+    },
+    {
+      "name": "1728x1117 · talent-pools",
+      "ok": true,
+      "detail": {
+        "h1": 32,
+        "columns": 8,
+        "rows": 4,
+        "problems": []
+      }
+    },
+    {
+      "name": "1728x1117 · positions",
+      "ok": true,
+      "detail": {
+        "h1": 32,
+        "columns": 10,
+        "rows": 11,
+        "problems": []
+      }
+    },
+    {
+      "name": "1728x1117 · assistant",
+      "ok": true,
+      "detail": {
+        "h1": 32,
+        "columns": 0,
+        "rows": null,
+        "problems": []
+      }
+    },
+    {
+      "name": "1728x1117 · resume-search",
+      "ok": true,
+      "detail": {
+        "h1": 32,
+        "columns": 7,
+        "rows": 20,
+        "problems": []
+      }
+    },
+    {
+      "name": "1920x1080 · dashboard",
+      "ok": true,
+      "detail": {
+        "h1": 34,
+        "columns": 0,
+        "rows": null,
+        "problems": []
+      }
+    },
+    {
+      "name": "1920x1080 · candidates",
+      "ok": true,
+      "detail": {
+        "h1": 34,
+        "columns": 9,
+        "rows": 9,
+        "problems": []
+      }
+    },
+    {
+      "name": "1920x1080 · talent-pools",
+      "ok": true,
+      "detail": {
+        "h1": 34,
+        "columns": 8,
+        "rows": 4,
+        "problems": []
+      }
+    },
+    {
+      "name": "1920x1080 · positions",
+      "ok": true,
+      "detail": {
+        "h1": 34,
+        "columns": 10,
+        "rows": 10,
+        "problems": []
+      }
+    },
+    {
+      "name": "1920x1080 · assistant",
+      "ok": true,
+      "detail": {
+        "h1": 34,
+        "columns": 0,
+        "rows": null,
+        "problems": []
+      }
+    },
+    {
+      "name": "1920x1080 · resume-search",
+      "ok": true,
+      "detail": {
+        "h1": 34,
+        "columns": 7,
+        "rows": 20,
+        "problems": []
+      }
+    },
+    {
+      "name": "2560x1440 · dashboard",
+      "ok": true,
+      "detail": {
+        "h1": 34,
+        "columns": 0,
+        "rows": null,
+        "problems": []
+      }
+    },
+    {
+      "name": "2560x1440 · candidates",
+      "ok": true,
+      "detail": {
+        "h1": 34,
+        "columns": 9,
+        "rows": 14,
+        "problems": []
+      }
+    },
+    {
+      "name": "2560x1440 · talent-pools",
+      "ok": true,
+      "detail": {
+        "h1": 34,
+        "columns": 8,
+        "rows": 4,
+        "problems": []
+      }
+    },
+    {
+      "name": "2560x1440 · positions",
+      "ok": true,
+      "detail": {
+        "h1": 34,
+        "columns": 10,
+        "rows": 12,
+        "problems": []
+      }
+    },
+    {
+      "name": "2560x1440 · assistant",
+      "ok": true,
+      "detail": {
+        "h1": 34,
+        "columns": 0,
+        "rows": null,
+        "problems": []
+      }
+    },
+    {
+      "name": "2560x1440 · resume-search",
+      "ok": true,
+      "detail": {
+        "h1": 34,
+        "columns": 7,
+        "rows": 20,
+        "problems": []
+      }
+    },
+    {
+      "name": "3840x2160 · dashboard",
+      "ok": true,
+      "detail": {
+        "h1": 34,
+        "columns": 0,
+        "rows": null,
+        "problems": []
+      }
+    },
+    {
+      "name": "3840x2160 · candidates",
+      "ok": true,
+      "detail": {
+        "h1": 34,
+        "columns": 9,
+        "rows": 20,
+        "problems": []
+      }
+    },
+    {
+      "name": "3840x2160 · talent-pools",
+      "ok": true,
+      "detail": {
+        "h1": 34,
+        "columns": 8,
+        "rows": 4,
+        "problems": []
+      }
+    },
+    {
+      "name": "3840x2160 · positions",
+      "ok": true,
+      "detail": {
+        "h1": 34,
+        "columns": 10,
+        "rows": 12,
+        "problems": []
+      }
+    },
+    {
+      "name": "3840x2160 · assistant",
+      "ok": true,
+      "detail": {
+        "h1": 34,
+        "columns": 0,
+        "rows": null,
+        "problems": []
+      }
+    },
+    {
+      "name": "3840x2160 · resume-search",
+      "ok": true,
+      "detail": {
+        "h1": 34,
+        "columns": 7,
+        "rows": 20,
+        "problems": []
+      }
+    },
+    {
+      "name": "768x1024 · dashboard",
+      "ok": true,
+      "detail": {
+        "h1": 22,
+        "columns": 0,
+        "rows": null,
+        "problems": []
+      }
+    },
+    {
+      "name": "768x1024 · candidates",
+      "ok": true,
+      "detail": {
+        "h1": 22,
+        "columns": 9,
+        "rows": 12,
+        "problems": []
+      }
+    },
+    {
+      "name": "768x1024 · talent-pools",
+      "ok": true,
+      "detail": {
+        "h1": 22,
+        "columns": 8,
+        "rows": 4,
+        "problems": []
+      }
+    },
+    {
+      "name": "768x1024 · positions",
+      "ok": true,
+      "detail": {
+        "h1": 22,
+        "columns": 10,
+        "rows": 12,
+        "problems": []
+      }
+    },
+    {
+      "name": "768x1024 · assistant",
+      "ok": true,
+      "detail": {
+        "h1": 22,
+        "columns": 0,
+        "rows": null,
+        "problems": []
+      }
+    },
+    {
+      "name": "768x1024 · resume-search",
+      "ok": true,
+      "detail": {
+        "h1": 22,
+        "columns": 7,
+        "rows": 20,
+        "problems": []
+      }
+    },
+    {
+      "name": "820x1180 · dashboard",
+      "ok": true,
+      "detail": {
+        "h1": 22,
+        "columns": 0,
+        "rows": null,
+        "problems": []
+      }
+    },
+    {
+      "name": "820x1180 · candidates",
+      "ok": true,
+      "detail": {
+        "h1": 22,
+        "columns": 9,
+        "rows": 15,
+        "problems": []
+      }
+    },
+    {
+      "name": "820x1180 · talent-pools",
+      "ok": true,
+      "detail": {
+        "h1": 22,
+        "columns": 8,
+        "rows": 4,
+        "problems": []
+      }
+    },
+    {
+      "name": "820x1180 · positions",
+      "ok": true,
+      "detail": {
+        "h1": 22,
+        "columns": 10,
+        "rows": 12,
+        "problems": []
+      }
+    },
+    {
+      "name": "820x1180 · assistant",
+      "ok": true,
+      "detail": {
+        "h1": 22,
+        "columns": 0,
+        "rows": null,
+        "problems": []
+      }
+    },
+    {
+      "name": "820x1180 · resume-search",
+      "ok": true,
+      "detail": {
+        "h1": 22,
+        "columns": 7,
+        "rows": 20,
+        "problems": []
+      }
+    },
+    {
+      "name": "390x844 · dashboard",
+      "ok": true,
+      "detail": {
+        "h1": 20,
+        "columns": 0,
+        "rows": null,
+        "problems": []
+      }
+    },
+    {
+      "name": "390x844 · candidates",
+      "ok": true,
+      "detail": {
+        "h1": 20,
+        "columns": 9,
+        "rows": 20,
+        "problems": []
+      }
+    },
+    {
+      "name": "390x844 · talent-pools",
+      "ok": true,
+      "detail": {
+        "h1": 20,
+        "columns": 8,
+        "rows": 4,
+        "problems": []
+      }
+    },
+    {
+      "name": "390x844 · positions",
+      "ok": true,
+      "detail": {
+        "h1": 20,
+        "columns": 10,
+        "rows": 12,
+        "problems": []
+      }
+    },
+    {
+      "name": "390x844 · assistant",
+      "ok": true,
+      "detail": {
+        "h1": 20,
+        "columns": 0,
+        "rows": null,
+        "problems": []
+      }
+    },
+    {
+      "name": "390x844 · resume-search",
+      "ok": true,
+      "detail": {
+        "h1": 20,
+        "columns": 7,
+        "rows": 20,
+        "problems": []
+      }
+    },
+    {
+      "name": "抽屉显示按钮不越界 · 1536x1024",
+      "ok": true,
+      "detail": {
+        "measurements": [
+          {
+            "right": 1497,
+            "limit": 1498,
+            "width": 56
+          },
+          {
+            "right": 1497,
+            "limit": 1498,
+            "width": 56
+          }
+        ],
+        "screenshot": "viewport-1536x1024-candidates-drawer.jpg"
+      }
+    },
+    {
+      "name": "抽屉显示按钮不越界 · 1093x614",
+      "ok": true,
+      "detail": {
+        "measurements": [
+          {
+            "right": 1062,
+            "limit": 1063,
+            "width": 56
+          },
+          {
+            "right": 1062,
+            "limit": 1063,
+            "width": 56
+          }
+        ],
+        "screenshot": "viewport-1093x614-candidates-drawer.jpg"
+      }
+    },
+    {
+      "name": "抽屉显示按钮不越界 · 1280x720",
+      "ok": true,
+      "detail": {
+        "measurements": [
+          {
+            "right": 1245,
+            "limit": 1246,
+            "width": 56
+          },
+          {
+            "right": 1245,
+            "limit": 1246,
+            "width": 56
+          }
+        ],
+        "screenshot": "viewport-1280x720-candidates-drawer.jpg"
+      }
+    }
+  ],
+  "matrix": [
+    {
+      "viewport": "1024x768",
+      "tier": "XS",
+      "page": "dashboard",
+      "overflow": {
+        "doc": 1024,
+        "body": 1024,
+        "win": 1024
+      },
+      "h1": {
+        "text": "人才资产概览",
+        "size": 24
+      },
+      "table": null,
+      "columns": [],
+      "rows": null,
+      "actions": null,
+      "problems": []
+    },
+    {
+      "viewport": "1024x768",
+      "tier": "XS",
+      "page": "candidates",
+      "overflow": {
+        "doc": 1024,
+        "body": 1024,
+        "win": 1024
+      },
+      "h1": {
+        "text": "候选人库",
+        "size": 24
+      },
+      "table": {
+        "scrollWidth": 952,
+        "clientWidth": 952,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-positions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-pools",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-tags",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-time",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 20,
+        "firstScreen": 8,
+        "min": 56,
+        "max": 56,
+        "unique": [
+          56
+        ]
+      },
+      "actions": null,
+      "columnKey": "candidates",
+      "problems": []
+    },
+    {
+      "viewport": "1024x768",
+      "tier": "XS",
+      "page": "talent-pools",
+      "overflow": {
+        "doc": 1024,
+        "body": 1024,
+        "win": 1024
+      },
+      "h1": {
+        "text": "收藏的人才",
+        "size": 24
+      },
+      "table": {
+        "scrollWidth": 744,
+        "clientWidth": 744,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-positions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-tags",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-time",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 4,
+        "firstScreen": 4,
+        "min": 67,
+        "max": 67,
+        "unique": [
+          67
+        ]
+      },
+      "actions": null,
+      "columnKey": "members",
+      "problems": []
+    },
+    {
+      "viewport": "1024x768",
+      "tier": "XS",
+      "page": "positions",
+      "overflow": {
+        "doc": 1024,
+        "body": 1024,
+        "win": 1024
+      },
+      "h1": {
+        "text": "职位管理",
+        "size": 24
+      },
+      "table": {
+        "scrollWidth": 952,
+        "clientWidth": 952,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-position-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-department",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-location",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-owner",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-status",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-headcount",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-candidate-count",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-time",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 12,
+        "firstScreen": 8,
+        "min": 56,
+        "max": 56,
+        "unique": [
+          56
+        ]
+      },
+      "actions": [
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        }
+      ],
+      "columnKey": "positions",
+      "problems": []
+    },
+    {
+      "viewport": "1024x768",
+      "tier": "XS",
+      "page": "assistant",
+      "overflow": {
+        "doc": 1024,
+        "body": 1024,
+        "win": 1024
+      },
+      "h1": {
+        "text": "AI 助手",
+        "size": 24
+      },
+      "table": null,
+      "columns": [],
+      "rows": null,
+      "actions": null,
+      "problems": []
+    },
+    {
+      "viewport": "1024x768",
+      "tier": "XS",
+      "page": "resume-search",
+      "overflow": {
+        "doc": 1024,
+        "body": 1024,
+        "win": 1024
+      },
+      "h1": {
+        "text": "履历检索",
+        "size": 24
+      },
+      "table": {
+        "scrollWidth": 916,
+        "clientWidth": 916,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-education",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-experience",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-evidence",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 20,
+        "firstScreen": 20,
+        "min": 188,
+        "max": 210,
+        "unique": [
+          188,
+          210
+        ]
+      },
+      "actions": null,
+      "columnKey": "search",
+      "problems": []
+    },
+    {
+      "viewport": "1152x864",
+      "tier": "S",
+      "page": "dashboard",
+      "overflow": {
+        "doc": 1152,
+        "body": 1152,
+        "win": 1152
+      },
+      "h1": {
+        "text": "人才资产概览",
+        "size": 26
+      },
+      "table": null,
+      "columns": [],
+      "rows": null,
+      "actions": null,
+      "problems": []
+    },
+    {
+      "viewport": "1152x864",
+      "tier": "S",
+      "page": "candidates",
+      "overflow": {
+        "doc": 1152,
+        "body": 1152,
+        "win": 1152
+      },
+      "h1": {
+        "text": "候选人库",
+        "size": 26
+      },
+      "table": {
+        "scrollWidth": 1080,
+        "clientWidth": 1080,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-positions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-pools",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-tags",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-time",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 20,
+        "firstScreen": 9,
+        "min": 58,
+        "max": 58,
+        "unique": [
+          58
+        ]
+      },
+      "actions": null,
+      "columnKey": "candidates",
+      "problems": []
+    },
+    {
+      "viewport": "1152x864",
+      "tier": "S",
+      "page": "talent-pools",
+      "overflow": {
+        "doc": 1152,
+        "body": 1152,
+        "win": 1152
+      },
+      "h1": {
+        "text": "收藏的人才",
+        "size": 26
+      },
+      "table": {
+        "scrollWidth": 860,
+        "clientWidth": 860,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-positions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-tags",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-time",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 4,
+        "firstScreen": 4,
+        "min": 67,
+        "max": 67,
+        "unique": [
+          67
+        ]
+      },
+      "actions": null,
+      "columnKey": "members",
+      "problems": []
+    },
+    {
+      "viewport": "1152x864",
+      "tier": "S",
+      "page": "positions",
+      "overflow": {
+        "doc": 1152,
+        "body": 1152,
+        "win": 1152
+      },
+      "h1": {
+        "text": "职位管理",
+        "size": 26
+      },
+      "table": {
+        "scrollWidth": 1080,
+        "clientWidth": 1080,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-position-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-department",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-location",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-owner",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-status",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-headcount",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-candidate-count",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-time",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 12,
+        "firstScreen": 9,
+        "min": 58,
+        "max": 58,
+        "unique": [
+          58
+        ]
+      },
+      "actions": [
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        }
+      ],
+      "columnKey": "positions",
+      "problems": []
+    },
+    {
+      "viewport": "1152x864",
+      "tier": "S",
+      "page": "assistant",
+      "overflow": {
+        "doc": 1152,
+        "body": 1152,
+        "win": 1152
+      },
+      "h1": {
+        "text": "AI 助手",
+        "size": 26
+      },
+      "table": null,
+      "columns": [],
+      "rows": null,
+      "actions": null,
+      "problems": []
+    },
+    {
+      "viewport": "1152x864",
+      "tier": "S",
+      "page": "resume-search",
+      "overflow": {
+        "doc": 1152,
+        "body": 1152,
+        "win": 1152
+      },
+      "h1": {
+        "text": "履历检索",
+        "size": 26
+      },
+      "table": {
+        "scrollWidth": 1040,
+        "clientWidth": 1040,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-education",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-experience",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-evidence",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 20,
+        "firstScreen": 20,
+        "min": 211,
+        "max": 254,
+        "unique": [
+          211,
+          232,
+          254
+        ]
+      },
+      "actions": null,
+      "columnKey": "search",
+      "problems": []
+    },
+    {
+      "viewport": "1280x720",
+      "tier": "S",
+      "page": "dashboard",
+      "overflow": {
+        "doc": 1280,
+        "body": 1280,
+        "win": 1280
+      },
+      "h1": {
+        "text": "人才资产概览",
+        "size": 26
+      },
+      "table": null,
+      "columns": [],
+      "rows": null,
+      "actions": null,
+      "problems": []
+    },
+    {
+      "viewport": "1280x720",
+      "tier": "S",
+      "page": "candidates",
+      "overflow": {
+        "doc": 1280,
+        "body": 1280,
+        "win": 1280
+      },
+      "h1": {
+        "text": "候选人库",
+        "size": 26
+      },
+      "table": {
+        "scrollWidth": 1208,
+        "clientWidth": 1208,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-positions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-pools",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-tags",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-time",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 20,
+        "firstScreen": 6,
+        "min": 58,
+        "max": 58,
+        "unique": [
+          58
+        ]
+      },
+      "actions": null,
+      "columnKey": "candidates",
+      "problems": []
+    },
+    {
+      "viewport": "1280x720",
+      "tier": "S",
+      "page": "talent-pools",
+      "overflow": {
+        "doc": 1280,
+        "body": 1280,
+        "win": 1280
+      },
+      "h1": {
+        "text": "收藏的人才",
+        "size": 26
+      },
+      "table": {
+        "scrollWidth": 988,
+        "clientWidth": 988,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-positions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-tags",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-time",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 4,
+        "firstScreen": 4,
+        "min": 67,
+        "max": 67,
+        "unique": [
+          67
+        ]
+      },
+      "actions": null,
+      "columnKey": "members",
+      "problems": []
+    },
+    {
+      "viewport": "1280x720",
+      "tier": "S",
+      "page": "positions",
+      "overflow": {
+        "doc": 1280,
+        "body": 1280,
+        "win": 1280
+      },
+      "h1": {
+        "text": "职位管理",
+        "size": 26
+      },
+      "table": {
+        "scrollWidth": 1208,
+        "clientWidth": 1208,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-position-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-department",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-location",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-owner",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-status",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-headcount",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-candidate-count",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-time",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 12,
+        "firstScreen": 7,
+        "min": 58,
+        "max": 58,
+        "unique": [
+          58
+        ]
+      },
+      "actions": [
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        }
+      ],
+      "columnKey": "positions",
+      "problems": []
+    },
+    {
+      "viewport": "1280x720",
+      "tier": "S",
+      "page": "assistant",
+      "overflow": {
+        "doc": 1280,
+        "body": 1280,
+        "win": 1280
+      },
+      "h1": {
+        "text": "AI 助手",
+        "size": 26
+      },
+      "table": null,
+      "columns": [],
+      "rows": null,
+      "actions": null,
+      "problems": []
+    },
+    {
+      "viewport": "1280x720",
+      "tier": "S",
+      "page": "resume-search",
+      "overflow": {
+        "doc": 1280,
+        "body": 1280,
+        "win": 1280
+      },
+      "h1": {
+        "text": "履历检索",
+        "size": 26
+      },
+      "table": {
+        "scrollWidth": 1168,
+        "clientWidth": 1168,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-education",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-experience",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-evidence",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 20,
+        "firstScreen": 20,
+        "min": 190,
+        "max": 211,
+        "unique": [
+          190,
+          211
+        ]
+      },
+      "actions": null,
+      "columnKey": "search",
+      "problems": []
+    },
+    {
+      "viewport": "1366x768",
+      "tier": "M",
+      "page": "dashboard",
+      "overflow": {
+        "doc": 1366,
+        "body": 1366,
+        "win": 1366
+      },
+      "h1": {
+        "text": "人才资产概览",
+        "size": 28
+      },
+      "table": null,
+      "columns": [],
+      "rows": null,
+      "actions": null,
+      "problems": []
+    },
+    {
+      "viewport": "1366x768",
+      "tier": "M",
+      "page": "candidates",
+      "overflow": {
+        "doc": 1366,
+        "body": 1366,
+        "win": 1366
+      },
+      "h1": {
+        "text": "候选人库",
+        "size": 28
+      },
+      "table": {
+        "scrollWidth": 1166,
+        "clientWidth": 1166,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-positions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-pools",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-tags",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-time",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 20,
+        "firstScreen": 6,
+        "min": 62,
+        "max": 62,
+        "unique": [
+          62
+        ]
+      },
+      "actions": null,
+      "columnKey": "candidates",
+      "problems": []
+    },
+    {
+      "viewport": "1366x768",
+      "tier": "M",
+      "page": "talent-pools",
+      "overflow": {
+        "doc": 1366,
+        "body": 1366,
+        "win": 1366
+      },
+      "h1": {
+        "text": "收藏的人才",
+        "size": 28
+      },
+      "table": {
+        "scrollWidth": 930,
+        "clientWidth": 930,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-positions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-tags",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-time",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 4,
+        "firstScreen": 4,
+        "min": 68,
+        "max": 68,
+        "unique": [
+          68
+        ]
+      },
+      "actions": null,
+      "columnKey": "members",
+      "problems": []
+    },
+    {
+      "viewport": "1366x768",
+      "tier": "M",
+      "page": "positions",
+      "overflow": {
+        "doc": 1366,
+        "body": 1366,
+        "win": 1366
+      },
+      "h1": {
+        "text": "职位管理",
+        "size": 28
+      },
+      "table": {
+        "scrollWidth": 1166,
+        "clientWidth": 1166,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-position-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-department",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-location",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-owner",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-status",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-headcount",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-candidate-count",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-time",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 12,
+        "firstScreen": 7,
+        "min": 62,
+        "max": 62,
+        "unique": [
+          62
+        ]
+      },
+      "actions": [
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        }
+      ],
+      "columnKey": "positions",
+      "problems": []
+    },
+    {
+      "viewport": "1366x768",
+      "tier": "M",
+      "page": "assistant",
+      "overflow": {
+        "doc": 1366,
+        "body": 1366,
+        "win": 1366
+      },
+      "h1": {
+        "text": "AI 助手",
+        "size": 28
+      },
+      "table": null,
+      "columns": [],
+      "rows": null,
+      "actions": null,
+      "problems": []
+    },
+    {
+      "viewport": "1366x768",
+      "tier": "M",
+      "page": "resume-search",
+      "overflow": {
+        "doc": 1366,
+        "body": 1366,
+        "win": 1366
+      },
+      "h1": {
+        "text": "履历检索",
+        "size": 28
+      },
+      "table": {
+        "scrollWidth": 1118,
+        "clientWidth": 1118,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-education",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-experience",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-evidence",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 20,
+        "firstScreen": 20,
+        "min": 190,
+        "max": 232,
+        "unique": [
+          190,
+          211,
+          232
+        ]
+      },
+      "actions": null,
+      "columnKey": "search",
+      "problems": []
+    },
+    {
+      "viewport": "1440x900",
+      "tier": "M",
+      "page": "dashboard",
+      "overflow": {
+        "doc": 1440,
+        "body": 1440,
+        "win": 1440
+      },
+      "h1": {
+        "text": "人才资产概览",
+        "size": 28
+      },
+      "table": null,
+      "columns": [],
+      "rows": null,
+      "actions": null,
+      "problems": []
+    },
+    {
+      "viewport": "1440x900",
+      "tier": "M",
+      "page": "candidates",
+      "overflow": {
+        "doc": 1440,
+        "body": 1440,
+        "win": 1440
+      },
+      "h1": {
+        "text": "候选人库",
+        "size": 28
+      },
+      "table": {
+        "scrollWidth": 1240,
+        "clientWidth": 1240,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-positions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-pools",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-tags",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-time",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 20,
+        "firstScreen": 9,
+        "min": 62,
+        "max": 62,
+        "unique": [
+          62
+        ]
+      },
+      "actions": null,
+      "columnKey": "candidates",
+      "problems": []
+    },
+    {
+      "viewport": "1440x900",
+      "tier": "M",
+      "page": "talent-pools",
+      "overflow": {
+        "doc": 1440,
+        "body": 1440,
+        "win": 1440
+      },
+      "h1": {
+        "text": "收藏的人才",
+        "size": 28
+      },
+      "table": {
+        "scrollWidth": 1004,
+        "clientWidth": 1004,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-positions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-tags",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-time",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 4,
+        "firstScreen": 4,
+        "min": 68,
+        "max": 68,
+        "unique": [
+          68
+        ]
+      },
+      "actions": null,
+      "columnKey": "members",
+      "problems": []
+    },
+    {
+      "viewport": "1440x900",
+      "tier": "M",
+      "page": "positions",
+      "overflow": {
+        "doc": 1440,
+        "body": 1440,
+        "win": 1440
+      },
+      "h1": {
+        "text": "职位管理",
+        "size": 28
+      },
+      "table": {
+        "scrollWidth": 1240,
+        "clientWidth": 1240,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-position-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-department",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-location",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-owner",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-status",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-headcount",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-candidate-count",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-time",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 12,
+        "firstScreen": 9,
+        "min": 62,
+        "max": 62,
+        "unique": [
+          62
+        ]
+      },
+      "actions": [
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        }
+      ],
+      "columnKey": "positions",
+      "problems": []
+    },
+    {
+      "viewport": "1440x900",
+      "tier": "M",
+      "page": "assistant",
+      "overflow": {
+        "doc": 1440,
+        "body": 1440,
+        "win": 1440
+      },
+      "h1": {
+        "text": "AI 助手",
+        "size": 28
+      },
+      "table": null,
+      "columns": [],
+      "rows": null,
+      "actions": null,
+      "problems": []
+    },
+    {
+      "viewport": "1440x900",
+      "tier": "M",
+      "page": "resume-search",
+      "overflow": {
+        "doc": 1440,
+        "body": 1440,
+        "win": 1440
+      },
+      "h1": {
+        "text": "履历检索",
+        "size": 28
+      },
+      "table": {
+        "scrollWidth": 1192,
+        "clientWidth": 1192,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-education",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-experience",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-evidence",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 20,
+        "firstScreen": 20,
+        "min": 190,
+        "max": 211,
+        "unique": [
+          190,
+          211
+        ]
+      },
+      "actions": null,
+      "columnKey": "search",
+      "problems": []
+    },
+    {
+      "viewport": "1536x864",
+      "tier": "M",
+      "page": "dashboard",
+      "overflow": {
+        "doc": 1536,
+        "body": 1536,
+        "win": 1536
+      },
+      "h1": {
+        "text": "人才资产概览",
+        "size": 28
+      },
+      "table": null,
+      "columns": [],
+      "rows": null,
+      "actions": null,
+      "problems": []
+    },
+    {
+      "viewport": "1536x864",
+      "tier": "M",
+      "page": "candidates",
+      "overflow": {
+        "doc": 1536,
+        "body": 1536,
+        "win": 1536
+      },
+      "h1": {
+        "text": "候选人库",
+        "size": 28
+      },
+      "table": {
+        "scrollWidth": 1336,
+        "clientWidth": 1336,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-positions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-pools",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-tags",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-time",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 20,
+        "firstScreen": 8,
+        "min": 62,
+        "max": 62,
+        "unique": [
+          62
+        ]
+      },
+      "actions": null,
+      "columnKey": "candidates",
+      "problems": []
+    },
+    {
+      "viewport": "1536x864",
+      "tier": "M",
+      "page": "talent-pools",
+      "overflow": {
+        "doc": 1536,
+        "body": 1536,
+        "win": 1536
+      },
+      "h1": {
+        "text": "收藏的人才",
+        "size": 28
+      },
+      "table": {
+        "scrollWidth": 1100,
+        "clientWidth": 1100,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-positions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-tags",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-time",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 4,
+        "firstScreen": 4,
+        "min": 68,
+        "max": 68,
+        "unique": [
+          68
+        ]
+      },
+      "actions": null,
+      "columnKey": "members",
+      "problems": []
+    },
+    {
+      "viewport": "1536x864",
+      "tier": "M",
+      "page": "positions",
+      "overflow": {
+        "doc": 1536,
+        "body": 1536,
+        "win": 1536
+      },
+      "h1": {
+        "text": "职位管理",
+        "size": 28
+      },
+      "table": {
+        "scrollWidth": 1336,
+        "clientWidth": 1336,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-position-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-department",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-location",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-owner",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-status",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-headcount",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-candidate-count",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-time",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 12,
+        "firstScreen": 8,
+        "min": 62,
+        "max": 62,
+        "unique": [
+          62
+        ]
+      },
+      "actions": [
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "编辑",
+          "width": 26,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        },
+        {
+          "text": "更多",
+          "width": 43,
+          "scrollHeight": 20,
+          "clientHeight": 20
+        }
+      ],
+      "columnKey": "positions",
+      "problems": []
+    },
+    {
+      "viewport": "1536x864",
+      "tier": "M",
+      "page": "assistant",
+      "overflow": {
+        "doc": 1536,
+        "body": 1536,
+        "win": 1536
+      },
+      "h1": {
+        "text": "AI 助手",
+        "size": 28
+      },
+      "table": null,
+      "columns": [],
+      "rows": null,
+      "actions": null,
+      "problems": []
+    },
+    {
+      "viewport": "1536x864",
+      "tier": "M",
+      "page": "resume-search",
+      "overflow": {
+        "doc": 1536,
+        "body": 1536,
+        "win": 1536
+      },
+      "h1": {
+        "text": "履历检索",
+        "size": 28
+      },
+      "table": {
+        "scrollWidth": 1288,
+        "clientWidth": 1288,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-education",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-experience",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-evidence",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 20,
+        "firstScreen": 20,
+        "min": 190,
+        "max": 211,
+        "unique": [
+          190,
+          211
+        ]
+      },
+      "actions": null,
+      "columnKey": "search",
+      "problems": []
+    },
+    {
+      "viewport": "1600x900",
+      "tier": "L",
+      "page": "dashboard",
+      "overflow": {
+        "doc": 1600,
+        "body": 1600,
+        "win": 1600
+      },
+      "h1": {
+        "text": "人才资产概览",
+        "size": 32
+      },
+      "table": null,
+      "columns": [],
+      "rows": null,
+      "actions": null,
+      "problems": []
+    },
+    {
+      "viewport": "1600x900",
+      "tier": "L",
+      "page": "candidates",
+      "overflow": {
+        "doc": 1600,
+        "body": 1600,
+        "win": 1600
+      },
+      "h1": {
+        "text": "候选人库",
+        "size": 32
+      },
+      "table": {
+        "scrollWidth": 1392,
+        "clientWidth": 1392,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-positions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-pools",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-tags",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-time",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 20,
+        "firstScreen": 8,
+        "min": 68,
+        "max": 68,
+        "unique": [
+          68
+        ]
+      },
+      "actions": null,
+      "columnKey": "candidates",
+      "problems": []
+    },
+    {
+      "viewport": "1600x900",
+      "tier": "L",
+      "page": "talent-pools",
+      "overflow": {
+        "doc": 1600,
+        "body": 1600,
+        "win": 1600
+      },
+      "h1": {
+        "text": "收藏的人才",
+        "size": 32
+      },
+      "table": {
+        "scrollWidth": 1144,
+        "clientWidth": 1144,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-positions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-tags",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-time",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 4,
+        "firstScreen": 4,
+        "min": 71,
+        "max": 71,
+        "unique": [
+          71
+        ]
+      },
+      "actions": null,
+      "columnKey": "members",
+      "problems": []
+    },
+    {
+      "viewport": "1600x900",
+      "tier": "L",
+      "page": "positions",
+      "overflow": {
+        "doc": 1600,
+        "body": 1600,
+        "win": 1600
+      },
+      "h1": {
+        "text": "职位管理",
+        "size": 32
+      },
+      "table": {
+        "scrollWidth": 1392,
+        "clientWidth": 1392,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-position-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-department",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-location",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-owner",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-status",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-headcount",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-candidate-count",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-time",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 12,
+        "firstScreen": 8,
+        "min": 68,
+        "max": 68,
+        "unique": [
+          68
+        ]
+      },
+      "actions": [
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        }
+      ],
+      "columnKey": "positions",
+      "problems": []
+    },
+    {
+      "viewport": "1600x900",
+      "tier": "L",
+      "page": "assistant",
+      "overflow": {
+        "doc": 1600,
+        "body": 1600,
+        "win": 1600
+      },
+      "h1": {
+        "text": "AI 助手",
+        "size": 32
+      },
+      "table": null,
+      "columns": [],
+      "rows": null,
+      "actions": null,
+      "problems": []
+    },
+    {
+      "viewport": "1600x900",
+      "tier": "L",
+      "page": "resume-search",
+      "overflow": {
+        "doc": 1600,
+        "body": 1600,
+        "win": 1600
+      },
+      "h1": {
+        "text": "履历检索",
+        "size": 32
+      },
+      "table": {
+        "scrollWidth": 1340,
+        "clientWidth": 1340,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-education",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-experience",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-evidence",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 20,
+        "firstScreen": 20,
+        "min": 169,
+        "max": 191,
+        "unique": [
+          169,
+          191
+        ]
+      },
+      "actions": null,
+      "columnKey": "search",
+      "problems": []
+    },
+    {
+      "viewport": "1680x1050",
+      "tier": "L",
+      "page": "dashboard",
+      "overflow": {
+        "doc": 1680,
+        "body": 1680,
+        "win": 1680
+      },
+      "h1": {
+        "text": "人才资产概览",
+        "size": 32
+      },
+      "table": null,
+      "columns": [],
+      "rows": null,
+      "actions": null,
+      "problems": []
+    },
+    {
+      "viewport": "1680x1050",
+      "tier": "L",
+      "page": "candidates",
+      "overflow": {
+        "doc": 1680,
+        "body": 1680,
+        "win": 1680
+      },
+      "h1": {
+        "text": "候选人库",
+        "size": 32
+      },
+      "table": {
+        "scrollWidth": 1472,
+        "clientWidth": 1472,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-positions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-pools",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-tags",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-time",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 20,
+        "firstScreen": 10,
+        "min": 68,
+        "max": 68,
+        "unique": [
+          68
+        ]
+      },
+      "actions": null,
+      "columnKey": "candidates",
+      "problems": []
+    },
+    {
+      "viewport": "1680x1050",
+      "tier": "L",
+      "page": "talent-pools",
+      "overflow": {
+        "doc": 1680,
+        "body": 1680,
+        "win": 1680
+      },
+      "h1": {
+        "text": "收藏的人才",
+        "size": 32
+      },
+      "table": {
+        "scrollWidth": 1224,
+        "clientWidth": 1224,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-positions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-tags",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-time",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 4,
+        "firstScreen": 4,
+        "min": 71,
+        "max": 71,
+        "unique": [
+          71
+        ]
+      },
+      "actions": null,
+      "columnKey": "members",
+      "problems": []
+    },
+    {
+      "viewport": "1680x1050",
+      "tier": "L",
+      "page": "positions",
+      "overflow": {
+        "doc": 1680,
+        "body": 1680,
+        "win": 1680
+      },
+      "h1": {
+        "text": "职位管理",
+        "size": 32
+      },
+      "table": {
+        "scrollWidth": 1472,
+        "clientWidth": 1472,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-position-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-department",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-location",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-owner",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-status",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-headcount",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-candidate-count",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-time",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 12,
+        "firstScreen": 10,
+        "min": 68,
+        "max": 68,
+        "unique": [
+          68
+        ]
+      },
+      "actions": [
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        }
+      ],
+      "columnKey": "positions",
+      "problems": []
+    },
+    {
+      "viewport": "1680x1050",
+      "tier": "L",
+      "page": "assistant",
+      "overflow": {
+        "doc": 1680,
+        "body": 1680,
+        "win": 1680
+      },
+      "h1": {
+        "text": "AI 助手",
+        "size": 32
+      },
+      "table": null,
+      "columns": [],
+      "rows": null,
+      "actions": null,
+      "problems": []
+    },
+    {
+      "viewport": "1680x1050",
+      "tier": "L",
+      "page": "resume-search",
+      "overflow": {
+        "doc": 1680,
+        "body": 1680,
+        "win": 1680
+      },
+      "h1": {
+        "text": "履历检索",
+        "size": 32
+      },
+      "table": {
+        "scrollWidth": 1420,
+        "clientWidth": 1420,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-education",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-experience",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-evidence",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 20,
+        "firstScreen": 20,
+        "min": 169,
+        "max": 191,
+        "unique": [
+          169,
+          191
+        ]
+      },
+      "actions": null,
+      "columnKey": "search",
+      "problems": []
+    },
+    {
+      "viewport": "1728x1117",
+      "tier": "L",
+      "page": "dashboard",
+      "overflow": {
+        "doc": 1728,
+        "body": 1728,
+        "win": 1728
+      },
+      "h1": {
+        "text": "人才资产概览",
+        "size": 32
+      },
+      "table": null,
+      "columns": [],
+      "rows": null,
+      "actions": null,
+      "problems": []
+    },
+    {
+      "viewport": "1728x1117",
+      "tier": "L",
+      "page": "candidates",
+      "overflow": {
+        "doc": 1728,
+        "body": 1728,
+        "win": 1728
+      },
+      "h1": {
+        "text": "候选人库",
+        "size": 32
+      },
+      "table": {
+        "scrollWidth": 1520,
+        "clientWidth": 1520,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-positions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-pools",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-tags",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-time",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 20,
+        "firstScreen": 11,
+        "min": 68,
+        "max": 68,
+        "unique": [
+          68
+        ]
+      },
+      "actions": null,
+      "columnKey": "candidates",
+      "problems": []
+    },
+    {
+      "viewport": "1728x1117",
+      "tier": "L",
+      "page": "talent-pools",
+      "overflow": {
+        "doc": 1728,
+        "body": 1728,
+        "win": 1728
+      },
+      "h1": {
+        "text": "收藏的人才",
+        "size": 32
+      },
+      "table": {
+        "scrollWidth": 1272,
+        "clientWidth": 1272,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-positions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-tags",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-time",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 4,
+        "firstScreen": 4,
+        "min": 71,
+        "max": 71,
+        "unique": [
+          71
+        ]
+      },
+      "actions": null,
+      "columnKey": "members",
+      "problems": []
+    },
+    {
+      "viewport": "1728x1117",
+      "tier": "L",
+      "page": "positions",
+      "overflow": {
+        "doc": 1728,
+        "body": 1728,
+        "win": 1728
+      },
+      "h1": {
+        "text": "职位管理",
+        "size": 32
+      },
+      "table": {
+        "scrollWidth": 1520,
+        "clientWidth": 1520,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-position-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-department",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-location",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-owner",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-status",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-headcount",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-candidate-count",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-time",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 12,
+        "firstScreen": 11,
+        "min": 68,
+        "max": 68,
+        "unique": [
+          68
+        ]
+      },
+      "actions": [
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "编辑",
+          "width": 28,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        },
+        {
+          "text": "更多",
+          "width": 45,
+          "scrollHeight": 21,
+          "clientHeight": 21
+        }
+      ],
+      "columnKey": "positions",
+      "problems": []
+    },
+    {
+      "viewport": "1728x1117",
+      "tier": "L",
+      "page": "assistant",
+      "overflow": {
+        "doc": 1728,
+        "body": 1728,
+        "win": 1728
+      },
+      "h1": {
+        "text": "AI 助手",
+        "size": 32
+      },
+      "table": null,
+      "columns": [],
+      "rows": null,
+      "actions": null,
+      "problems": []
+    },
+    {
+      "viewport": "1728x1117",
+      "tier": "L",
+      "page": "resume-search",
+      "overflow": {
+        "doc": 1728,
+        "body": 1728,
+        "win": 1728
+      },
+      "h1": {
+        "text": "履历检索",
+        "size": 32
+      },
+      "table": {
+        "scrollWidth": 1468,
+        "clientWidth": 1468,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-education",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-experience",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-evidence",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 20,
+        "firstScreen": 20,
+        "min": 169,
+        "max": 191,
+        "unique": [
+          169,
+          191
+        ]
+      },
+      "actions": null,
+      "columnKey": "search",
+      "problems": []
+    },
+    {
+      "viewport": "1920x1080",
+      "tier": "XL",
+      "page": "dashboard",
+      "overflow": {
+        "doc": 1920,
+        "body": 1920,
+        "win": 1920
+      },
+      "h1": {
+        "text": "人才资产概览",
+        "size": 34
+      },
+      "table": null,
+      "columns": [],
+      "rows": null,
+      "actions": null,
+      "problems": []
+    },
+    {
+      "viewport": "1920x1080",
+      "tier": "XL",
+      "page": "candidates",
+      "overflow": {
+        "doc": 1920,
+        "body": 1920,
+        "win": 1920
+      },
+      "h1": {
+        "text": "候选人库",
+        "size": 34
+      },
+      "table": {
+        "scrollWidth": 1712,
+        "clientWidth": 1712,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-positions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-pools",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-tags",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-time",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 20,
+        "firstScreen": 9,
+        "min": 72,
+        "max": 72,
+        "unique": [
+          72
+        ]
+      },
+      "actions": null,
+      "columnKey": "candidates",
+      "problems": []
+    },
+    {
+      "viewport": "1920x1080",
+      "tier": "XL",
+      "page": "talent-pools",
+      "overflow": {
+        "doc": 1920,
+        "body": 1920,
+        "win": 1920
+      },
+      "h1": {
+        "text": "收藏的人才",
+        "size": 34
+      },
+      "table": {
+        "scrollWidth": 1462,
+        "clientWidth": 1462,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-positions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-tags",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-time",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 4,
+        "firstScreen": 4,
+        "min": 73,
+        "max": 73,
+        "unique": [
+          73
+        ]
+      },
+      "actions": null,
+      "columnKey": "members",
+      "problems": []
+    },
+    {
+      "viewport": "1920x1080",
+      "tier": "XL",
+      "page": "positions",
+      "overflow": {
+        "doc": 1920,
+        "body": 1920,
+        "win": 1920
+      },
+      "h1": {
+        "text": "职位管理",
+        "size": 34
+      },
+      "table": {
+        "scrollWidth": 1712,
+        "clientWidth": 1712,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-position-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-department",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-location",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-owner",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-status",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-headcount",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-candidate-count",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-time",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 12,
+        "firstScreen": 10,
+        "min": 72,
+        "max": 72,
+        "unique": [
+          72
+        ]
+      },
+      "actions": [
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        }
+      ],
+      "columnKey": "positions",
+      "problems": []
+    },
+    {
+      "viewport": "1920x1080",
+      "tier": "XL",
+      "page": "assistant",
+      "overflow": {
+        "doc": 1920,
+        "body": 1920,
+        "win": 1920
+      },
+      "h1": {
+        "text": "AI 助手",
+        "size": 34
+      },
+      "table": null,
+      "columns": [],
+      "rows": null,
+      "actions": null,
+      "problems": []
+    },
+    {
+      "viewport": "1920x1080",
+      "tier": "XL",
+      "page": "resume-search",
+      "overflow": {
+        "doc": 1920,
+        "body": 1920,
+        "win": 1920
+      },
+      "h1": {
+        "text": "履历检索",
+        "size": 34
+      },
+      "table": {
+        "scrollWidth": 1656,
+        "clientWidth": 1656,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-education",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-experience",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-evidence",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 20,
+        "firstScreen": 20,
+        "min": 171,
+        "max": 192,
+        "unique": [
+          171,
+          192
+        ]
+      },
+      "actions": null,
+      "columnKey": "search",
+      "problems": []
+    },
+    {
+      "viewport": "2560x1440",
+      "tier": "XL",
+      "page": "dashboard",
+      "overflow": {
+        "doc": 2560,
+        "body": 2560,
+        "win": 2560
+      },
+      "h1": {
+        "text": "人才资产概览",
+        "size": 34
+      },
+      "table": null,
+      "columns": [],
+      "rows": null,
+      "actions": null,
+      "problems": []
+    },
+    {
+      "viewport": "2560x1440",
+      "tier": "XL",
+      "page": "candidates",
+      "overflow": {
+        "doc": 2560,
+        "body": 2560,
+        "win": 2560
+      },
+      "h1": {
+        "text": "候选人库",
+        "size": 34
+      },
+      "table": {
+        "scrollWidth": 2352,
+        "clientWidth": 2352,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-positions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-pools",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-tags",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-time",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 20,
+        "firstScreen": 14,
+        "min": 72,
+        "max": 72,
+        "unique": [
+          72
+        ]
+      },
+      "actions": null,
+      "columnKey": "candidates",
+      "problems": []
+    },
+    {
+      "viewport": "2560x1440",
+      "tier": "XL",
+      "page": "talent-pools",
+      "overflow": {
+        "doc": 2560,
+        "body": 2560,
+        "win": 2560
+      },
+      "h1": {
+        "text": "收藏的人才",
+        "size": 34
+      },
+      "table": {
+        "scrollWidth": 2102,
+        "clientWidth": 2102,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-positions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-tags",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-time",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 4,
+        "firstScreen": 4,
+        "min": 73,
+        "max": 73,
+        "unique": [
+          73
+        ]
+      },
+      "actions": null,
+      "columnKey": "members",
+      "problems": []
+    },
+    {
+      "viewport": "2560x1440",
+      "tier": "XL",
+      "page": "positions",
+      "overflow": {
+        "doc": 2560,
+        "body": 2560,
+        "win": 2560
+      },
+      "h1": {
+        "text": "职位管理",
+        "size": 34
+      },
+      "table": {
+        "scrollWidth": 2352,
+        "clientWidth": 2352,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-position-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-department",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-location",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-owner",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-status",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-headcount",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-candidate-count",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-time",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 12,
+        "firstScreen": 12,
+        "min": 72,
+        "max": 72,
+        "unique": [
+          72
+        ]
+      },
+      "actions": [
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        }
+      ],
+      "columnKey": "positions",
+      "problems": []
+    },
+    {
+      "viewport": "2560x1440",
+      "tier": "XL",
+      "page": "assistant",
+      "overflow": {
+        "doc": 2560,
+        "body": 2560,
+        "win": 2560
+      },
+      "h1": {
+        "text": "AI 助手",
+        "size": 34
+      },
+      "table": null,
+      "columns": [],
+      "rows": null,
+      "actions": null,
+      "problems": []
+    },
+    {
+      "viewport": "2560x1440",
+      "tier": "XL",
+      "page": "resume-search",
+      "overflow": {
+        "doc": 2560,
+        "body": 2560,
+        "win": 2560
+      },
+      "h1": {
+        "text": "履历检索",
+        "size": 34
+      },
+      "table": {
+        "scrollWidth": 2296,
+        "clientWidth": 2296,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-education",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-experience",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-evidence",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 20,
+        "firstScreen": 20,
+        "min": 171,
+        "max": 171,
+        "unique": [
+          171
+        ]
+      },
+      "actions": null,
+      "columnKey": "search",
+      "problems": []
+    },
+    {
+      "viewport": "3840x2160",
+      "tier": "XL",
+      "page": "dashboard",
+      "overflow": {
+        "doc": 3840,
+        "body": 3840,
+        "win": 3840
+      },
+      "h1": {
+        "text": "人才资产概览",
+        "size": 34
+      },
+      "table": null,
+      "columns": [],
+      "rows": null,
+      "actions": null,
+      "problems": []
+    },
+    {
+      "viewport": "3840x2160",
+      "tier": "XL",
+      "page": "candidates",
+      "overflow": {
+        "doc": 3840,
+        "body": 3840,
+        "win": 3840
+      },
+      "h1": {
+        "text": "候选人库",
+        "size": 34
+      },
+      "table": {
+        "scrollWidth": 3632,
+        "clientWidth": 3632,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-positions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-pools",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-tags",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-time",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 20,
+        "firstScreen": 20,
+        "min": 72,
+        "max": 72,
+        "unique": [
+          72
+        ]
+      },
+      "actions": null,
+      "columnKey": "candidates",
+      "problems": []
+    },
+    {
+      "viewport": "3840x2160",
+      "tier": "XL",
+      "page": "talent-pools",
+      "overflow": {
+        "doc": 3840,
+        "body": 3840,
+        "win": 3840
+      },
+      "h1": {
+        "text": "收藏的人才",
+        "size": 34
+      },
+      "table": {
+        "scrollWidth": 3382,
+        "clientWidth": 3382,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-positions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-tags",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-time",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 4,
+        "firstScreen": 4,
+        "min": 73,
+        "max": 73,
+        "unique": [
+          73
+        ]
+      },
+      "actions": null,
+      "columnKey": "members",
+      "problems": []
+    },
+    {
+      "viewport": "3840x2160",
+      "tier": "XL",
+      "page": "positions",
+      "overflow": {
+        "doc": 3840,
+        "body": 3840,
+        "win": 3840
+      },
+      "h1": {
+        "text": "职位管理",
+        "size": 34
+      },
+      "table": {
+        "scrollWidth": 3632,
+        "clientWidth": 3632,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-position-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-department",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-location",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-owner",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-status",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-headcount",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-candidate-count",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-time",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 12,
+        "firstScreen": 12,
+        "min": 72,
+        "max": 72,
+        "unique": [
+          72
+        ]
+      },
+      "actions": [
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "编辑",
+          "width": 30,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        },
+        {
+          "text": "更多",
+          "width": 47,
+          "scrollHeight": 23,
+          "clientHeight": 23
+        }
+      ],
+      "columnKey": "positions",
+      "problems": []
+    },
+    {
+      "viewport": "3840x2160",
+      "tier": "XL",
+      "page": "assistant",
+      "overflow": {
+        "doc": 3840,
+        "body": 3840,
+        "win": 3840
+      },
+      "h1": {
+        "text": "AI 助手",
+        "size": 34
+      },
+      "table": null,
+      "columns": [],
+      "rows": null,
+      "actions": null,
+      "problems": []
+    },
+    {
+      "viewport": "3840x2160",
+      "tier": "XL",
+      "page": "resume-search",
+      "overflow": {
+        "doc": 3840,
+        "body": 3840,
+        "win": 3840
+      },
+      "h1": {
+        "text": "履历检索",
+        "size": 34
+      },
+      "table": {
+        "scrollWidth": 3576,
+        "clientWidth": 3576,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-education",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-experience",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-evidence",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 20,
+        "firstScreen": 20,
+        "min": 171,
+        "max": 171,
+        "unique": [
+          171
+        ]
+      },
+      "actions": null,
+      "columnKey": "search",
+      "problems": []
+    },
+    {
+      "viewport": "768x1024",
+      "tier": "平板",
+      "page": "dashboard",
+      "overflow": {
+        "doc": 768,
+        "body": 768,
+        "win": 768
+      },
+      "h1": {
+        "text": "人才资产概览",
+        "size": 22
+      },
+      "table": null,
+      "columns": [],
+      "rows": null,
+      "actions": null,
+      "problems": []
+    },
+    {
+      "viewport": "768x1024",
+      "tier": "平板",
+      "page": "candidates",
+      "overflow": {
+        "doc": 768,
+        "body": 768,
+        "win": 768
+      },
+      "h1": {
+        "text": "候选人库",
+        "size": 22
+      },
+      "table": {
+        "scrollWidth": 704,
+        "clientWidth": 704,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-positions",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-pools",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-tags",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-time",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 20,
+        "firstScreen": 12,
+        "min": 54,
+        "max": 54,
+        "unique": [
+          54
+        ]
+      },
+      "actions": null,
+      "columnKey": "candidates",
+      "problems": []
+    },
+    {
+      "viewport": "768x1024",
+      "tier": "平板",
+      "page": "talent-pools",
+      "overflow": {
+        "doc": 768,
+        "body": 768,
+        "win": 768
+      },
+      "h1": {
+        "text": "收藏的人才",
+        "size": 22
+      },
+      "table": {
+        "scrollWidth": 504,
+        "clientWidth": 504,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-positions",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-tags",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-time",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 4,
+        "firstScreen": 4,
+        "min": 65,
+        "max": 65,
+        "unique": [
+          65
+        ]
+      },
+      "actions": null,
+      "columnKey": "members",
+      "problems": []
+    },
+    {
+      "viewport": "768x1024",
+      "tier": "平板",
+      "page": "positions",
+      "overflow": {
+        "doc": 768,
+        "body": 768,
+        "win": 768
+      },
+      "h1": {
+        "text": "职位管理",
+        "size": 22
+      },
+      "table": {
+        "scrollWidth": 704,
+        "clientWidth": 704,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-position-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-department",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-location",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-owner",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-status",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-headcount",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-candidate-count",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-time",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 12,
+        "firstScreen": 12,
+        "min": 54,
+        "max": 54,
+        "unique": [
+          54
+        ]
+      },
+      "actions": [
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        }
+      ],
+      "columnKey": "positions",
+      "problems": []
+    },
+    {
+      "viewport": "768x1024",
+      "tier": "平板",
+      "page": "assistant",
+      "overflow": {
+        "doc": 768,
+        "body": 768,
+        "win": 768
+      },
+      "h1": {
+        "text": "AI 助手",
+        "size": 22
+      },
+      "table": null,
+      "columns": [],
+      "rows": null,
+      "actions": null,
+      "problems": []
+    },
+    {
+      "viewport": "768x1024",
+      "tier": "平板",
+      "page": "resume-search",
+      "overflow": {
+        "doc": 768,
+        "body": 768,
+        "win": 768
+      },
+      "h1": {
+        "text": "履历检索",
+        "size": 22
+      },
+      "table": {
+        "scrollWidth": 672,
+        "clientWidth": 672,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-education",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-experience",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-evidence",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 20,
+        "firstScreen": 20,
+        "min": 188,
+        "max": 210,
+        "unique": [
+          188,
+          210
+        ]
+      },
+      "actions": null,
+      "columnKey": "search",
+      "problems": []
+    },
+    {
+      "viewport": "820x1180",
+      "tier": "平板",
+      "page": "dashboard",
+      "overflow": {
+        "doc": 820,
+        "body": 820,
+        "win": 820
+      },
+      "h1": {
+        "text": "人才资产概览",
+        "size": 22
+      },
+      "table": null,
+      "columns": [],
+      "rows": null,
+      "actions": null,
+      "problems": []
+    },
+    {
+      "viewport": "820x1180",
+      "tier": "平板",
+      "page": "candidates",
+      "overflow": {
+        "doc": 820,
+        "body": 820,
+        "win": 820
+      },
+      "h1": {
+        "text": "候选人库",
+        "size": 22
+      },
+      "table": {
+        "scrollWidth": 756,
+        "clientWidth": 756,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-positions",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-pools",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-tags",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-time",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 20,
+        "firstScreen": 15,
+        "min": 54,
+        "max": 54,
+        "unique": [
+          54
+        ]
+      },
+      "actions": null,
+      "columnKey": "candidates",
+      "problems": []
+    },
+    {
+      "viewport": "820x1180",
+      "tier": "平板",
+      "page": "talent-pools",
+      "overflow": {
+        "doc": 820,
+        "body": 820,
+        "win": 820
+      },
+      "h1": {
+        "text": "收藏的人才",
+        "size": 22
+      },
+      "table": {
+        "scrollWidth": 556,
+        "clientWidth": 556,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-positions",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-place",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-tags",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-time",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 4,
+        "firstScreen": 4,
+        "min": 65,
+        "max": 65,
+        "unique": [
+          65
+        ]
+      },
+      "actions": null,
+      "columnKey": "members",
+      "problems": []
+    },
+    {
+      "viewport": "820x1180",
+      "tier": "平板",
+      "page": "positions",
+      "overflow": {
+        "doc": 820,
+        "body": 820,
+        "win": 820
+      },
+      "h1": {
+        "text": "职位管理",
+        "size": 22
+      },
+      "table": {
+        "scrollWidth": 756,
+        "clientWidth": 756,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-position-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-department",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-location",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-owner",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-status",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-headcount",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-candidate-count",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-time",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 12,
+        "firstScreen": 12,
+        "min": 54,
+        "max": 54,
+        "unique": [
+          54
+        ]
+      },
+      "actions": [
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        }
+      ],
+      "columnKey": "positions",
+      "problems": []
+    },
+    {
+      "viewport": "820x1180",
+      "tier": "平板",
+      "page": "assistant",
+      "overflow": {
+        "doc": 820,
+        "body": 820,
+        "win": 820
+      },
+      "h1": {
+        "text": "AI 助手",
+        "size": 22
+      },
+      "table": null,
+      "columns": [],
+      "rows": null,
+      "actions": null,
+      "problems": []
+    },
+    {
+      "viewport": "820x1180",
+      "tier": "平板",
+      "page": "resume-search",
+      "overflow": {
+        "doc": 820,
+        "body": 820,
+        "win": 820
+      },
+      "h1": {
+        "text": "履历检索",
+        "size": 22
+      },
+      "table": {
+        "scrollWidth": 724,
+        "clientWidth": 724,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-education",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-experience",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-evidence",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 20,
+        "firstScreen": 20,
+        "min": 188,
+        "max": 210,
+        "unique": [
+          188,
+          210
+        ]
+      },
+      "actions": null,
+      "columnKey": "search",
+      "problems": []
+    },
+    {
+      "viewport": "390x844",
+      "tier": "手机",
+      "page": "dashboard",
+      "overflow": {
+        "doc": 390,
+        "body": 390,
+        "win": 390
+      },
+      "h1": {
+        "text": "人才资产概览",
+        "size": 20
+      },
+      "table": null,
+      "columns": [],
+      "rows": null,
+      "actions": null,
+      "problems": []
+    },
+    {
+      "viewport": "390x844",
+      "tier": "手机",
+      "page": "candidates",
+      "overflow": {
+        "doc": 390,
+        "body": 390,
+        "win": 390
+      },
+      "h1": {
+        "text": "候选人库",
+        "size": 20
+      },
+      "table": {
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-positions",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-pools",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-place",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-tags",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-time",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 20,
+        "firstScreen": 20,
+        "min": 60,
+        "max": 60,
+        "unique": [
+          60
+        ]
+      },
+      "actions": null,
+      "columnKey": "candidates",
+      "problems": []
+    },
+    {
+      "viewport": "390x844",
+      "tier": "手机",
+      "page": "talent-pools",
+      "overflow": {
+        "doc": 390,
+        "body": 390,
+        "win": 390
+      },
+      "h1": {
+        "text": "收藏的人才",
+        "size": 20
+      },
+      "table": {
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-positions",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-place",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-tags",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-time",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 4,
+        "firstScreen": 4,
+        "min": 65,
+        "max": 65,
+        "unique": [
+          65
+        ]
+      },
+      "actions": null,
+      "columnKey": "members",
+      "problems": []
+    },
+    {
+      "viewport": "390x844",
+      "tier": "手机",
+      "page": "positions",
+      "overflow": {
+        "doc": 390,
+        "body": 390,
+        "win": 390
+      },
+      "h1": {
+        "text": "职位管理",
+        "size": 20
+      },
+      "table": {
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-select",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-position-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-department",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-location",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-owner",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-status",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-headcount",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-candidate-count",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-time",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 12,
+        "firstScreen": 12,
+        "min": 60,
+        "max": 60,
+        "unique": [
+          60
+        ]
+      },
+      "actions": [
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "编辑",
+          "width": 24,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        },
+        {
+          "text": "更多",
+          "width": 41,
+          "scrollHeight": 18,
+          "clientHeight": 18
+        }
+      ],
+      "columnKey": "positions",
+      "problems": []
+    },
+    {
+      "viewport": "390x844",
+      "tier": "手机",
+      "page": "assistant",
+      "overflow": {
+        "doc": 390,
+        "body": 390,
+        "win": 390
+      },
+      "h1": {
+        "text": "AI 助手",
+        "size": 20
+      },
+      "table": null,
+      "columns": [],
+      "rows": null,
+      "actions": null,
+      "problems": []
+    },
+    {
+      "viewport": "390x844",
+      "tier": "手机",
+      "page": "resume-search",
+      "overflow": {
+        "doc": 390,
+        "body": 390,
+        "win": 390
+      },
+      "h1": {
+        "text": "履历检索",
+        "size": 20
+      },
+      "table": {
+        "scrollWidth": 358,
+        "clientWidth": 358,
+        "fits": true
+      },
+      "columns": [
+        {
+          "className": "tw-col-name",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-place",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-education",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-experience",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-recent",
+          "expected": false,
+          "display": "none",
+          "visible": false
+        },
+        {
+          "className": "tw-col-evidence",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        },
+        {
+          "className": "tw-col-actions",
+          "expected": true,
+          "display": "table-cell",
+          "visible": true
+        }
+      ],
+      "rows": {
+        "total": 20,
+        "firstScreen": 20,
+        "min": 278,
+        "max": 364,
+        "unique": [
+          278,
+          300,
+          321,
+          343,
+          364
+        ]
+      },
+      "actions": null,
+      "columnKey": "search",
+      "problems": []
+    }
+  ],
+  "console_errors": [],
+  "failures": []
+}

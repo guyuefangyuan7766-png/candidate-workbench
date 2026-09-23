@@ -1,0 +1,305 @@
+{
+  "generated_at": "2026-09-16T03:11:41.000Z",
+  "round": "round-12",
+  "baseline": "output/design-atlas (22 frames, manifest.json)",
+  "target": "anonymous talent workspace (tests/browser/anonymous-talent-workspace-server.mjs, port 4398) via QA preview http://127.0.0.1:4400",
+  "qa_report": "docs/evidence/talent-redesign/qa-report.json",
+  "qa_result": {
+    "cases": 32,
+    "passed": 32,
+    "console_errors": 0
+  },
+  "reports": {
+    "responsive_scale": "docs/evidence/talent-redesign/responsive-scale-report.json",
+    "surface_navigation": "docs/evidence/talent-redesign/surface-navigation-report.json",
+    "talent_workspace": "docs/evidence/talent-redesign/qa-report.json"
+  },
+  "gates": {
+    "G1_resolution_matrix": {
+      "passed": true,
+      "viewports": 15,
+      "pages": 6,
+      "matrix_cases": 90,
+      "failures": 0
+    },
+    "G2_surface_navigation": {
+      "passed": true,
+      "cases": 11,
+      "console_errors": 0
+    },
+    "G3_layout_and_layers": {
+      "passed": true,
+      "drawer_assertions": 3,
+      "layer_assertions": 4
+    },
+    "G4_search_relevance": {
+      "passed": true,
+      "browser_case": "G4 检索相关性：无关词、命中证据与补齐语义",
+      "unrelated_total": 0,
+      "hit_items_have_evidence": true,
+      "padding_never_partial": true,
+      "backend_focused_tests": "4/4"
+    },
+    "G5_regression": {
+      "passed": true,
+      "typescript": "pass",
+      "build": "pass",
+      "npm_test": {
+        "total": 730,
+        "passed": 715,
+        "failed_existing": 8,
+        "skipped": 7,
+        "new_failures": 0
+      },
+      "browser_tests": {
+        "responsive_scale": "93/93",
+        "surface_navigation": "11/11",
+        "talent_workspace": "32/32"
+      }
+    },
+    "G6_console": {
+      "passed": true,
+      "console_errors": 0,
+      "page_errors": 0,
+      "http_500_plus": 0
+    }
+  },
+  "screenshots": {
+    "directory": "docs/evidence/talent-redesign/screenshots",
+    "viewport_matrix": {
+      "page_matrix_count": 90,
+      "drawer_count": 3,
+      "total_jpg_count": 93,
+      "page_pattern": "viewport-<width>x<height>-<page>.jpg",
+      "drawer_pattern": "viewport-<width>x<height>-candidates-drawer.jpg",
+      "aggregate": true
+    }
+  },
+  "known_deviations": [
+    "<=720px keeps the candidate table, hides secondary columns, and uses a 60px row; it is not converted to a card list.",
+    "At S tier and below, inline candidate row actions remain visible instead of hover-only.",
+    "The anonymous AI assistant has no model gateway, so configured chat/tool-call states remain outside this visual verification."
+  ],
+  "frames": [
+    {
+      "id": "01",
+      "design_image": "01-overview.png",
+      "title": "工作台",
+      "state": "default page",
+      "route": "工作台",
+      "screenshot": "screenshots/01-overview.png",
+      "conclusion": "matched",
+      "note": "四个指标 + 两列分布 + 最近更新两组列表"
+    },
+    {
+      "id": "02",
+      "design_image": "02-candidates.png",
+      "title": "候选人库",
+      "state": "list view",
+      "route": "候选人库（列表）",
+      "screenshot": "screenshots/02-candidates.png",
+      "conclusion": "matched",
+      "note": "标题行 + 范围页签 + 全宽搜索 + chips + 视图切换 + 分页"
+    },
+    {
+      "id": "03",
+      "design_image": "03-groups.png",
+      "title": "人才库分组",
+      "state": "pool selected",
+      "route": "人才库分组",
+      "screenshot": "screenshots/03-talent-pools.png",
+      "conclusion": "matched",
+      "note": "左分组栏（颜色点 + 人数）+ 成员搜索 + 成员表"
+    },
+    {
+      "id": "04",
+      "design_image": "04-positions.png",
+      "title": "职位管理",
+      "state": "active",
+      "route": "职位管理",
+      "screenshot": "screenshots/04-positions.png",
+      "conclusion": "matched",
+      "note": "状态页签 + 搜索筛选排序 + 操作列常显"
+    },
+    {
+      "id": "05",
+      "design_image": "05-import.png",
+      "title": "数据导入",
+      "state": "step 1",
+      "route": "导入候选人 第 1 步",
+      "screenshot": "screenshots/05-import-upload.png",
+      "conclusion": "matched",
+      "note": "四步进度 + 来源选择 + 拖拽区"
+    },
+    {
+      "id": "06",
+      "design_image": "06-ai.png",
+      "title": "AI 助手",
+      "state": "unconfigured gateway",
+      "route": "/assistant",
+      "screenshot": "screenshots/06-assistant.png",
+      "conclusion": "partial",
+      "note": "未配置模型网关时不伪造会话历史与回答（限制 1）"
+    },
+    {
+      "id": "07",
+      "design_image": "07-search.png",
+      "title": "履历检索",
+      "state": "results",
+      "route": "/resume-search 提交后",
+      "screenshot": "screenshots/07-resume-search.png",
+      "conclusion": "matched",
+      "note": "7 列大行结果卡 + 查看档案按钮"
+    },
+    {
+      "id": "08",
+      "design_image": "08-attachments.png",
+      "title": "附件解析",
+      "state": "entry",
+      "route": "/attachment-parser",
+      "screenshot": "screenshots/08-attachments.png",
+      "conclusion": "matched",
+      "note": "拖拽区与批次入口；批次表需已上传文件"
+    },
+    {
+      "id": "09",
+      "design_image": "09-profile-v2.png",
+      "title": "候选人详情 · 档案",
+      "state": "drawer profile tab",
+      "route": "抽屉 档案",
+      "screenshot": "screenshots/09-detail-profile.png",
+      "conclusion": "matched",
+      "note": "并排布局 + 卡片分段 + 120px 标签列 + 35px 行高"
+    },
+    {
+      "id": "10",
+      "design_image": "10-resume.png",
+      "title": "候选人详情 · 履历",
+      "state": "drawer resume tab",
+      "route": "抽屉 履历",
+      "screenshot": "screenshots/10-detail-resume.png",
+      "conclusion": "matched",
+      "note": "分组卡 + 时间线 + 时间靠右"
+    },
+    {
+      "id": "11",
+      "design_image": "11-assessment-v2.png",
+      "title": "候选人详情 · 历史评估",
+      "state": "drawer assessment tab",
+      "route": "抽屉 历史评估",
+      "screenshot": "screenshots/11-detail-assessment.png",
+      "conclusion": "matched",
+      "note": "来源记录卡 + 折叠来源字段"
+    },
+    {
+      "id": "12",
+      "design_image": "12-activity.png",
+      "title": "候选人详情 · 备注与动态",
+      "state": "drawer activity tab",
+      "route": "抽屉 备注与动态",
+      "screenshot": "screenshots/12-detail-activity.png",
+      "conclusion": "matched",
+      "note": "跟进备注卡 + 动态时间线"
+    },
+    {
+      "id": "13",
+      "design_image": "13-advanced-v2.png",
+      "title": "候选人详情 · 高级信息",
+      "state": "drawer advanced tab",
+      "route": "抽屉 高级信息",
+      "screenshot": "screenshots/13-detail-advanced.png",
+      "conclusion": "matched",
+      "note": "按需加载空态 + 数据血缘 + 折叠记录"
+    },
+    {
+      "id": "14",
+      "design_image": "14-candidate-edit.png",
+      "title": "新增 / 编辑候选人",
+      "state": "edit drawer",
+      "route": "列表行 编辑",
+      "screenshot": "screenshots/14-candidate-edit.png",
+      "conclusion": "matched",
+      "note": "500px 抽屉 + 双列分区表单"
+    },
+    {
+      "id": "15",
+      "design_image": "15-position-detail.png",
+      "title": "职位详情",
+      "state": "position detail",
+      "route": "职位管理 点标题",
+      "screenshot": "screenshots/15-position-detail.png",
+      "conclusion": "matched",
+      "note": "职位信息 + 关联候选人 + 解除关联"
+    },
+    {
+      "id": "16",
+      "design_image": "16-position-edit.png",
+      "title": "新增 / 编辑职位",
+      "state": "create drawer",
+      "route": "职位管理 新增职位",
+      "screenshot": "screenshots/16-position-form.png",
+      "conclusion": "matched",
+      "note": "分区表单 + 描述计数 + 标签"
+    },
+    {
+      "id": "17",
+      "design_image": "17-group-picker.png",
+      "title": "人才库 · 加入候选人",
+      "state": "picker dialog",
+      "route": "分组页 加入候选人",
+      "screenshot": "screenshots/17-pool-picker.png",
+      "conclusion": "matched",
+      "note": "搜索 + 候选人表 + 已选统计 + 分页"
+    },
+    {
+      "id": "18",
+      "design_image": "18-import-mapping.png",
+      "title": "数据导入 · 字段映射",
+      "state": "step 2",
+      "route": "导入 第 2 步",
+      "screenshot": "screenshots/18-import-mapping.png",
+      "conclusion": "matched",
+      "note": "旧表头映射到 current_company / current_title"
+    },
+    {
+      "id": "19",
+      "design_image": "19-import-preview.png",
+      "title": "数据导入 · 预览校验",
+      "state": "step 3",
+      "route": "导入 第 3 步",
+      "screenshot": "screenshots/19-import-preview.png",
+      "conclusion": "matched",
+      "note": "新增/更新/问题行汇总"
+    },
+    {
+      "id": "20",
+      "design_image": "20-attachment-review.png",
+      "title": "附件解析 · 差异确认",
+      "state": "review view",
+      "route": "附件解析 候选人文档",
+      "screenshot": "screenshots/20-attachment-review.png",
+      "conclusion": "partial",
+      "note": "无本地解析网关时降级（限制 2）"
+    },
+    {
+      "id": "21",
+      "design_image": "21-group-edit.png",
+      "title": "人才库 · 新建 / 编辑",
+      "state": "editor dialog",
+      "route": "分组页 新建人才库",
+      "screenshot": "screenshots/21-pool-editor.png",
+      "conclusion": "matched",
+      "note": "名称 + 描述计数 + 标记颜色"
+    },
+    {
+      "id": "22",
+      "design_image": "22-archive.png",
+      "title": "批量操作 · 归档确认",
+      "state": "confirm dialog",
+      "route": "列表勾选 批量归档",
+      "screenshot": "screenshots/22-bulk-archive.png",
+      "conclusion": "matched",
+      "note": "警示图标 + 说明 + 取消/确认归档"
+    }
+  ]
+}

@@ -1,0 +1,196 @@
+{
+  "anonymous": true,
+  "database_access": false,
+  "cold_queries": true,
+  "reasoning_effort": "minimal",
+  "concurrency": 2,
+  "at": "2026-09-10T05:59:44.378Z",
+  "summary": [
+    {
+      "model": "gpt-6-astra",
+      "count": 3,
+      "model_accepted": 0,
+      "condition_correct": 3,
+      "latency_ms": {
+        "p50": 922.7119,
+        "p95": 1067.0284,
+        "max": 1067.0284
+      }
+    }
+  ],
+  "rows": [
+    {
+      "model": "gpt-6-astra",
+      "id": "q-0",
+      "query": "上海 游戏策划 战斗系统",
+      "milliseconds": 855.5640000000001,
+      "source": "rules",
+      "correct": true,
+      "error_code": "search_model_http_error",
+      "warnings": [
+        "model_planning_unavailable"
+      ],
+      "plan": {
+        "version": 1,
+        "must": [
+          {
+            "kind": "filter",
+            "field": "current_location",
+            "op": "eq",
+            "value": "上海",
+            "span": [
+              0,
+              2
+            ]
+          },
+          {
+            "kind": "term",
+            "text": "游戏策划",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              3,
+              7
+            ]
+          },
+          {
+            "kind": "term",
+            "text": "战斗系统",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              8,
+              12
+            ]
+          }
+        ],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [],
+        "unresolved": [],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_planning_unavailable"
+          ],
+          "query": "上海 游戏策划 战斗系统",
+          "schemaVersion": 1
+        }
+      },
+      "proposed": null,
+      "validation_issue": null
+    },
+    {
+      "model": "gpt-6-astra",
+      "id": "q-1",
+      "query": "找3到5年经验的后端工程师",
+      "milliseconds": 1067.0284,
+      "source": "rules",
+      "correct": true,
+      "error_code": "search_model_http_error",
+      "warnings": [
+        "model_planning_unavailable"
+      ],
+      "plan": {
+        "version": 1,
+        "must": [
+          {
+            "kind": "filter",
+            "field": "years",
+            "op": "gte",
+            "value": 3,
+            "span": [
+              1,
+              5
+            ]
+          },
+          {
+            "kind": "filter",
+            "field": "years",
+            "op": "lte",
+            "value": 5,
+            "span": [
+              1,
+              5
+            ]
+          },
+          {
+            "kind": "term",
+            "text": "后端工程师",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              8,
+              13
+            ]
+          }
+        ],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [],
+        "unresolved": [],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_planning_unavailable"
+          ],
+          "query": "找3到5年经验的后端工程师",
+          "schemaVersion": 1
+        }
+      },
+      "proposed": null,
+      "validation_issue": null
+    },
+    {
+      "model": "gpt-6-astra",
+      "id": "q-2",
+      "query": "找3年以下经验的后端工程师",
+      "milliseconds": 922.7119,
+      "source": "rules",
+      "correct": true,
+      "error_code": "search_model_http_error",
+      "warnings": [
+        "model_planning_unavailable"
+      ],
+      "plan": {
+        "version": 1,
+        "must": [
+          {
+            "kind": "filter",
+            "field": "years",
+            "op": "lte",
+            "value": 3,
+            "span": [
+              1,
+              5
+            ]
+          },
+          {
+            "kind": "term",
+            "text": "后端工程师",
+            "match": "concept",
+            "evidence_scope": "self",
+            "span": [
+              8,
+              13
+            ]
+          }
+        ],
+        "should": [],
+        "minimum_should_match": 0,
+        "must_not": [],
+        "unresolved": [],
+        "metadata": {
+          "source": "rules",
+          "warnings": [
+            "model_planning_unavailable"
+          ],
+          "query": "找3年以下经验的后端工程师",
+          "schemaVersion": 1
+        }
+      },
+      "proposed": null,
+      "validation_issue": null
+    }
+  ]
+}

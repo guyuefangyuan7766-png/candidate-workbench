@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-08-28T08:08:53.160Z",
+  "operation": "beisen_photo_age_failure_correction_import",
+  "service": {
+    "base_url": "http://127.0.0.1:4174",
+    "health_before": "ok",
+    "health_after": "ok"
+  },
+  "source": {
+    "file": "candidate-import-photo-age-failures-ready-20260828.csv",
+    "bytes": 319685,
+    "sha256": "35a7b5ccf8aae56dbdc16e81ba39d63ac4e3ee8d61af7942e64cabb68db8954b",
+    "rows": 46,
+    "columns": 191
+  },
+  "corrections": {
+    "incompatible_gif_photo_values_cleared_in_original_failure_set": 47,
+    "out_of_range_age_values_cleared_in_original_failure_set": 4,
+    "excluded_missing_identity_rows": 5
+  },
+  "preview": {
+    "profile": "beisen_talent",
+    "total_rows": 46,
+    "valid_rows": 46,
+    "invalid_rows": 0,
+    "missing_candidate_id_rows": 0,
+    "preview_tokens_persisted": false
+  },
+  "commit": {
+    "imported_rows": 42,
+    "updated_rows": 4,
+    "skipped_rows": 0,
+    "failed_rows": 0,
+    "candidate_count": 46,
+    "failure_reason_counts": {}
+  },
+  "verification": {
+    "expected_candidates": 46,
+    "found_candidates": 46,
+    "missing_candidates": 0,
+    "gif_photo_values": 0,
+    "out_of_range_age_values": 0,
+    "blank_photo_values": 45,
+    "null_age_values": 14,
+    "search_index_status": "ready",
+    "search_index_dirty_rows": 0
+  },
+  "privacy": {
+    "candidate_level_rows_persisted_in_evidence": false,
+    "preview_tokens_persisted": false,
+    "user_requested_failure_table_contains_complete_fields": true
+  },
+  "failure_table": "candidate-import-photo-age-formal-failures-ready-20260828.csv",
+  "excluded_failure_table": "candidate-import-photo-age-formal-failures-20260828.csv",
+  "rollback": "No per-batch rollback API exists; database restore requires separate explicit approval."
+}

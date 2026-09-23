@@ -1,0 +1,174 @@
+{
+  "at": "2026-09-11T14:41:18.399Z",
+  "state": "started_and_verified",
+  "application_version": "0.2.0",
+  "database_schema": "V13",
+  "schema_migrations": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13
+  ],
+  "url": "http://127.0.0.1:4173",
+  "health": "ok",
+  "startup": {
+    "launched_at": "2026-09-11T13:20:19.2621947Z",
+    "launcher_pid": 19496,
+    "application_version": "0.2.0",
+    "database_schema": "V13",
+    "search_remote_enabled": true,
+    "vector_generation": "generation-c5856389-ec70-4cab-90ab-64154bd9f4d4",
+    "previous_server_pid": 9756,
+    "restart_method": "Verified PID-only Windows Stop-Process; existing SQLite WAL recovery and stale runtime sentinel recovery"
+  },
+  "hybrid": {
+    "model": {
+      "remote_enabled": true,
+      "planner": true,
+      "embedding": true,
+      "rerank": true
+    },
+    "vector": {
+      "available": true,
+      "chunks": 630978,
+      "vectors": 630978,
+      "documents": 429630,
+      "dimensions": 1024,
+      "model": "text-embedding-v4",
+      "embedding_space_id": "text-embedding-v4:1024:self-v3-600-80-redacted",
+      "generation": "generation-c5856389-ec70-4cab-90ab-64154bd9f4d4",
+      "index_ready": true,
+      "read_only": true,
+      "memory_mapped": true,
+      "algorithm": "usearch-hnsw-cos-f32",
+      "max_ann_vectors": 6400,
+      "loaded": true,
+      "current": true
+    },
+    "closed": false,
+    "worker": {
+      "running": true,
+      "ready": true,
+      "starts": 1,
+      "active": false,
+      "queued": 0,
+      "max_queue": 8,
+      "query_budget_ms": 18000
+    }
+  },
+  "vector_maintenance": {
+    "enabled": true,
+    "running": false,
+    "interval_ms": 300000,
+    "state": "ready",
+    "stage": "ready",
+    "started_at": "2026-09-11T13:21:01.618Z",
+    "updated_at": "2026-09-11T14:40:40.542Z",
+    "completed_at": "2026-09-11T14:40:40.542Z",
+    "last_success": "2026-09-11T14:40:40.542Z",
+    "documents": 429630,
+    "updated_documents": 0,
+    "embedded_chunks": 0,
+    "cached_chunks": 0,
+    "outbound_characters": 0,
+    "embedding_batches": 0,
+    "retries": 0,
+    "excluded_private_only_chunks": 0,
+    "removed_documents": 0,
+    "chunks": 630978,
+    "status": {
+      "chunks": 630978,
+      "vectors": 630978,
+      "documents": 429630,
+      "dimensions": 1024,
+      "model": "text-embedding-v4",
+      "embedding_space_id": "text-embedding-v4:1024:self-v3-600-80-redacted",
+      "generation": "generation-c5856389-ec70-4cab-90ab-64154bd9f4d4",
+      "index_ready": true,
+      "read_only": false,
+      "memory_mapped": false,
+      "algorithm": "usearch-hnsw-cos-f32",
+      "max_ann_vectors": 6400
+    },
+    "source_changed_during_build": false,
+    "source_read_only": true,
+    "text_policy": "identity-redacted-v1",
+    "elapsed_ms": 4778914
+  },
+  "agent_vector_search": {
+    "enabled": true,
+    "fallback": "sqlite_fts5",
+    "reason": null
+  },
+  "smoke": {
+    "anonymous_query": true,
+    "scope": "Random nonexistent candidate ID only; no real candidate records returned or assessed",
+    "http_status": 200,
+    "rows": 0,
+    "plan_source": "model",
+    "degradation": [],
+    "elapsed_ms": 2635
+  },
+  "assets": [
+    {
+      "asset": "/assets/index-Bs-WBCDx.js",
+      "bytes": 704119,
+      "sha256": "3f7d5fec45f260164408005b957041d18a4782239fb5c6f01c21280062a70ba4"
+    },
+    {
+      "asset": "/assets/index-B6P7HYoM.css",
+      "bytes": 162258,
+      "sha256": "7cc555e70567044828ee907137781ac5f5d3519ce30f63e3025a341119d65367"
+    }
+  ],
+  "maintenance_at_verification": {
+    "state": "ready",
+    "stage": "ready",
+    "started_at": "2026-09-11T13:21:01.618Z",
+    "updated_at": "2026-09-11T14:40:40.542Z",
+    "completed_at": "2026-09-11T14:40:40.542Z",
+    "last_success": "2026-09-11T14:40:40.542Z",
+    "documents": 429630,
+    "updated_documents": 0,
+    "embedded_chunks": 0,
+    "cached_chunks": 0,
+    "outbound_characters": 0,
+    "embedding_batches": 0,
+    "retries": 0,
+    "excluded_private_only_chunks": 0,
+    "removed_documents": 0,
+    "chunks": 630978,
+    "status": {
+      "chunks": 630978,
+      "vectors": 630978,
+      "documents": 429630,
+      "dimensions": 1024,
+      "model": "text-embedding-v4",
+      "embedding_space_id": "text-embedding-v4:1024:self-v3-600-80-redacted",
+      "generation": "generation-c5856389-ec70-4cab-90ab-64154bd9f4d4",
+      "index_ready": true,
+      "read_only": false,
+      "memory_mapped": false,
+      "algorithm": "usearch-hnsw-cos-f32",
+      "max_ann_vectors": 6400
+    },
+    "source_changed_during_build": false,
+    "source_read_only": true,
+    "text_policy": "identity-redacted-v1",
+    "elapsed_ms": 4778914
+  },
+  "elapsed_ms": 2842,
+  "limitations": [
+    "Formal smoke verifies activation and model-backed nonexistent-ID isolation; relevance and rerank are measured only on separate anonymous fixtures.",
+    "Existing verified formal database backup reused; no schema migration or new full-database backup scan."
+  ]
+}

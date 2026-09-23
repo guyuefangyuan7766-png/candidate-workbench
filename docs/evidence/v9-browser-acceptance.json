@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "evidence_id": "v9-agent-browser-acceptance",
+  "scope": {
+    "dataset": "generated_anonymous_file_sqlite_only",
+    "gateway": "local_anonymous_mock",
+    "formal_database_used": false,
+    "contains_candidate_content": false,
+    "contains_credentials": false
+  },
+  "current_revision": {
+    "desktop": {
+      "viewport": { "width": 1440, "height": 900 },
+      "screenshot": {
+        "path": "output/playwright/v9-agent-desktop-workflow-final.png",
+        "bytes": 146676,
+        "sha256": "7e0813d3a2b73c7239de793ec239449ef477068a7ecd4e50ed8b12613a0d1f1a"
+      },
+      "console_errors": 0,
+      "console_warnings": 0,
+      "root_horizontal_overflow_px": 0
+    },
+    "mobile": {
+      "viewport": { "width": 390, "height": 844 },
+      "screenshot": {
+        "path": "output/playwright/v9-agent-mobile-workflow-final.png",
+        "bytes": 52088,
+        "sha256": "f9a0f55c8b138edeb0f27fd863b0ad12e08882b792c63954bcc75e3ff49b3ee7"
+      },
+      "console_errors": 0,
+      "console_warnings": 0,
+      "document_scroll_width_px": 390,
+      "body_scroll_width_px": 390,
+      "root_horizontal_overflow_px": 0
+    },
+    "assertions": {
+      "server_stages_visible": [
+        "queued",
+        "planning",
+        "querying",
+        "retrieving",
+        "composing"
+      ],
+      "stage_timings_visible": true,
+      "total_timing_visible": true,
+      "first_evidence_timing_visible": true,
+      "result_count_visible": true,
+      "markdown_rendered": true,
+      "raw_html_not_executed": true,
+      "legacy_timeout_notice_absent": true
+    }
+  },
+  "specialized_scenarios": [
+    {
+      "scenario": "completed_and_recovery",
+      "path": "output/playwright/v9-agent-desktop-completed.png",
+      "bytes": 53403,
+      "sha256": "fb9e38b1e5660a9766e0f8513c0bd024860b62fe9372277057cffbd11ec0a331"
+    },
+    {
+      "scenario": "partial_and_answer_only_retry",
+      "path": "output/playwright/v9-agent-desktop-partial.png",
+      "bytes": 45366,
+      "sha256": "bc11aa28742f3378c64546c665ed7d7dc283539297aac5a6bbfdaf4e27303739"
+    },
+    {
+      "scenario": "mobile_top_k_search",
+      "path": "output/playwright/v9-agent-mobile-search.png",
+      "bytes": 45429,
+      "sha256": "ba7e99703342231ce1373e1045f7d58976bdc521d7d3569a7054318a0d936df5"
+    }
+  ],
+  "limitations": [
+    "Console and overflow assertions were recorded from the Playwright CLI sessions; screenshots alone do not prove those values.",
+    "The model gateway was a local deterministic mock, so this evidence does not measure production model latency or throughput."
+  ]
+}

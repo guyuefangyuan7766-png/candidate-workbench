@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-28T07:11:55.381Z",
+  "operation": "contact_format_failure_retry",
+  "formal_database_commit": true,
+  "service": {
+    "base_url": "http://127.0.0.1:4174",
+    "health_endpoint": "/api/health",
+    "status": "ok"
+  },
+  "source_failure_scope": {
+    "source_failure_csv": "output/candidate-import-a-failed-rows-final-20260827.csv",
+    "selected_rows": 42,
+    "phone_field_failures": 17,
+    "email_field_failures": 21,
+    "both_phone_and_email_failures": 4
+  },
+  "correction": {
+    "method": "清空对应的无效手机号或邮箱字段，保留其他字段",
+    "ready_file": "output/candidate-import-contact-failures-ready-20260828.csv",
+    "ready_rows": 40,
+    "ready_sha256": "4be05eedf8387f9bb96ddbe6133890934f57ca377fd102611f8856106b117780",
+    "unresolved_file": "output/candidate-import-contact-failures-unresolved-20260828.csv",
+    "unresolved_rows": 2,
+    "unresolved_sha256": "1ec6f2259030db4fc92e6958315c81f95b476f0bd28af5f3e8a8370b700d3c7a"
+  },
+  "preview": {
+    "task_id": "0b4093c2-0ce6-466f-874e-1299bfe2ef83",
+    "status": "preview_ready",
+    "total_rows": 40,
+    "valid_rows": 40,
+    "invalid_rows": 0,
+    "existing_duplicates": 17,
+    "missing_identity_rows": 0,
+    "missing_candidate_id_rows": 0
+  },
+  "commit": {
+    "task_id": "9d363b00-8dc3-418f-b793-7a538694a19f",
+    "status": "completed",
+    "total_rows": 40,
+    "imported_rows": 23,
+    "updated_rows": 17,
+    "skipped_rows": 0,
+    "failed_rows": 0,
+    "candidate_count": 40,
+    "application_count": 0,
+    "position_count": 6,
+    "positions_created": 0,
+    "positions_matched": 6,
+    "links_created": 1,
+    "pools_created": 1
+  },
+  "database_verification": {
+    "candidate_rows_in_batch": 40,
+    "distinct_source_ids": 40,
+    "blank_names": 0,
+    "source_records_in_batch": 40
+  },
+  "unresolved_reason_counts": {
+    "missing_name_and_unmatched_source_id": 1,
+    "phone_conflict_exposed_after_email_correction": 1
+  },
+  "privacy": {
+    "candidate_level_rows_in_artifact": false,
+    "preview_token_included": false
+  }
+}

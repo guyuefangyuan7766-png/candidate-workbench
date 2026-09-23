@@ -1,0 +1,186 @@
+{
+  "generated_at": "2026-09-18T03:24:06.803Z",
+  "anonymous": true,
+  "viewports": [
+    375,
+    768,
+    1440
+  ],
+  "cases": [
+    {
+      "name": "AI 助手侧栏与焦点 375px",
+      "ok": true,
+      "detail": {
+        "sidebar": {
+          "x": -64,
+          "y": 0,
+          "width": 64,
+          "height": 812,
+          "right": 0,
+          "bottom": 812,
+          "display": "flex",
+          "position": "fixed",
+          "visibility": "visible"
+        },
+        "historyPanel": {
+          "x": 0,
+          "y": 0,
+          "width": 320,
+          "height": 812,
+          "right": 320,
+          "bottom": 812,
+          "display": "flex",
+          "position": "fixed",
+          "visibility": "visible"
+        },
+        "trigger": {
+          "x": 12,
+          "y": 62,
+          "width": 32,
+          "height": 32,
+          "right": 44,
+          "bottom": 94,
+          "display": "grid",
+          "position": "fixed",
+          "visibility": "visible"
+        }
+      }
+    },
+    {
+      "name": "AI 助手侧栏与焦点 768px",
+      "ok": true,
+      "detail": {
+        "sidebar": {
+          "x": 0,
+          "y": 0,
+          "width": 64,
+          "height": 1024,
+          "right": 64,
+          "bottom": 1024,
+          "display": "flex",
+          "position": "static",
+          "visibility": "visible"
+        },
+        "historyPanel": {
+          "x": 0,
+          "y": 0,
+          "width": 300,
+          "height": 1024,
+          "right": 300,
+          "bottom": 1024,
+          "display": "flex",
+          "position": "fixed",
+          "visibility": "visible"
+        },
+        "trigger": {
+          "x": 78,
+          "y": 48,
+          "width": 32,
+          "height": 32,
+          "right": 110,
+          "bottom": 80,
+          "display": "grid",
+          "position": "fixed",
+          "visibility": "visible"
+        }
+      }
+    },
+    {
+      "name": "AI 助手侧栏与焦点 1440px",
+      "ok": true,
+      "detail": {
+        "sidebar": {
+          "x": 0,
+          "y": 0,
+          "width": 200,
+          "height": 900,
+          "right": 200,
+          "bottom": 900,
+          "display": "flex",
+          "position": "static",
+          "visibility": "visible"
+        },
+        "historyPanel": {
+          "x": 0,
+          "y": 0,
+          "width": 300,
+          "height": 900,
+          "right": 300,
+          "bottom": 900,
+          "display": "flex",
+          "position": "fixed",
+          "visibility": "visible"
+        },
+        "trigger": {
+          "x": 214,
+          "y": 50,
+          "width": 32,
+          "height": 32,
+          "right": 246,
+          "bottom": 82,
+          "display": "grid",
+          "position": "fixed",
+          "visibility": "visible"
+        }
+      }
+    },
+    {
+      "name": "主导航收起偏好恢复",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "历史栏开放时输入与 Enter 发送 768px",
+      "ok": true,
+      "detail": {
+        "messagePosts": 2
+      }
+    },
+    {
+      "name": "历史栏开放时输入与 Enter 发送 1440px",
+      "ok": true,
+      "detail": {
+        "messagePosts": 2
+      }
+    },
+    {
+      "name": "执行时间线与滚动保持 375px",
+      "ok": true,
+      "detail": {
+        "scrollBefore": {
+          "chat": 0,
+          "window": 180
+        },
+        "scrollAfter": {
+          "chat": 0,
+          "window": 180
+        }
+      }
+    },
+    {
+      "name": "执行时间线与滚动保持 1440px",
+      "ok": true,
+      "detail": {
+        "scrollBefore": {
+          "chat": 180,
+          "window": 0
+        },
+        "scrollAfter": {
+          "chat": 180,
+          "window": 0
+        }
+      }
+    }
+  ],
+  "screenshots": [
+    "assistant-history-375.png",
+    "assistant-main-375.png",
+    "assistant-history-768.png",
+    "assistant-main-768.png",
+    "assistant-history-1440.png",
+    "assistant-main-1440.png",
+    "assistant-timeline-375.png",
+    "assistant-timeline-1440.png"
+  ],
+  "console_errors": []
+}

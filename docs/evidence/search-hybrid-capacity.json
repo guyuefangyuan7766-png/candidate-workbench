@@ -1,0 +1,43 @@
+{
+  "at": "2026-09-10T04:43:32.755Z",
+  "anonymous": true,
+  "node": "v24.18.0",
+  "result": [
+    {
+      "candidates": 10000,
+      "seed_ms": 3225.0882,
+      "local_p50_ms": 120.89580000000024,
+      "local_p95_ms": 146.32540000000063,
+      "five_new_worker_ms": [
+        358.2999999999993,
+        314.2429999999995,
+        359.96589999999924,
+        355.58190000000104,
+        371.6982000000007
+      ],
+      "main_event_loop_ticks": 138,
+      "rss_bytes": 153530368,
+      "database_bytes": 12763136,
+      "vector": false,
+      "notes": "Synthetic capacity only; minimal candidate profiles; new worker is not OS disk-cache eviction."
+    },
+    {
+      "candidates": 100000,
+      "seed_ms": 33803.1579,
+      "local_p50_ms": 1511.1438999999955,
+      "local_p95_ms": 1621.8536999999997,
+      "five_new_worker_ms": [
+        1767.436200000011,
+        1789.3647999999957,
+        1856.388500000001,
+        1837.698000000004,
+        1674.6047000000108
+      ],
+      "main_event_loop_ticks": 684,
+      "rss_bytes": 133337088,
+      "database_bytes": 122335232,
+      "vector": false,
+      "notes": "Synthetic capacity only; minimal candidate profiles; new worker is not OS disk-cache eviction."
+    }
+  ]
+}

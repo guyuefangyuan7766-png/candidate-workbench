@@ -1,0 +1,2835 @@
+{
+  "summary": {
+    "source_rows": 100,
+    "candidates_found": 100,
+    "hire_position_nonempty": 100,
+    "dedicated_position_key_nonempty": 36,
+    "dedicated_position_key_blank": 64,
+    "generic_position_code_nonempty": 0,
+    "last_delivery_value_nonempty": 100,
+    "first_delivery_value_nonempty": 100,
+    "candidates_with_any_link": 100,
+    "candidates_without_any_link": 0,
+    "no_link_with_blank_dedicated_key": 0,
+    "no_link_with_nonempty_dedicated_key": 0,
+    "total_link_rows": 135,
+    "position_key_matches_in_positions_table": 0
+  },
+  "details": [
+    {
+      "source_row": 2,
+      "source_record_id": "C00082457",
+      "name": "邓思宇",
+      "hire_position": "技术美术TA",
+      "hire_date_source": 44550,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "93639fce-fd10-483b-8c0f-85499bc7c63f",
+      "first_delivery_value": "c02299c8-4ef9-4a2d-a3a1-35bf7de49f5b",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "5f896d6f-8267-4b1a-a49d-99f784944623",
+          "title": "技术美术TA(J10134)",
+          "external_code": "J10134",
+          "source_record_id": "J10134",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 3,
+      "source_record_id": "C00114333",
+      "name": "曾台燊",
+      "hire_position": "用研实习生",
+      "hire_date_source": 44963,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "用研实习生",
+      "generic_position_code": null,
+      "last_delivery_value": "19187c2b-6d33-4724-859b-54bf250cb82b",
+      "first_delivery_value": "7c1f8e85-9fa8-4371-9aff-b156ef6f2f5d",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "1036f729-d6d5-4195-9fb9-60cc10ea9c2b",
+          "title": "用研实习生(J10389)",
+          "external_code": "J10389",
+          "source_record_id": "J10389",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "75d8293d-8c6f-4361-9272-57032e068e11",
+          "title": "用研实习生(J10407)",
+          "external_code": "J10407",
+          "source_record_id": "J10407",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联多个招聘职位，需人工复核"
+    },
+    {
+      "source_row": 4,
+      "source_record_id": "C00115733",
+      "name": "李晨光",
+      "hire_position": "客户端实习生",
+      "hire_date_source": 45012,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "客户端实习生",
+      "generic_position_code": null,
+      "last_delivery_value": "f4344cea-29b0-43b7-a831-7c626cdcfc6a",
+      "first_delivery_value": "b125681e-9a60-47b6-903d-e60e740b6f1d",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "92e4716d-abb6-4f28-9c57-09029370b77c",
+          "title": "客户端实习生(J10433)",
+          "external_code": "J10433",
+          "source_record_id": "J10433",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "dcd1c6cc-29f7-43f8-b090-6ef938f6d394",
+          "title": "游戏服务端开发工程师(J10422)",
+          "external_code": "J10422",
+          "source_record_id": "J10422",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联多个招聘职位，需人工复核"
+    },
+    {
+      "source_row": 5,
+      "source_record_id": "C00080042",
+      "name": "陈悦林",
+      "hire_position": "游戏客户端开发工程师",
+      "hire_date_source": 44746,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "9c092120-4a8f-4f5d-b367-9cf88fac01aa",
+      "first_delivery_value": "4e1cfde1-a83f-49d5-8bb5-0d4a0db6155a",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "a1ae46d0-aae9-46a5-b787-22809b620062",
+          "title": "游戏客户端开发工程师(J10138)",
+          "external_code": "J10138",
+          "source_record_id": "J10138",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 6,
+      "source_record_id": "C00092161",
+      "name": "郑誉",
+      "hire_position": "游戏客户端开发工程师",
+      "hire_date_source": 44704,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "da96b657-193b-4cba-bf88-e8c9178ef28e",
+      "first_delivery_value": "6366dd88-93fa-4417-b643-befa5bce22a9",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "a1ae46d0-aae9-46a5-b787-22809b620062",
+          "title": "游戏客户端开发工程师(J10138)",
+          "external_code": "J10138",
+          "source_record_id": "J10138",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 7,
+      "source_record_id": "C00114556",
+      "name": "孟祺绅",
+      "hire_position": "游戏运营专员",
+      "hire_date_source": 45089,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "游戏运营专员",
+      "generic_position_code": null,
+      "last_delivery_value": "856dac1b-8c0a-4918-a4b1-3f58f0c031f6",
+      "first_delivery_value": "417cc5c6-b634-4fc8-a5e3-3287b9019080",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "09137444-6f0c-40f9-9ce4-238807adc7d0",
+          "title": "游戏运营专员(J10416)",
+          "external_code": "J10416",
+          "source_record_id": "J10416",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联招聘职位"
+    },
+    {
+      "source_row": 8,
+      "source_record_id": "C00115220",
+      "name": "刘潞",
+      "hire_position": "商务合作专员(国内)",
+      "hire_date_source": 45054,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "营销策划专员",
+      "generic_position_code": null,
+      "last_delivery_value": "828df3f1-4a2e-4d71-bebe-1eeb6d82105b",
+      "first_delivery_value": "857d5fa6-5c69-4d87-9c57-3fc25bbdfc89",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "a18805df-c691-4812-a2af-cf8017917eaf",
+          "title": "商务合作专员(国内)(J10410)",
+          "external_code": "J10410",
+          "source_record_id": "J10410",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "c3838d8d-c869-4ffc-b2d1-d0c72e9fcfc5",
+          "title": "营销策划专员(J10411)",
+          "external_code": "J10411",
+          "source_record_id": "J10411",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联多个招聘职位，需人工复核"
+    },
+    {
+      "source_row": 9,
+      "source_record_id": "C00104729",
+      "name": "李昭斌",
+      "hire_position": "产学研实习生",
+      "hire_date_source": 44907,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "产学研实习生",
+      "generic_position_code": null,
+      "last_delivery_value": "99adb1e8-904d-47e6-a70d-0262eb67d7e9",
+      "first_delivery_value": "3348bf46-a41f-479c-bfa0-e72f18e9fcdf",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "d2487c44-bd86-4d2d-9906-65f9c58c1f82",
+          "title": "产学研实习生(J10381)",
+          "external_code": "J10381",
+          "source_record_id": "J10381",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联招聘职位"
+    },
+    {
+      "source_row": 10,
+      "source_record_id": "C00104699",
+      "name": "刘鑫",
+      "hire_position": "武器设计专家",
+      "hire_date_source": 44847,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "武器设计专家",
+      "generic_position_code": null,
+      "last_delivery_value": "92839e9f-9487-446f-bfcc-f366d7c21a64",
+      "first_delivery_value": "b4317550-4988-45dc-aebb-734a1686ae19",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "82145884-9128-4b71-87ed-6a3791deda84",
+          "title": "武器设计专家(J10341)",
+          "external_code": "J10341",
+          "source_record_id": "J10341",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联招聘职位"
+    },
+    {
+      "source_row": 11,
+      "source_record_id": "C00083905",
+      "name": "刘大铭",
+      "hire_position": "U3D开发工程师",
+      "hire_date_source": 44532,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "985a04bb-f46b-4668-aca3-755d8565a5f2",
+      "first_delivery_value": "8bd9a79c-959f-4e4f-817e-79636497f9b4",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "7faf6372-3372-4d82-a7ec-cb4dcdb5ff4e",
+          "title": "U3D开发工程师(J10106)",
+          "external_code": "J10106",
+          "source_record_id": "J10106",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "287658e4-7950-4938-9641-3f704e4dcaa5",
+          "title": "UE4客户端开发(J10099)",
+          "external_code": "J10099",
+          "source_record_id": "J10099",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 12,
+      "source_record_id": "C00017495",
+      "name": "喻为",
+      "hire_position": "游戏策划",
+      "hire_date_source": 44477,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "d412dab9-0825-45c3-9b99-3a1efd95b213",
+      "first_delivery_value": "9716e4ed-bee2-4ca0-b987-9b7ca3bf990b",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "472b1ece-7559-41fc-9fb9-05ef9a664bdf",
+          "title": "游戏策划(J10125)",
+          "external_code": "J10125",
+          "source_record_id": "J10125",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 13,
+      "source_record_id": "C00085709",
+      "name": "赵茂清",
+      "hire_position": "高级动作设计师",
+      "hire_date_source": 44571,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "bcc768d2-2ead-4943-9031-d0b8360e08ef",
+      "first_delivery_value": "19dc793f-673c-4352-b493-78c8ab1a2ade",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "107b7abe-dbbb-4fdc-9bdb-7deb3bcda4f9",
+          "title": "高级动作设计师(J10214)",
+          "external_code": "J10214",
+          "source_record_id": "J10214",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 14,
+      "source_record_id": "C00081873",
+      "name": "孟文秀",
+      "hire_position": "U3D开发工程师",
+      "hire_date_source": 44543,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "c6af1301-3bfe-41c1-9561-bd3d251eb51c",
+      "first_delivery_value": "37afd9fb-3332-4008-9d23-39553f85f895",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "1a26c865-89da-48f8-ba12-9db7a871a3c9",
+          "title": "U3D开发工程师(J10102)",
+          "external_code": "J10102",
+          "source_record_id": "J10102",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 15,
+      "source_record_id": "C00093530",
+      "name": "吴一帆",
+      "hire_position": "引擎开发工程师",
+      "hire_date_source": 44763,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "ae04013d-3f35-4d42-9739-f7d1d8ee1bd2",
+      "first_delivery_value": "ed8c1523-165b-45a4-a17f-2f294b532a79",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "ff2b727e-3e51-4769-9115-820ff20c9ab7",
+          "title": "引擎开发工程师(J10117)",
+          "external_code": "J10117",
+          "source_record_id": "J10117",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "8c2634dc-6d03-4b72-95a1-6e039d25d8f5",
+          "title": "引擎开发工程师(J10141)",
+          "external_code": "J10141",
+          "source_record_id": "J10141",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "5f896d6f-8267-4b1a-a49d-99f784944623",
+          "title": "技术美术TA(J10134)",
+          "external_code": "J10134",
+          "source_record_id": "J10134",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 16,
+      "source_record_id": "C00060717",
+      "name": "蔡东炬",
+      "hire_position": "U3D开发工程师",
+      "hire_date_source": 44465,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "8e9fc4d5-72d6-4fc3-a9c0-3a7f66452e23",
+      "first_delivery_value": "61a8dcca-d3f1-417b-9231-7f337d1b8cc7",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "855f5fdc-9193-4952-8ec8-7043a438536c",
+          "title": "U3D开发工程师(J10104)",
+          "external_code": "J10104",
+          "source_record_id": "J10104",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 17,
+      "source_record_id": "C00080632",
+      "name": "何子恒",
+      "hire_position": "技术美术TA",
+      "hire_date_source": 44504,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "dad3887e-bf91-4f28-80b2-e00e39e9ca35",
+      "first_delivery_value": "4891ee82-bdcb-4e5b-aa7f-d2b2d18575a8",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "5f896d6f-8267-4b1a-a49d-99f784944623",
+          "title": "技术美术TA(J10134)",
+          "external_code": "J10134",
+          "source_record_id": "J10134",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "7a5a2fad-5b27-46c0-821f-f5a4c0747095",
+          "title": "技术美术TA(J10190)",
+          "external_code": "J10190",
+          "source_record_id": "J10190",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 18,
+      "source_record_id": "C00093620",
+      "name": "郑咪咪",
+      "hire_position": "高级UE场景地编设计师",
+      "hire_date_source": 44721,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "bd06b2c3-0069-41d5-8092-b2ddcd456ca1",
+      "first_delivery_value": "aa04e6e9-a368-433f-acc3-8b61db8ba756",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "1be61fad-3039-4784-98e3-cfc40a69e018",
+          "title": "资深场景地编(J10070)",
+          "external_code": "J10070",
+          "source_record_id": "J10070",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "65abcd76-1c98-4014-bf38-01f557b8da71",
+          "title": "高级UE场景地编设计师(J10213)",
+          "external_code": "J10213",
+          "source_record_id": "J10213",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 19,
+      "source_record_id": "C00103913",
+      "name": "何超",
+      "hire_position": "资深场景模型设计师-ROG",
+      "hire_date_source": 44830,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "资深场景模型设计师-ROG",
+      "generic_position_code": null,
+      "last_delivery_value": "da782c31-392a-47ec-9b55-ddf34156a267",
+      "first_delivery_value": "be96574e-ca10-491b-8edb-6b89fc80ceb4",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "2cc21f02-b652-44a1-8efb-1b0577296eb6",
+          "title": "资深场景模型设计师-ROG(J10149)",
+          "external_code": "J10149",
+          "source_record_id": "J10149",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联招聘职位"
+    },
+    {
+      "source_row": 20,
+      "source_record_id": "C00104386",
+      "name": "周文宣",
+      "hire_position": "角色原画设计师",
+      "hire_date_source": 44823,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "角色原画设计师",
+      "generic_position_code": null,
+      "last_delivery_value": "868897cd-90e8-4048-9cb8-a6eed0d3ffdf",
+      "first_delivery_value": "a91e0f66-61d5-46ef-8661-f475ded5edd3",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "006172a7-378d-4d08-a35d-f88f0c75ae1e",
+          "title": "角色原画设计师(J10363)",
+          "external_code": "J10363",
+          "source_record_id": "J10363",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "a90e87af-6004-4f35-af8b-2c864c3e3b0f",
+          "title": "资深角色原画设计师-ROG(J10152)",
+          "external_code": "J10152",
+          "source_record_id": "J10152",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联多个招聘职位，需人工复核"
+    },
+    {
+      "source_row": 21,
+      "source_record_id": "C00116256",
+      "name": "孙宇",
+      "hire_position": "引擎开发实习生",
+      "hire_date_source": 45054,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "引擎开发实习生",
+      "generic_position_code": null,
+      "last_delivery_value": "ae878aa1-3a6c-4941-afc6-21f023670514",
+      "first_delivery_value": "580f40d3-2823-4efa-bba1-03827e289394",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "92e4716d-abb6-4f28-9c57-09029370b77c",
+          "title": "客户端实习生(J10433)",
+          "external_code": "J10433",
+          "source_record_id": "J10433",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "30b8c2b4-c955-4dd5-94e7-d11f6b7a8d0e",
+          "title": "引擎开发实习生(J10401)",
+          "external_code": "J10401",
+          "source_record_id": "J10401",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联多个招聘职位，需人工复核"
+    },
+    {
+      "source_row": 22,
+      "source_record_id": "C00085541",
+      "name": "曹铃熙",
+      "hire_position": "枪械模型设计师（硬表面）",
+      "hire_date_source": 44658,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "2cf8ce80-9104-4be6-9c2d-2f992d45b1f8",
+      "first_delivery_value": "84bf2ea2-2439-47aa-882b-d2cf63ebd0e4",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "4b3291ab-793f-4b0e-90fb-cc06966d4d88",
+          "title": "枪械模型设计师（硬表面）(J10072)",
+          "external_code": "J10072",
+          "source_record_id": "J10072",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "0f6a1f67-fed3-4575-81df-c2dfba9a0188",
+          "title": "资深3D角色设计师(J10153)",
+          "external_code": "J10153",
+          "source_record_id": "J10153",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 23,
+      "source_record_id": "C00084357",
+      "name": "崔智炫",
+      "hire_position": "游戏韩语翻译",
+      "hire_date_source": 44658,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "b0c438e6-d5ab-4726-a5cc-179145b04f35",
+      "first_delivery_value": "04b307b2-f98d-4b14-a3ff-1578ffae5085",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "9eb65077-678c-4302-a8a5-34b6cb219a1e",
+          "title": "商务合作(海外)(J10179)",
+          "external_code": "J10179",
+          "source_record_id": "J10179",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "8a596fab-7320-4a8f-b256-be1e76a2810f",
+          "title": "游戏韩语翻译(J10203)",
+          "external_code": "J10203",
+          "source_record_id": "J10203",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 24,
+      "source_record_id": "C00089038",
+      "name": "叶腾飞",
+      "hire_position": "Windows客户端开发工程师",
+      "hire_date_source": 44641,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "bc3d7902-4e49-4318-b08d-951a0658737d",
+      "first_delivery_value": "423a34b6-1324-4184-b9ec-4ebd49b471dc",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "3880274a-0df2-4cc7-83ab-398fb71a687e",
+          "title": "Windows客户端开发工程师(J10198)",
+          "external_code": "J10198",
+          "source_record_id": "J10198",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 25,
+      "source_record_id": "C00114527",
+      "name": "史慧超",
+      "hire_position": "资深交互设计师",
+      "hire_date_source": 45033,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "资深交互设计师",
+      "generic_position_code": null,
+      "last_delivery_value": "d7e5aba8-c913-4ccb-9478-24c14c410075",
+      "first_delivery_value": "f5184b27-a0b6-4a22-be79-8a953a16a0eb",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "ab59700b-6d60-4eac-b95d-919f21f64f47",
+          "title": "交互设计师(J10131)",
+          "external_code": "J10131",
+          "source_record_id": "J10131",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "074055f1-657f-453e-8672-4b2279e35bfe",
+          "title": "资深交互设计师(J10443)",
+          "external_code": "J10443",
+          "source_record_id": "J10443",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联多个招聘职位，需人工复核"
+    },
+    {
+      "source_row": 26,
+      "source_record_id": "C00114557",
+      "name": "李海",
+      "hire_position": "资深UE4客户端开发",
+      "hire_date_source": 44998,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "资深UE4客户端开发",
+      "generic_position_code": null,
+      "last_delivery_value": "bf7a721c-c844-4828-9559-8bb6b625e44d",
+      "first_delivery_value": "ebb62a8a-ea86-4711-9cbc-f952d7c17f94",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "1cca9f92-b5e0-46a4-a327-0f4aa74d7b56",
+          "title": "资深UE4客户端开发(J10450)",
+          "external_code": "J10450",
+          "source_record_id": "J10450",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "7091898b-9d22-44d9-a772-2365d02ef95a",
+          "title": "资深UE4客户端开发（战斗方向）(J10292)",
+          "external_code": "J10292",
+          "source_record_id": "J10292",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联多个招聘职位，需人工复核"
+    },
+    {
+      "source_row": 27,
+      "source_record_id": "C00116399",
+      "name": "骆子成",
+      "hire_position": "3D次世代枪械模型",
+      "hire_date_source": 45001,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "3D次世代枪械模型",
+      "generic_position_code": null,
+      "last_delivery_value": "e8b6edaf-67ee-4484-b5cb-b4770f6bba26",
+      "first_delivery_value": "c849cdc9-ce41-4191-ac7f-af77387491d3",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "44d86f81-77dd-43af-9467-e7495505299e",
+          "title": "3D次世代枪械模型(J10087)",
+          "external_code": "J10087",
+          "source_record_id": "J10087",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联招聘职位"
+    },
+    {
+      "source_row": 28,
+      "source_record_id": "C00095192",
+      "name": "王韵竹",
+      "hire_position": "关卡策划",
+      "hire_date_source": 44788,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "关卡策划",
+      "generic_position_code": null,
+      "last_delivery_value": "be2adc1e-9184-419d-a032-edf89efb0421",
+      "first_delivery_value": "945835b8-aa23-4b6b-a796-6d33708fc4e4",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "b9b0e4c2-26c2-4108-92c0-39992d1ac7bc",
+          "title": "关卡策划(J10331)",
+          "external_code": "J10331",
+          "source_record_id": "J10331",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "3da6b6e0-6337-4db7-802f-a1d35804b152",
+          "title": "资深关卡策划(J10121)",
+          "external_code": "J10121",
+          "source_record_id": "J10121",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联多个招聘职位，需人工复核"
+    },
+    {
+      "source_row": 29,
+      "source_record_id": "C00116528",
+      "name": "朱瑞",
+      "hire_position": "游戏客服",
+      "hire_date_source": 44998,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "游戏客服",
+      "generic_position_code": null,
+      "last_delivery_value": "ecaf8881-05c5-42c4-ad7d-95410692e9ad",
+      "first_delivery_value": "ceac5e19-a84d-4b77-8f54-5146a87ac076",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "9cd904c4-1b5f-45e3-8245-29ed0e7041ec",
+          "title": "游戏客服(J10406)",
+          "external_code": "J10406",
+          "source_record_id": "J10406",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联招聘职位"
+    },
+    {
+      "source_row": 30,
+      "source_record_id": "C00104359",
+      "name": "章俏俏",
+      "hire_position": "资深UI设计师",
+      "hire_date_source": 44921,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "资深UI设计师",
+      "generic_position_code": null,
+      "last_delivery_value": "8c10baf9-f716-412d-bf79-40d795f77c52",
+      "first_delivery_value": "2bd48263-764c-433b-bb2c-d23dcb3cf61f",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "f3083015-054c-4462-92db-95901a74cc10",
+          "title": "资深UI设计师(J10362)",
+          "external_code": "J10362",
+          "source_record_id": "J10362",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联招聘职位"
+    },
+    {
+      "source_row": 31,
+      "source_record_id": "C00084263",
+      "name": "杨洋",
+      "hire_position": "游戏UI设计师",
+      "hire_date_source": 44539,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "56c2303a-533e-4058-afbe-94bfd77d58cf",
+      "first_delivery_value": "c8d7b273-19c4-4caf-8f9c-a79d53bea365",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "dcf7a974-88a8-41f9-ac67-b8b1d6083a26",
+          "title": "游戏UI设计师(J10162)",
+          "external_code": "J10162",
+          "source_record_id": "J10162",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 32,
+      "source_record_id": "C00088741",
+      "name": "张佩玲",
+      "hire_position": "资深角色模型设计师",
+      "hire_date_source": 44623,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "7c5a3ed4-f5f1-4d67-8bbc-34365881bf5b",
+      "first_delivery_value": "aa4ae48f-f594-4e32-8909-c4475f417350",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "933fdb51-dfc0-4378-b8e5-48e9c73bdbce",
+          "title": "3d角色设计师(J10235)",
+          "external_code": "J10235",
+          "source_record_id": "J10235",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "b47c5dbd-84c8-485d-ad9e-f8f046d1673f",
+          "title": "资深角色模型设计师(J10092)",
+          "external_code": "J10092",
+          "source_record_id": "J10092",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 33,
+      "source_record_id": "C00103555",
+      "name": "孙冰",
+      "hire_position": "游戏服务端开发工程师",
+      "hire_date_source": 44809,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "游戏服务端开发工程师",
+      "generic_position_code": null,
+      "last_delivery_value": "df2aac03-87ee-4fef-9328-1913d202bbce",
+      "first_delivery_value": "608f0c3e-e0af-4737-b942-f0aad6286e49",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "84ed9a9b-7d92-4c3b-809f-9a4d8e7f0844",
+          "title": "游戏服务端开发工程师(J10272)",
+          "external_code": "J10272",
+          "source_record_id": "J10272",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联招聘职位"
+    },
+    {
+      "source_row": 34,
+      "source_record_id": "C00095111",
+      "name": "李嘉诚",
+      "hire_position": "游戏项目经理（发行向）",
+      "hire_date_source": 44749,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "游戏项目经理（发行向）",
+      "generic_position_code": null,
+      "last_delivery_value": "cfb737f2-110f-4326-ad38-b70dc30704f7",
+      "first_delivery_value": "771cb547-80c8-4059-b134-3be0a54bbf79",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "25d79742-64a7-4fca-b056-6dcd667d298d",
+          "title": "游戏项目经理（发行向）(J10321)",
+          "external_code": "J10321",
+          "source_record_id": "J10321",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联招聘职位"
+    },
+    {
+      "source_row": 35,
+      "source_record_id": "C00095170",
+      "name": "张振杰",
+      "hire_position": "资深场景模型设计师",
+      "hire_date_source": 44760,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "资深场景模型设计师",
+      "generic_position_code": null,
+      "last_delivery_value": "3ed946c7-50fc-432e-895a-ed0683838bd8",
+      "first_delivery_value": "f7a72479-ef2e-4e08-ad95-9eaf86208536",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "e1d3838c-aa99-4943-9ea3-6a7aa587c52d",
+          "title": "资深场景模型设计师(J10324)",
+          "external_code": "J10324",
+          "source_record_id": "J10324",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联招聘职位"
+    },
+    {
+      "source_row": 36,
+      "source_record_id": "C00093442",
+      "name": "高彩红",
+      "hire_position": "枪械模型设计师（硬表面）",
+      "hire_date_source": 44760,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "枪械模型设计师（硬表面）",
+      "generic_position_code": null,
+      "last_delivery_value": "3bcf3f1a-a353-4ff7-b88d-506066b2bc39",
+      "first_delivery_value": "b924513f-7811-4f5e-97b1-b69a8b637fdf",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "4b3291ab-793f-4b0e-90fb-cc06966d4d88",
+          "title": "枪械模型设计师（硬表面）(J10072)",
+          "external_code": "J10072",
+          "source_record_id": "J10072",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "e68ef1c1-96b3-4bdf-b422-a9db7b405440",
+          "title": "高级场景模型设计师(J10256)",
+          "external_code": "J10256",
+          "source_record_id": "J10256",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联多个招聘职位，需人工复核"
+    },
+    {
+      "source_row": 37,
+      "source_record_id": "C00089286",
+      "name": "范晋豪",
+      "hire_position": "资深枪械原画设计师",
+      "hire_date_source": 44658,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "f4288595-cece-4393-a52e-e97b999d0e9b",
+      "first_delivery_value": "85b720a1-f4c7-4467-9a38-ad91149597a4",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "6cf5e971-3042-421e-b119-6db248d210ef",
+          "title": "资深枪械原画设计师(J10071)",
+          "external_code": "J10071",
+          "source_record_id": "J10071",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 38,
+      "source_record_id": "C00086080",
+      "name": "周尧垚",
+      "hire_position": "资深次世代角色模型",
+      "hire_date_source": 44739,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "a3770741-7603-40f3-8a3d-46bed0b7e9f0",
+      "first_delivery_value": "68c757f7-bef6-455c-bbd3-77857487a834",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "af4a88ac-e971-442d-a740-96f636b1533d",
+          "title": "资深次世代角色模型(J10091)",
+          "external_code": "J10091",
+          "source_record_id": "J10091",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 39,
+      "source_record_id": "C00094072",
+      "name": "詹馨岚",
+      "hire_position": "游戏法务专员/法务助理",
+      "hire_date_source": 44735,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "82a8f0a7-c4cc-4ee5-8d4d-b725ad72059b",
+      "first_delivery_value": "3a979fe8-3261-445c-a021-31eeb6a879bf",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "ef110338-3586-4ab9-821c-8c2e0c26b55b",
+          "title": "游戏法务专员/法务助理(J10303)",
+          "external_code": "J10303",
+          "source_record_id": "J10303",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 40,
+      "source_record_id": "C00103203",
+      "name": "刘洪斌",
+      "hire_position": "U3D客户端开发工程师",
+      "hire_date_source": 44805,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "U3D客户端开发工程师",
+      "generic_position_code": null,
+      "last_delivery_value": "839876ea-4909-4db5-b6e1-5f3b0d52d5c2",
+      "first_delivery_value": "99c8a8db-578c-4114-9601-69a60927f77c",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "443266a6-b1d0-4349-9f9d-59bebb0650a7",
+          "title": "U3D客户端开发工程师(J10310)",
+          "external_code": "J10310",
+          "source_record_id": "J10310",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联招聘职位"
+    },
+    {
+      "source_row": 41,
+      "source_record_id": "C00103154",
+      "name": "魏国",
+      "hire_position": "资深角色原画设计师-ROG",
+      "hire_date_source": 44805,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "资深角色原画设计师-ROG",
+      "generic_position_code": null,
+      "last_delivery_value": "f93caa6c-e278-4b94-84d6-414a96a76778",
+      "first_delivery_value": "adf3ae93-44c2-46d2-b2ee-65149e5c6521",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "a90e87af-6004-4f35-af8b-2c864c3e3b0f",
+          "title": "资深角色原画设计师-ROG(J10152)",
+          "external_code": "J10152",
+          "source_record_id": "J10152",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联招聘职位"
+    },
+    {
+      "source_row": 42,
+      "source_record_id": "C00103430",
+      "name": "张瑞",
+      "hire_position": "U3D客户端开发工程师",
+      "hire_date_source": 44798,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "U3D客户端开发工程师",
+      "generic_position_code": null,
+      "last_delivery_value": "72b074b9-12ec-48f3-9c28-50197aff9d09",
+      "first_delivery_value": "e93043e8-3af8-4f27-841f-8e7273bfe989",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "443266a6-b1d0-4349-9f9d-59bebb0650a7",
+          "title": "U3D客户端开发工程师(J10310)",
+          "external_code": "J10310",
+          "source_record_id": "J10310",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联招聘职位"
+    },
+    {
+      "source_row": 43,
+      "source_record_id": "C00103257",
+      "name": "潘佳昊",
+      "hire_position": "引擎开发工程师",
+      "hire_date_source": 44798,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "引擎开发工程师",
+      "generic_position_code": null,
+      "last_delivery_value": "f0b45dc3-4dfd-4e18-a32b-76f979e6f35a",
+      "first_delivery_value": "22fbfccf-e472-405c-bf9d-97b709479313",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "b370d2f4-1f98-4158-a2c2-39fba848eb13",
+          "title": "UE4客户端动画程序(J10288)",
+          "external_code": "J10288",
+          "source_record_id": "J10288",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "a64a934f-fc41-47ed-aab9-cdd24bed0a67",
+          "title": "UE4客户端开发(J10340)",
+          "external_code": "J10340",
+          "source_record_id": "J10340",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "08efc622-40bf-4f11-b0b5-12fdeaab0fa5",
+          "title": "引擎开发工程师(J10353)",
+          "external_code": "J10353",
+          "source_record_id": "J10353",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联多个招聘职位，需人工复核"
+    },
+    {
+      "source_row": 44,
+      "source_record_id": "C00103921",
+      "name": "李芳宜",
+      "hire_position": "系统策划（生死狙击2）",
+      "hire_date_source": 44823,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "系统策划（生死狙击2）",
+      "generic_position_code": null,
+      "last_delivery_value": "487bb2c3-3b9d-4283-aecc-b964c7c72193",
+      "first_delivery_value": "12e7e3ce-cb1d-4438-b11b-5fa80eb04a6b",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "442c40c3-75f3-4308-8dbf-bb8c0e278d47",
+          "title": "系统策划（生死狙击2）(J10308)",
+          "external_code": "J10308",
+          "source_record_id": "J10308",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联招聘职位"
+    },
+    {
+      "source_row": 45,
+      "source_record_id": "C00102921",
+      "name": "潘旭",
+      "hire_position": "交互设计师",
+      "hire_date_source": 44795,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "交互设计师",
+      "generic_position_code": null,
+      "last_delivery_value": "9de0052c-a83a-4a99-8126-c80f48afffb4",
+      "first_delivery_value": "2aa92ddc-77e0-4e43-960e-66b0ac6ac45b",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "ab59700b-6d60-4eac-b95d-919f21f64f47",
+          "title": "交互设计师(J10131)",
+          "external_code": "J10131",
+          "source_record_id": "J10131",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "25afcc5d-ae8c-4f3c-8509-c90c93971dbb",
+          "title": "交互设计师(J10351)",
+          "external_code": "J10351",
+          "source_record_id": "J10351",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联多个招聘职位，需人工复核"
+    },
+    {
+      "source_row": 46,
+      "source_record_id": "C00103583",
+      "name": "周豪",
+      "hire_position": "游戏运营（反外挂）",
+      "hire_date_source": 44788,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "游戏运营（反外挂）",
+      "generic_position_code": null,
+      "last_delivery_value": "13f89f4f-39aa-454a-95c1-1bf9f5671fb6",
+      "first_delivery_value": "109c45fb-f453-4fa3-b5cb-c92439154870",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "e0d4738d-8979-420f-9d78-5543a2569a1c",
+          "title": "游戏运营（反外挂）(J10221)",
+          "external_code": "J10221",
+          "source_record_id": "J10221",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联招聘职位"
+    },
+    {
+      "source_row": 47,
+      "source_record_id": "C00090649",
+      "name": "唐音甜",
+      "hire_position": "行政前台",
+      "hire_date_source": 44641,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "9cae30d4-d65d-43a1-9ef2-6c0775a6be5e",
+      "first_delivery_value": "193e4e6a-0c3a-48a9-9dba-5eb9e3e5e4a3",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "2dd52a0c-8948-4c1e-a09c-d2d7fe28868b",
+          "title": "行政前台(J10052)",
+          "external_code": "J10052",
+          "source_record_id": "J10052",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 48,
+      "source_record_id": "C00104512",
+      "name": "崔骏",
+      "hire_position": "AE后期包装",
+      "hire_date_source": 44847,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "AE后期包装",
+      "generic_position_code": null,
+      "last_delivery_value": "3b29856c-c0c9-411a-a0fd-06407dc7ac74",
+      "first_delivery_value": "a3f1f1ca-4ba9-49d4-a2e5-41e3a0bca913",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "d272ff31-d51b-4986-b8b5-bf528b14eefe",
+          "title": "AE后期包装(J10365)",
+          "external_code": "J10365",
+          "source_record_id": "J10365",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联招聘职位"
+    },
+    {
+      "source_row": 49,
+      "source_record_id": "C00113262",
+      "name": "熊韬",
+      "hire_position": "用研实习生",
+      "hire_date_source": 44900,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "用研实习生",
+      "generic_position_code": null,
+      "last_delivery_value": "14bf2418-6abf-431b-8510-b3427a8af72d",
+      "first_delivery_value": "d6d73cbd-a66a-42ab-9c46-fa8c48339e51",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "1036f729-d6d5-4195-9fb9-60cc10ea9c2b",
+          "title": "用研实习生(J10389)",
+          "external_code": "J10389",
+          "source_record_id": "J10389",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联招聘职位"
+    },
+    {
+      "source_row": 50,
+      "source_record_id": "C00113225",
+      "name": "周佳玟",
+      "hire_position": "用研实习生",
+      "hire_date_source": 44896,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "用研实习生",
+      "generic_position_code": null,
+      "last_delivery_value": "dfd2a389-1d36-40ad-bbe6-5737109c91e7",
+      "first_delivery_value": "a7185aa7-3032-46b4-b118-83e58e3d1e0a",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "1036f729-d6d5-4195-9fb9-60cc10ea9c2b",
+          "title": "用研实习生(J10389)",
+          "external_code": "J10389",
+          "source_record_id": "J10389",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联招聘职位"
+    },
+    {
+      "source_row": 51,
+      "source_record_id": "C00092840",
+      "name": "白小龙",
+      "hire_position": "游戏服务端开发",
+      "hire_date_source": 44739,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "5731228b-a76a-4e0b-b65e-82425363bff2",
+      "first_delivery_value": "09ec955c-b2c3-4f1a-8564-b261cf518dee",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "25d7082e-ff02-4034-b8b0-0cb8cad859b9",
+          "title": "游戏服务端开发(J10231)",
+          "external_code": "J10231",
+          "source_record_id": "J10231",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 52,
+      "source_record_id": "C00112372",
+      "name": "潘嘉烨",
+      "hire_position": "游戏运营实习生",
+      "hire_date_source": 44868,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "游戏运营实习生",
+      "generic_position_code": null,
+      "last_delivery_value": "d094b2ea-0222-42a2-bb76-07109eb50fb2",
+      "first_delivery_value": "c45ba927-b813-466d-8d99-f7dd4f216248",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "aa43b188-d169-4db3-ae65-2ab19fe9dd8b",
+          "title": "游戏运营实习生(J10382)",
+          "external_code": "J10382",
+          "source_record_id": "J10382",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联招聘职位"
+    },
+    {
+      "source_row": 53,
+      "source_record_id": "C00079090",
+      "name": "邬伟磊",
+      "hire_position": "产品项目经理/总监",
+      "hire_date_source": 44480,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "c1a5e391-b8fb-4a2f-aa96-5fa3d1d40fc3",
+      "first_delivery_value": "08260122-dd44-4734-bf45-cf78c306a678",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "45bcfb18-540e-4786-8438-86d64b81829e",
+          "title": "产品项目经理/总监(J10002)",
+          "external_code": "J10002",
+          "source_record_id": "J10002",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 54,
+      "source_record_id": "C00095242",
+      "name": "许俊辉",
+      "hire_position": "商务助理",
+      "hire_date_source": 44774,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "商务助理",
+      "generic_position_code": null,
+      "last_delivery_value": "e81ff23c-a560-4ce4-a3fa-9ba4d84f5695",
+      "first_delivery_value": "8ed5c413-a109-4d6c-a37c-e35c1091021a",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "3b829a94-baec-42f7-9041-50e430dc18ef",
+          "title": "商务助理(J10215)",
+          "external_code": "J10215",
+          "source_record_id": "J10215",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联招聘职位"
+    },
+    {
+      "source_row": 55,
+      "source_record_id": "C00080566",
+      "name": "郑啸然",
+      "hire_position": "游戏运营实习生",
+      "hire_date_source": 44774,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "f063b86d-76ba-4c34-ae95-f0767005efec",
+      "first_delivery_value": "3889f726-ad1e-4317-b924-737072c65855",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "33e0be95-7ed0-43f8-82ef-100f71102b70",
+          "title": "游戏运营实习生(J10142)",
+          "external_code": "J10142",
+          "source_record_id": "J10142",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 56,
+      "source_record_id": "C00081515",
+      "name": "任思彤",
+      "hire_position": "游戏策划（关卡/系统/数值）",
+      "hire_date_source": 44763,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "6d59b4ef-6119-40f7-b10e-98d23bf1f86e",
+      "first_delivery_value": "596c93d1-d931-4503-b781-4562d5fa4fd4",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "20c92c78-34a1-4536-9e75-b26695b4f7c0",
+          "title": "游戏策划（关卡/系统/数值）(J10137)",
+          "external_code": "J10137",
+          "source_record_id": "J10137",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 57,
+      "source_record_id": "C00001232",
+      "name": "安喆",
+      "hire_position": "UE4客户端动画程序",
+      "hire_date_source": 44749,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "caaf9719-a612-4570-bf96-484b28f55e3f",
+      "first_delivery_value": "9e743361-f7cc-4029-aed7-95827a20a4c0",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "b370d2f4-1f98-4158-a2c2-39fba848eb13",
+          "title": "UE4客户端动画程序(J10288)",
+          "external_code": "J10288",
+          "source_record_id": "J10288",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 58,
+      "source_record_id": "C00093851",
+      "name": "任胜奇",
+      "hire_position": "高级UI设计师-ROG",
+      "hire_date_source": 44746,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "514a0489-322a-4483-b9ed-1965dc5cdde5",
+      "first_delivery_value": "0e86c3d6-56c1-469a-bac3-16de9a5a6f42",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "6b0ea878-f9bc-44c7-a6db-d3481f47a167",
+          "title": "高级UI设计师-ROG(J10242)",
+          "external_code": "J10242",
+          "source_record_id": "J10242",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 59,
+      "source_record_id": "C00095081",
+      "name": "杨子城",
+      "hire_position": "产品经理助理",
+      "hire_date_source": 44756,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "产品经理助理",
+      "generic_position_code": null,
+      "last_delivery_value": "629ccceb-5c22-49e0-a68c-73218f59c252",
+      "first_delivery_value": "48d30848-a676-4d38-b95c-c5f6e15af963",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "0180d233-8cfd-45d6-882c-5a4137c2fe22",
+          "title": "产品经理助理(J10297)",
+          "external_code": "J10297",
+          "source_record_id": "J10297",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联招聘职位"
+    },
+    {
+      "source_row": 60,
+      "source_record_id": "C00093994",
+      "name": "宋文琪",
+      "hire_position": "培训专员",
+      "hire_date_source": 44760,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "92d3bd8e-5e47-4827-a623-8792218eb1cb",
+      "first_delivery_value": "f9c39110-40e7-4ad5-9f0b-f681c201b925",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "b6d9a7dc-1240-4da8-b8bb-3ca8de1a8b68",
+          "title": "培训专员(J10264)",
+          "external_code": "J10264",
+          "source_record_id": "J10264",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 61,
+      "source_record_id": "C00090623",
+      "name": "车金妹",
+      "hire_position": "英语翻译实习生",
+      "hire_date_source": 44746,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "9c153c31-28c5-4229-a092-155702d33655",
+      "first_delivery_value": "be27d320-26e8-405c-be7a-995d4736d4b4",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "c3862d05-5895-4eae-a4ea-3e57eedaa1da",
+          "title": "英语翻译实习生(J10271)",
+          "external_code": "J10271",
+          "source_record_id": "J10271",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "19abe8fd-fedc-4760-8de8-6033dae42693",
+          "title": "营销策划专员(海外)(J10180)",
+          "external_code": "J10180",
+          "source_record_id": "J10180",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 62,
+      "source_record_id": "C00082787",
+      "name": "李辉麟",
+      "hire_position": "游戏策划",
+      "hire_date_source": 44557,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "9d9a5de8-ceae-4fd9-b910-61c702af35a9",
+      "first_delivery_value": "169ba984-6797-43cc-bc6b-e0b9514fb67d",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "472b1ece-7559-41fc-9fb9-05ef9a664bdf",
+          "title": "游戏策划(J10125)",
+          "external_code": "J10125",
+          "source_record_id": "J10125",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 63,
+      "source_record_id": "C00088633",
+      "name": "周鼎",
+      "hire_position": "电竞赛事内容运营（视频剪辑方向）",
+      "hire_date_source": 44627,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "6f896985-bde2-47df-ae17-da1289b3ae98",
+      "first_delivery_value": "71c9438c-1c94-4228-bd79-881a67a9d3f9",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "f8a6b9f0-67a9-49c1-b2fb-0a5a4f14c77f",
+          "title": "电竞赛事内容运营（视频剪辑方向）(J10210)",
+          "external_code": "J10210",
+          "source_record_id": "J10210",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 64,
+      "source_record_id": "C00095132",
+      "name": "赵亮",
+      "hire_position": "资深场景模型设计师",
+      "hire_date_source": 44784,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "资深场景模型设计师",
+      "generic_position_code": null,
+      "last_delivery_value": "45224b3d-5b49-4534-9695-eb41e457a722",
+      "first_delivery_value": "976dcdb8-079f-4d25-8b78-32889ef09194",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "de455c37-cfa0-4a3b-8ba5-5ed40cadb886",
+          "title": "资深场景制作设计师(J10258)",
+          "external_code": "J10258",
+          "source_record_id": "J10258",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "e1d3838c-aa99-4943-9ea3-6a7aa587c52d",
+          "title": "资深场景模型设计师(J10324)",
+          "external_code": "J10324",
+          "source_record_id": "J10324",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联多个招聘职位，需人工复核"
+    },
+    {
+      "source_row": 65,
+      "source_record_id": "C00112774",
+      "name": "雷天",
+      "hire_position": "用研实习生",
+      "hire_date_source": 44889,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "用研实习生",
+      "generic_position_code": null,
+      "last_delivery_value": "d5f17f26-caab-4965-b838-1ba83166657b",
+      "first_delivery_value": "fbf8968b-2917-4662-9412-24a5dc364ce2",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "3be81b96-66d9-48ce-a197-5ec76a184c6d",
+          "title": "用户研究实习生(J10370)",
+          "external_code": "J10370",
+          "source_record_id": "J10370",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "1036f729-d6d5-4195-9fb9-60cc10ea9c2b",
+          "title": "用研实习生(J10389)",
+          "external_code": "J10389",
+          "source_record_id": "J10389",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联多个招聘职位，需人工复核"
+    },
+    {
+      "source_row": 66,
+      "source_record_id": "C00093455",
+      "name": "杨敬博",
+      "hire_position": "游戏运营（反外挂）",
+      "hire_date_source": 44735,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "47cd7a3d-5ac2-460f-b122-f9d2243485e5",
+      "first_delivery_value": "4f4f8e48-2797-4fa8-a64b-47ba531277d0",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "e0d4738d-8979-420f-9d78-5543a2569a1c",
+          "title": "游戏运营（反外挂）(J10221)",
+          "external_code": "J10221",
+          "source_record_id": "J10221",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 67,
+      "source_record_id": "C00068646",
+      "name": "鲁维彤",
+      "hire_position": "游戏运营（反外挂）",
+      "hire_date_source": 44714,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "9a124a5f-c34b-42e3-9b15-d136f67e9f15",
+      "first_delivery_value": "f4ba3066-3fdc-4a46-b420-a99c7cbb8520",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "e0d4738d-8979-420f-9d78-5543a2569a1c",
+          "title": "游戏运营（反外挂）(J10221)",
+          "external_code": "J10221",
+          "source_record_id": "J10221",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 68,
+      "source_record_id": "C00083897",
+      "name": "张艺腾",
+      "hire_position": "技术美术TA",
+      "hire_date_source": 44753,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "3f2e0c9d-5854-430e-9958-6d58dc8ba3b6",
+      "first_delivery_value": "df7c048b-35cd-464f-a4b0-11f966d6894b",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "7a5a2fad-5b27-46c0-821f-f5a4c0747095",
+          "title": "技术美术TA(J10190)",
+          "external_code": "J10190",
+          "source_record_id": "J10190",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "9fec3240-84a7-4b5f-9415-60bfd2888f5f",
+          "title": "技术美术开发工程师(J10140)",
+          "external_code": "J10140",
+          "source_record_id": "J10140",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 69,
+      "source_record_id": "C00079718",
+      "name": "周全",
+      "hire_position": "技术美术开发工程师",
+      "hire_date_source": 44746,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "c0f9911f-9de3-46d6-a969-65bf6c1eda17",
+      "first_delivery_value": "108f1fdb-e86f-40f8-b253-1fef4653ee62",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "9fec3240-84a7-4b5f-9415-60bfd2888f5f",
+          "title": "技术美术开发工程师(J10140)",
+          "external_code": "J10140",
+          "source_record_id": "J10140",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 70,
+      "source_record_id": "C00093522",
+      "name": "李坤",
+      "hire_position": "游戏测试工程师",
+      "hire_date_source": 44767,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "游戏测试工程师",
+      "generic_position_code": null,
+      "last_delivery_value": "f2f4474e-353c-47ee-a932-9432e514172f",
+      "first_delivery_value": "401b4e73-f134-4877-a3ad-9fba877a7ac5",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "678eb2f5-4b2b-419c-ab2c-1fa16669d790",
+          "title": "游戏测试工程师(J10065)",
+          "external_code": "J10065",
+          "source_record_id": "J10065",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "27db3c3e-54fb-4563-acdb-6f072edb558a",
+          "title": "游戏测试工程师(J10173)",
+          "external_code": "J10173",
+          "source_record_id": "J10173",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联多个招聘职位，需人工复核"
+    },
+    {
+      "source_row": 71,
+      "source_record_id": "C00080223",
+      "name": "陈致雅",
+      "hire_position": "商务合作(海外)",
+      "hire_date_source": 44550,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "1ff474fd-7709-4f00-8b96-b68860a16901",
+      "first_delivery_value": "8ae2864f-8fa6-495c-99d9-b0acf1becf83",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "9eb65077-678c-4302-a8a5-34b6cb219a1e",
+          "title": "商务合作(海外)(J10179)",
+          "external_code": "J10179",
+          "source_record_id": "J10179",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "da5f19ed-e78d-4dbe-b1fd-5c21d806ef28",
+          "title": "营销策划专员(J10143)",
+          "external_code": "J10143",
+          "source_record_id": "J10143",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 72,
+      "source_record_id": "C00093864",
+      "name": "张天淇",
+      "hire_position": "产品经理助理",
+      "hire_date_source": 44739,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "09bcbe44-63f8-4347-8664-ecbcabc4db9a",
+      "first_delivery_value": "e4db5860-2928-4f4a-9c70-2ec1cd367a0c",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "0180d233-8cfd-45d6-882c-5a4137c2fe22",
+          "title": "产品经理助理(J10297)",
+          "external_code": "J10297",
+          "source_record_id": "J10297",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 73,
+      "source_record_id": "C00089086",
+      "name": "周路路",
+      "hire_position": "U3D开发工程师",
+      "hire_date_source": 44672,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "1b44c8f9-e5b9-4a33-809d-da258aad51c2",
+      "first_delivery_value": "ea0a0f66-6f84-4995-ad15-0e35b4a1b24e",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "c412e246-eaa2-49bd-8b6f-8602c9a8cbf4",
+          "title": "U3D开发工程师(J10205)",
+          "external_code": "J10205",
+          "source_record_id": "J10205",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 74,
+      "source_record_id": "C00085228",
+      "name": "杨连超",
+      "hire_position": "资深枪械原画设计师",
+      "hire_date_source": 44725,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "ff44a316-b453-416e-bd76-70f458aaa5d4",
+      "first_delivery_value": "b69a69be-083c-4cd8-b461-10eef14f7b3e",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "1357d692-901b-43e0-8ad6-b52933d46443",
+          "title": "枪械（硬表面）原画设计师-SOC(J10161)",
+          "external_code": "J10161",
+          "source_record_id": "J10161",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "6cf5e971-3042-421e-b119-6db248d210ef",
+          "title": "资深枪械原画设计师(J10071)",
+          "external_code": "J10071",
+          "source_record_id": "J10071",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 75,
+      "source_record_id": "C00084735",
+      "name": "胡晔明",
+      "hire_position": "U3D开发工程师",
+      "hire_date_source": 44616,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "06ab7519-1d96-470c-9e0b-0833f025422b",
+      "first_delivery_value": "00d1d656-8dd5-4658-8111-9853f1a4c7b9",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "1a26c865-89da-48f8-ba12-9db7a871a3c9",
+          "title": "U3D开发工程师(J10102)",
+          "external_code": "J10102",
+          "source_record_id": "J10102",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 76,
+      "source_record_id": "C00084504",
+      "name": "李晓夫",
+      "hire_position": "devops工程师",
+      "hire_date_source": 44578,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "3531f7ce-63ad-4f30-bc66-a89a82a52af8",
+      "first_delivery_value": "38baf54f-17d6-4097-9fa1-f44073fe7dd7",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "860195a3-b8b2-46e7-aa99-5ca52242d68d",
+          "title": "devops工程师(J10053)",
+          "external_code": "J10053",
+          "source_record_id": "J10053",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 77,
+      "source_record_id": "C00089225",
+      "name": "许志伟",
+      "hire_position": "枪械原画",
+      "hire_date_source": 44735,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "7799ad56-242d-4566-9f86-bfb77a633eb0",
+      "first_delivery_value": "8b9918c0-4b9f-494c-8f55-de0b6ff37270",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "76567b0f-9367-49d4-8377-937987da8e05",
+          "title": "枪械原画(J10086)",
+          "external_code": "J10086",
+          "source_record_id": "J10086",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "1116e614-6cf3-4fa8-84f3-617575539685",
+          "title": "武器原画设计师-ROG(J10240)",
+          "external_code": "J10240",
+          "source_record_id": "J10240",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 78,
+      "source_record_id": "C00083512",
+      "name": "魏丽霞",
+      "hire_position": "员工关系实习生",
+      "hire_date_source": 44532,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": "人力资源实习生",
+      "generic_position_code": null,
+      "last_delivery_value": "88ab710a-ec9e-466d-97ba-f77f3a39f175",
+      "first_delivery_value": "a1ff16d9-1e3e-4d65-b11f-07cba9f849b4",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "2ca4ea14-85bc-4226-b114-0d03d7e84c33",
+          "title": "人力资源实习生(J10048)",
+          "external_code": "J10048",
+          "source_record_id": "J10048",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "2c9ef7e3-dc8b-4bda-99f7-96477c94f420",
+          "title": "员工关系实习生(J10049)",
+          "external_code": "J10049",
+          "source_record_id": "J10049",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "已关联多个招聘职位，需人工复核"
+    },
+    {
+      "source_row": 79,
+      "source_record_id": "C00011202",
+      "name": "欧阳榜",
+      "hire_position": "游戏服务端开发",
+      "hire_date_source": 44676,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "930ef5ce-1765-445e-8cbf-ea0cc0ac152b",
+      "first_delivery_value": "8a2c4781-41c2-47bb-ac51-1aac3f89217d",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "25d7082e-ff02-4034-b8b0-0cb8cad859b9",
+          "title": "游戏服务端开发(J10231)",
+          "external_code": "J10231",
+          "source_record_id": "J10231",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 80,
+      "source_record_id": "C00090464",
+      "name": "解德据",
+      "hire_position": "游戏服务端开发",
+      "hire_date_source": 44641,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "8397da38-0f34-4469-a507-23e822abce47",
+      "first_delivery_value": "4a2776ea-4989-4c04-84a8-efe51afde9ff",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "25d7082e-ff02-4034-b8b0-0cb8cad859b9",
+          "title": "游戏服务端开发(J10231)",
+          "external_code": "J10231",
+          "source_record_id": "J10231",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 81,
+      "source_record_id": "C00078780",
+      "name": "张丛轩",
+      "hire_position": "高级场景模型",
+      "hire_date_source": 44465,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "c2af8ca0-ef4a-4126-85c0-37df8a5873a4",
+      "first_delivery_value": "4f813ad8-1652-4281-ba29-1dbc470133d4",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "e2f7f41d-8770-4fa7-bb3c-54eee4e169b3",
+          "title": "高级场景模型(J10095)",
+          "external_code": "J10095",
+          "source_record_id": "J10095",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 82,
+      "source_record_id": "C00091956",
+      "name": "唐龙峰",
+      "hire_position": "U3D开发工程师",
+      "hire_date_source": 44693,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "99b52b9f-a34c-476d-86e3-8d5ef3191ec2",
+      "first_delivery_value": "42e6313a-72ff-417f-8598-06db9ce3504c",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "1a26c865-89da-48f8-ba12-9db7a871a3c9",
+          "title": "U3D开发工程师(J10102)",
+          "external_code": "J10102",
+          "source_record_id": "J10102",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "287658e4-7950-4938-9641-3f704e4dcaa5",
+          "title": "UE4客户端开发(J10099)",
+          "external_code": "J10099",
+          "source_record_id": "J10099",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "43636377-b1a6-4058-9b4d-f8a4fed94659",
+          "title": "客户端开发工程师（生死狙击2专场）(J10266)",
+          "external_code": "J10266",
+          "source_record_id": "J10266",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 83,
+      "source_record_id": "C00080431",
+      "name": "危邵明",
+      "hire_position": "U3D开发工程师",
+      "hire_date_source": 44634,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "54ce6889-7f6b-44e4-989f-a586114e9818",
+      "first_delivery_value": "0580b804-3437-42db-b44e-8e1578b3dbba",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "855f5fdc-9193-4952-8ec8-7043a438536c",
+          "title": "U3D开发工程师(J10104)",
+          "external_code": "J10104",
+          "source_record_id": "J10104",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "c412e246-eaa2-49bd-8b6f-8602c9a8cbf4",
+          "title": "U3D开发工程师(J10205)",
+          "external_code": "J10205",
+          "source_record_id": "J10205",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 84,
+      "source_record_id": "C00086395",
+      "name": "李伯约",
+      "hire_position": "商务助理",
+      "hire_date_source": 44606,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "6f3d1050-5039-4df0-b235-85f173568837",
+      "first_delivery_value": "aeed64d9-fdfd-4e1d-be94-fea958098487",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "3b829a94-baec-42f7-9041-50e430dc18ef",
+          "title": "商务助理(J10215)",
+          "external_code": "J10215",
+          "source_record_id": "J10215",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 85,
+      "source_record_id": "C00075050",
+      "name": "禹顺",
+      "hire_position": "剧情策划",
+      "hire_date_source": 44487,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "3dc2c393-c129-4ab5-bcbd-167d7dc994e7",
+      "first_delivery_value": "6fe323ea-0782-4a43-bbd1-20a54178de76",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "18a041e1-5199-43d3-b68a-dd53c3b56e6f",
+          "title": "剧情策划(J10167)",
+          "external_code": "J10167",
+          "source_record_id": "J10167",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 86,
+      "source_record_id": "C00093625",
+      "name": "宋宛瑜",
+      "hire_position": "客户端开发工程师（生死狙击2专场）",
+      "hire_date_source": 44746,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "58f95e8a-b701-46eb-8920-410f56c64d40",
+      "first_delivery_value": "54b655ae-485f-49c2-a372-2916949b820c",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "43636377-b1a6-4058-9b4d-f8a4fed94659",
+          "title": "客户端开发工程师（生死狙击2专场）(J10266)",
+          "external_code": "J10266",
+          "source_record_id": "J10266",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 87,
+      "source_record_id": "C00080914",
+      "name": "刘重阳",
+      "hire_position": "游戏分镜师",
+      "hire_date_source": 44532,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "f3afa9e9-ee02-4806-9749-5097c55ceb7f",
+      "first_delivery_value": "ddffbdb6-71ba-495d-8691-7eb0eca0b0f8",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "1695c5e1-69ff-4ceb-bb33-51c2da5f7645",
+          "title": "游戏分镜师(J10155)",
+          "external_code": "J10155",
+          "source_record_id": "J10155",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 88,
+      "source_record_id": "C00083931",
+      "name": "李仲豪",
+      "hire_position": "国内发行总监/VP",
+      "hire_date_source": 44669,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "a474821a-e722-4000-8c10-66aeb1b2a486",
+      "first_delivery_value": "b4f1a1f9-5e6a-4443-8483-fab2ba2895d5",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "500ff377-8245-49ff-9b66-ccd445ef84e0",
+          "title": "国内发行总监/VP(J10016)",
+          "external_code": "J10016",
+          "source_record_id": "J10016",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 89,
+      "source_record_id": "C00091210",
+      "name": "何昳",
+      "hire_position": "行政前台",
+      "hire_date_source": 44644,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "27d34fc4-310e-4573-83b8-6c8c8f23ed9b",
+      "first_delivery_value": "2dbe43c6-c5bd-44df-abb1-c1a616d6dac9",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "2dd52a0c-8948-4c1e-a09c-d2d7fe28868b",
+          "title": "行政前台(J10052)",
+          "external_code": "J10052",
+          "source_record_id": "J10052",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 90,
+      "source_record_id": "C00088232",
+      "name": "杨书海",
+      "hire_position": "服务端开发工程师",
+      "hire_date_source": 44606,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "80a64f3d-dcd2-4271-8893-acff1cd8c4a0",
+      "first_delivery_value": "6163a515-fba6-4d59-9c1b-ef6c46449f8c",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "212d4fe1-a2f4-47da-afa6-69ec0253a553",
+          "title": "服务端开发工程师(J10056)",
+          "external_code": "J10056",
+          "source_record_id": "J10056",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 91,
+      "source_record_id": "C00084787",
+      "name": "陈瀚达",
+      "hire_position": "服务端开发工程师",
+      "hire_date_source": 44571,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "14b00921-9a90-4f41-a716-46669cda8162",
+      "first_delivery_value": "c6f60793-2f4a-4138-b66c-ee55cebae62d",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "212d4fe1-a2f4-47da-afa6-69ec0253a553",
+          "title": "服务端开发工程师(J10056)",
+          "external_code": "J10056",
+          "source_record_id": "J10056",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 92,
+      "source_record_id": "C00090512",
+      "name": "曹明森",
+      "hire_position": "UE4客户端开发",
+      "hire_date_source": 44676,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "cdfa52ff-9806-4883-9a31-ebe4dc5c7293",
+      "first_delivery_value": "2d99d932-d341-40af-bd36-6e8f5818c52a",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "287658e4-7950-4938-9641-3f704e4dcaa5",
+          "title": "UE4客户端开发(J10099)",
+          "external_code": "J10099",
+          "source_record_id": "J10099",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 93,
+      "source_record_id": "C00085846",
+      "name": "袁悦韬",
+      "hire_position": "游戏策划实习生",
+      "hire_date_source": 44585,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "a09c1126-0d9d-48b0-89be-d74046a17fd2",
+      "first_delivery_value": "f3d0abb7-bb11-4709-9eb8-d58543815e24",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "83eb773b-2e55-4fed-856a-6ae1370c6ff5",
+          "title": "游戏策划实习生(J10172)",
+          "external_code": "J10172",
+          "source_record_id": "J10172",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 94,
+      "source_record_id": "C00066408",
+      "name": "李康雨",
+      "hire_position": "新媒体运营",
+      "hire_date_source": 44652,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "da0822eb-9396-47c3-9b26-a387283815dd",
+      "first_delivery_value": "25239618-9316-4661-97c7-db1831d1ef6e",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "3971e109-9bfb-4267-8dee-e570cce769bb",
+          "title": "新媒体运营(J10174)",
+          "external_code": "J10174",
+          "source_record_id": "J10174",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 95,
+      "source_record_id": "C00088453",
+      "name": "周飞",
+      "hire_position": "服务端开发工程师",
+      "hire_date_source": 44613,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "c020d826-254e-4050-b3d9-05870a5c4696",
+      "first_delivery_value": "99499743-43ed-4117-816f-32100332b360",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "212d4fe1-a2f4-47da-afa6-69ec0253a553",
+          "title": "服务端开发工程师(J10056)",
+          "external_code": "J10056",
+          "source_record_id": "J10056",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 96,
+      "source_record_id": "C00079433",
+      "name": "宋辉",
+      "hire_position": "资深U3D开发工程师",
+      "hire_date_source": 44490,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "390f5f60-b62e-4968-b01d-acb835533d69",
+      "first_delivery_value": "08977f31-608a-4ef9-a7df-cf753acb6673",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "90e0ffb5-0b39-451c-9f2f-71fc7908a9c5",
+          "title": "资深U3D开发工程师(J10103)",
+          "external_code": "J10103",
+          "source_record_id": "J10103",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 97,
+      "source_record_id": "C00086445",
+      "name": "郑伟伟",
+      "hire_position": "技术策划（gameplay）",
+      "hire_date_source": 44606,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "dc713458-fd77-47c3-86b6-779c557db42b",
+      "first_delivery_value": "36cb7101-8326-4608-b826-9d6458f3dffe",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "61fb5c70-b466-4d23-8165-4f2211a570c8",
+          "title": "技术策划（gameplay）(J10207)",
+          "external_code": "J10207",
+          "source_record_id": "J10207",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 98,
+      "source_record_id": "C00079504",
+      "name": "黄国强",
+      "hire_position": "devops工程师",
+      "hire_date_source": 44477,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "0b622c83-452d-48db-8fdb-16cca8de3585",
+      "first_delivery_value": "cd49294c-bcb0-4326-a6a8-c64b34a4d846",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "88818f51-b825-489d-8562-74dcaf6cefeb",
+          "title": "devops工程师(J10168)",
+          "external_code": "J10168",
+          "source_record_id": "J10168",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "6ac7ec7d-24dc-436f-9c13-4f2848bae0c2",
+          "title": "运维工程师(J10058)",
+          "external_code": "J10058",
+          "source_record_id": "J10058",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 99,
+      "source_record_id": "C00085410",
+      "name": "顾怡雯",
+      "hire_position": "高级财务经理",
+      "hire_date_source": 44613,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "61fdccb9-9e27-48ca-b76e-f7b4047498ef",
+      "first_delivery_value": "a9f1d7a3-4062-4346-a20a-d63007f829eb",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "c59c36d3-708c-4b5c-b6b2-d9629d87676d",
+          "title": "资深财务分析(J10035)",
+          "external_code": "J10035",
+          "source_record_id": "J10035",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "300de543-fa46-42fe-86a4-93989b88ceb6",
+          "title": "高级财务经理(J10224)",
+          "external_code": "J10224",
+          "source_record_id": "J10224",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 100,
+      "source_record_id": "C00088466",
+      "name": "毛建伟",
+      "hire_position": "Java服务端开发工程师（大厅）",
+      "hire_date_source": 44669,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "ded6e562-cec2-4659-981b-b7e1c9f402c5",
+      "first_delivery_value": "bc8d8c97-ae47-41ed-b410-9e17a066f019",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "29ce2277-0eca-4ab5-9acd-e19206816ada",
+          "title": "Java服务端开发工程师（大厅）(J10060)",
+          "external_code": "J10060",
+          "source_record_id": "J10060",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    },
+    {
+      "source_row": 101,
+      "source_record_id": "C00085273",
+      "name": "刘皓",
+      "hire_position": "员工关系实习生",
+      "hire_date_source": 44567,
+      "hire_status_db": "不确定",
+      "dedicated_position_key": null,
+      "generic_position_code": null,
+      "last_delivery_value": "890a63ee-453e-449f-a2bc-92c2f25250e6",
+      "first_delivery_value": "25e5d501-d64b-4513-b1b1-de05429b3156",
+      "source_position_key_matches": [],
+      "linked_positions": [
+        {
+          "position_id": "2c9ef7e3-dc8b-4bda-99f7-96477c94f420",
+          "title": "员工关系实习生(J10049)",
+          "external_code": "J10049",
+          "source_record_id": "J10049",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        },
+        {
+          "position_id": "33e0be95-7ed0-43f8-82ef-100f71102b70",
+          "title": "游戏运营实习生(J10142)",
+          "external_code": "J10142",
+          "source_record_id": "J10142",
+          "source_system": "beisen",
+          "status": "draft",
+          "archived_at": null
+        }
+      ],
+      "diagnosis": "源文件专用职位键为空；因整表存在该表头，系统按规则不回退普通职位编号"
+    }
+  ]
+}
