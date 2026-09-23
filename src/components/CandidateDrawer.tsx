@@ -1011,6 +1011,7 @@ export function CandidateDrawer({
                     </dl>
                   </section>
                   <AdvancedRecordSection title="来源记录" records={candidate.source_records ?? []} sensitiveLoaded={sensitiveLoaded} />
+                  <AdvancedRecordSection title="历史评估原始记录" records={assessments} sensitiveLoaded={sensitiveLoaded} />
                   <AdvancedRecordSection title="职位申请来源" records={candidate.position_sources ?? []} sensitiveLoaded={sensitiveLoaded} />
                   <AdvancedRecordSection title="授权与隐私记录" records={candidate.consents ?? []} sensitiveLoaded={sensitiveLoaded} />
                 </div>
