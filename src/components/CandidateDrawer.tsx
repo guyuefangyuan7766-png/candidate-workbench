@@ -33,11 +33,13 @@ import {
 import type {
   Candidate,
   CandidateActivity,
+  CandidateAttachment,
   CandidateDraft,
   CandidateNote,
   Position,
   TalentPool,
 } from "../types";
+import { attachmentApi } from "../api";
 import { candidateDisplayAge, candidateHireStatusText, formatDate, formatDateTime, hasHireInformation } from "../utils";
 import {
   displayApplicantNumber,
@@ -51,6 +53,7 @@ import {
 } from "../profile-section-display";
 import { TwAvatar } from "../views/TwAvatar";
 import { CandidateAttachmentsPanel } from "./AttachmentWorkflow";
+import { ResumePreviewPane } from "./ResumePreviewPane";
 import { CandidateForm } from "./CandidateForm";
 
 export type DrawerMode = "detail" | "create" | "edit" | null;
@@ -321,6 +324,9 @@ export function CandidateDrawer({
   const [noteText, setNoteText] = useState("");
   const [selectedPositionId, setSelectedPositionId] = useState("");
   const [selectedPoolId, setSelectedPoolId] = useState("");
+  const [resumeAttachments, setResumeAttachments] = useState<CandidateAttachment[]>([]);
+  const [attachmentsLoading, setAttachmentsLoading] = useState(false);
+  const [attachmentsError, setAttachmentsError] = useState("");
 
   useEffect(() => {
     setTab(initialTab);
@@ -328,6 +334,32 @@ export function CandidateDrawer({
     setSelectedPositionId("");
     setSelectedPoolId("");
   }, [candidate?.id, mode, initialTab]);
+
+  // 简历预览要在抽屉打开时就渲染，不能等用户切到「履历」页签再加载。
+  useEffect(() => {
+    if (mode !== "detail" || !candidate?.id) {
+      setResumeAttachments([]);
+      setAttachmentsError("");
+      return;
+    }
+    let cancelled = false;
+    setAttachmentsLoading(true);
+    setAttachmentsError("");
+    attachmentApi
+      .listForCandidate(candidate.id)
+      .then((items) => {
+        if (!cancelled) setResumeAttachments(items);
+      })
+      .catch((cause: unknown) => {
+        if (!cancelled) setAttachmentsError(cause instanceof Error ? `简历加载失败：${cause.message}` : "简历加载失败");
+      })
+      .finally(() => {
+        if (!cancelled) setAttachmentsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [candidate?.id, mode]);
 
   const availablePositions = useMemo(() => {
     const linkedIds = new Set(candidate?.positions.map((position) => position.id) ?? []);
@@ -454,7 +486,9 @@ export function CandidateDrawer({
   return (
     <div className="tw-drawer-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !busy && onClose()}>
       <aside
-        className={`tw-drawer${mode === "detail" ? "" : " tw-drawer-wide"}`}
+        className={`tw-drawer${mode === "detail"
+          ? (resumeAttachments.length ? " tw-drawer-resume" : "")
+          : " tw-drawer-wide"}`}
         role="dialog"
         aria-modal="true"
         aria-label={title}
@@ -543,7 +577,11 @@ export function CandidateDrawer({
               <button className={tab === "advanced" ? "active" : ""} type="button" role="tab" aria-selected={tab === "advanced"} onClick={() => setTab("advanced")}>
                 高级信息
               </button>
-            </div>            <div className="tw-drawer-body">
+            </div>            <div className={`tw-drawer-body${resumeAttachments.length ? " tw-drawer-body-split" : ""}`}>
+              {resumeAttachments.length ? (
+                <ResumePreviewPane attachments={resumeAttachments} loading={attachmentsLoading} error={attachmentsError} />
+              ) : null}
+              <div className="tw-detail-content">
               {tab === "profile" && (
                 <div className="tw-drawer-sections">
                   {(hasContact || hasDemographics || (!sensitiveLoaded && onRevealSensitive)) && (
@@ -1016,6 +1054,7 @@ export function CandidateDrawer({
                   <AdvancedRecordSection title="授权与隐私记录" records={candidate.consents ?? []} sensitiveLoaded={sensitiveLoaded} />
                 </div>
               )}
+            </div>
             </div>
             <footer className="tw-drawer-foot">
               {candidate.archived_at ? (

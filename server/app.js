@@ -1292,6 +1292,31 @@ export function createApp(options = {}) {
     })
   })
 
+  // 简历原件内嵌预览。资产里的 origin 有六成其实是 HTML，必须禁脚本、禁外部资源，
+  // 否则等于把候选人上传的内容当页面跑。
+  app.get('/api/attachments/:id/content', (req, res, next) => {
+    const attachment = attachments.resolveDownload(req.params.id)
+    res.setHeader('Cache-Control', 'private, no-store')
+    res.setHeader('Content-Type', attachment.mime_type)
+    res.setHeader('Content-Length', String(attachment.file_size))
+    res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(attachment.filename)}`)
+    res.setHeader('X-Content-Type-Options', 'nosniff')
+    // 全局中间件设了 X-Frame-Options: DENY 与 frame-ancestors 'none'，同源也不许内嵌，
+    // 这里必须按单条响应覆盖，否则 iframe 预览会被浏览器拒绝。
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN')
+    if (attachment.mime_type === 'application/pdf') {
+      res.setHeader('Content-Security-Policy', "frame-ancestors 'self'")
+    } else {
+      res.setHeader(
+        'Content-Security-Policy',
+        "default-src 'none'; img-src data: blob:; style-src 'unsafe-inline'; font-src data:; sandbox; frame-ancestors 'self'",
+      )
+    }
+    res.sendFile(attachment.path, { dotfiles: 'deny' }, (error) => {
+      if (error) next(error)
+    })
+  })
+
   app.get('/api/resume-search/status', asyncRoute(async (req, res) => {
     privateNoStore(res)
     const status = await resumeSearch.status()

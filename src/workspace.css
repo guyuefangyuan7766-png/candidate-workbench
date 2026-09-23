@@ -2642,3 +2642,81 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* 简历预览（第十五轮）：详情抽屉改为左右两栏，左侧原始简历、右侧档案内容 */
+.tw-drawer-resume { --tw-drawer: min(1360px, 96vw); }
+.tw-drawer-body-split {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: 18px;
+  align-items: start;
+}
+.tw-detail-content { min-width: 0; }
+.tw-resume-pane {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.tw-resume-toolbar { display: flex; align-items: center; gap: 8px; min-height: 30px; }
+.tw-resume-tabs { display: inline-flex; border: 1px solid var(--tw-line); border-radius: 8px; overflow: hidden; }
+.tw-resume-tabs button {
+  border: 0;
+  background: transparent;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--tw-muted);
+}
+.tw-resume-tabs button.active { background: var(--tw-accent-soft); color: var(--tw-accent-ink); font-weight: 600; }
+.tw-resume-title { font-size: 13px; }
+.tw-resume-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--tw-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tw-resume-frame {
+  border: 1px solid var(--tw-line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--tw-white);
+  height: calc(100vh - 268px);
+  min-height: 420px;
+}
+.tw-resume-frame iframe { width: 100%; height: 100%; border: 0; display: block; background: var(--tw-white); }
+.tw-resume-frame img { width: 100%; height: 100%; object-fit: contain; display: block; background: var(--tw-surface); }
+.tw-resume-text {
+  margin: 0;
+  padding: 14px;
+  height: 100%;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  line-height: 1.65;
+}
+.tw-resume-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 220px;
+  height: 100%;
+  padding: 20px;
+  text-align: center;
+  color: var(--tw-muted);
+  font-size: 13px;
+}
+@media (max-width: 1279px) {
+  .tw-drawer-resume { --tw-drawer: 100vw; }
+  .tw-drawer-body-split { grid-template-columns: 1fr; }
+  .tw-resume-pane { position: static; }
+  .tw-resume-frame { height: 62vh; min-height: 360px; }
+}

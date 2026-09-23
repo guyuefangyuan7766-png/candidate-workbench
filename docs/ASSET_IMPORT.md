@@ -101,3 +101,30 @@
 - `scripts/import-talent-asset.mjs`：导入器，支持 `--limit` 小样本、`--reset` 清空重来。
 - 下载驱动与对账脚本在开发侧 `C:\Users\cboy\Documents\北森\tmp\agent-export\`
   （`sync-download.py`、`drill-incremental-diff.mjs`、`verify-full-import.mjs`）。
+
+## 简历内嵌预览
+
+候选人详情抽屉改成左右两栏：**左侧原始简历、右侧档案页签**，参考北森/字节的简历查看方式。
+
+- 优先展示候选人自己上传的原始简历（`attachment_type='resume_origin'`），
+  没有原件时退回标准简历；两者都有时用页签切换。
+- 服务端 `GET /api/attachments/:id/content` 以 `inline` 方式返回文件。
+  全局中间件设置了 `X-Frame-Options: DENY` 与 `frame-ancestors 'none'`，
+  同源也不允许内嵌，因此该路由按单条响应覆盖为 `SAMEORIGIN` 与 `frame-ancestors 'self'`。
+- **原件里六成是 HTML**，所以非 PDF 的响应额外加
+  `default-src 'none'; sandbox; frame-ancestors 'self'`：禁脚本、禁外部资源。
+  简历 HTML 里的外部/相对图片会被拦下显示为占位符——这是有意的安全行为，
+  不是渲染故障。
+- 按真实类型分别渲染：PDF 用 iframe 原生查看器、图片用 img、
+  HTML 用沙箱 iframe、纯文本/JSON 取回后按 `pre` 展示、其余类型给出下载入口。
+
+## 已知缺口（2026-09-23 实测）
+
+这三项是**上游资产本身缺数据**，不是导入遗漏；详见 `docs/PHASE_PLAN.md` 的对应阶段。
+
+| 缺口 | 实测结果 |
+| --- | --- |
+| 9 类履历区块全空 | `skill` / `certificate` / `lang` / `internship` / `awards` / `train` / `writings` / `schoolCadre` / `schoolPractice` 全量 118,918 份都是空数组；抽样 97 份原件正文含"实习"的档案，这些区块同样全为 0 |
+| 结构化履历覆盖不足 | 19,610 人（16.5%）完全没有教育/工作/项目区块；极端例子郜钰结构化仅 67 字符，原件 171,744 字节 |
+| 证件照没有文件本体 | 29.6% 的档案有 `IDPhoto`，但 100% 是 `dfs://` 内部路径；资产没有 `additional/` 目录，文件索引只有 `resume-standard` / `resume-origin` 两种 kind |
+| 面试评语几乎没有 | 14,269 条评价里只有 **132 条（0.9%）** 有叙述性正文，涉及 **70 位候选人**；其余只有结论码（1/2/3）与分数。设计文档规定的 `evaluations/<interviewId>.json`（接口 ⑧）在资产里不存在 |
