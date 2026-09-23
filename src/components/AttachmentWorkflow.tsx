@@ -958,6 +958,8 @@ function attachmentKindTone(attachment: CandidateAttachment) {
 }
 function attachmentParseLabel(status: string) {
   if (["ready", "parsed"].includes(status)) return "";
+  // 资产同步的简历只存档不解析，用 pending 表示；它不是"解析中"。
+  if (status === "pending") return "未解析";
   return status === "failed" ? "解析失败" : "解析中";
 }
 
