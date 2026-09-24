@@ -50,18 +50,56 @@ $agentVariableNames = @(
     "ATTACHMENT_VISUAL_MAX_TOTAL_IMAGE_BYTES",
     "ATTACHMENT_VISUAL_MAX_TEXT_CHARACTERS",
     "ATTACHMENT_VISUAL_MAX_RECORDS",
-    "ATTACHMENT_VISUAL_MAX_RESPONSE_BYTES"
+    "ATTACHMENT_VISUAL_MAX_RESPONSE_BYTES",
+    # Authentication and LDAP (2026-09-21). Any variable missing from this list
+    # is explicitly cleared from the process environment by the else-branch
+    # below, which would make the service start without its auth configuration.
+    "AUTH_ENABLED",
+    "AUTH_ALLOW_NON_LOOPBACK",
+    "AUTH_BIND_HOSTS",
+    "AUTH_COOKIE_SECURE",
+    "AUTH_COOKIE_NAME",
+    "AUTH_TRUST_PROXY",
+    "AUTH_SESSION_TTL_MS",
+    "AUTH_SESSION_ABSOLUTE_TTL_MS",
+    "AUTH_SESSION_REVOKE_ALL",
+    "AUTH_DB_PATH",
+    "AUTH_ALLOWLIST_FILE",
+    "AUTH_ALLOWED_USERS",
+    "AUTH_ALLOWLIST_RELOAD_MS",
+    "AUTH_LOGIN_RATE_LIMIT",
+    "AUTH_LOGIN_RATE_WINDOW_MS",
+    "AUTH_LOGIN_IP_RATE_LIMIT",
+    "AUTH_LOGIN_IP_RATE_WINDOW_MS",
+    "LDAP_URL",
+    "LDAP_USER_DN_TEMPLATE",
+    "LDAP_UID_ATTRIBUTE",
+    "LDAP_NAME_ATTRIBUTE",
+    "LDAP_EMAIL_ATTRIBUTE",
+    "LDAP_ATTRIBUTE_LOOKUP",
+    "LDAP_ALLOW_PLAINTEXT",
+    "LDAP_STARTTLS",
+    "LDAP_TIMEOUT_MS",
+    "LDAP_BIND_DN",
+    "LDAP_BIND_PASSWORD",
+    "LDAP_USER_SEARCH_BASE",
+    "LDAP_USER_FILTER",
+    # Listening port. The deployment guide lists PORT as configurable, so it
+    # must travel the same sync path; otherwise a process-level override is
+    # cleared below and the service always falls back to 4173.
+    "PORT"
 )
 foreach ($name in $agentVariableNames) {
     $processValue = [Environment]::GetEnvironmentVariable($name, "Process")
     $userValue = [Environment]::GetEnvironmentVariable($name, "User")
-    # User-scoped model and gateway settings are the launcher contract. This
-    # prevents a stale parent shell from silently retaining an older model.
-    if (-not [string]::IsNullOrWhiteSpace($userValue)) {
-        [Environment]::SetEnvironmentVariable($name, $userValue, "Process")
-    } elseif ([string]::IsNullOrWhiteSpace($processValue)) {
-        [Environment]::SetEnvironmentVariable($name, $null, "Process")
-    }
+    # Machine scope is the contract when the service runs as a scheduled task
+    # under SYSTEM, which cannot see another account's User-scoped variables.
+    # User scope still wins when set, so per-user overrides keep working.
+    $machineValue = [Environment]::GetEnvironmentVariable($name, "Machine")
+    $resolved = $null
+    if (-not [string]::IsNullOrWhiteSpace($userValue)) { $resolved = $userValue }
+    elseif (-not [string]::IsNullOrWhiteSpace($machineValue)) { $resolved = $machineValue }
+    [Environment]::SetEnvironmentVariable($name, $resolved, "Process")
 }
 
 # Workspace-specific search activation survives a normal launcher restart.
@@ -111,5 +149,19 @@ if (-not $dependenciesReady -or $installedHash -ne $lockHash) {
 & npm run build
 if ($LASTEXITCODE -ne 0) { throw "Frontend build failed." }
 
-& npm start
-if ($LASTEXITCODE -ne 0) { throw "Application startup failed." }
+# Optional log file for the service process. Redirection is done by
+# Start-Process at the OS level: PowerShell 5.1 turns a native command's stderr
+# into a NativeCommandError, and with $ErrorActionPreference = 'Stop' that would
+# abort this script before the service ever starts.
+$logPath = [Environment]::GetEnvironmentVariable('TALENT_LOG_FILE', 'Process')
+if (-not [string]::IsNullOrWhiteSpace($logPath)) {
+    Write-Host ("Logging service output to: " + $logPath)
+    $service = Start-Process -FilePath 'node' -ArgumentList 'server/index.mjs' `
+        -WorkingDirectory $PSScriptRoot -NoNewWindow -PassThru `
+        -RedirectStandardOutput $logPath -RedirectStandardError ($logPath + '.err')
+    $service.WaitForExit()
+    if ($service.ExitCode -ne 0) { throw ("Application startup failed with exit code " + $service.ExitCode + ". See " + $logPath) }
+} else {
+    & node server/index.mjs
+    if ($LASTEXITCODE -ne 0) { throw "Application startup failed." }
+}

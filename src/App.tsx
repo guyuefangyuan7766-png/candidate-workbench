@@ -11,6 +11,7 @@ import {
   FolderKanban,
   LayoutDashboard,
   List,
+  Loader2,
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
@@ -27,14 +28,20 @@ import {
 import {
   candidateApi,
   candidateExportUrl,
+  authStatus,
   getAgentStatus,
+  getAuthSession,
   getDashboard,
+  logout as logoutRequest,
+  onUnauthorized,
   positionApi,
   talentPoolApi,
   ApiError,
   type CandidateDetail,
   type PermanentDeletePreview,
 } from "./api";
+import type { AuthUser } from "./auth";
+import { LoginPage } from "./components/LoginPage";
 import {
   POSITION_STATUSES,
   POSITION_STATUS_LABELS,
@@ -81,6 +88,10 @@ function toolPath(tool: ToolPage) {
 }
 type CandidateView = "list" | "grouped";
 type ArchiveFilter = "active" | "archived" | "all";
+type AuthState =
+  | { status: "checking"; user: null }
+  | { status: "anonymous"; user: null }
+  | { status: "authenticated"; user: AuthUser | null };
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "candidate-workbench.sidebar-collapsed";
 type PageSize = 20 | 50 | 100;
@@ -162,6 +173,8 @@ function errorMessage(error: unknown, fallback: string) {
 
 function App() {
   const initial = useMemo(initialRoute, []);
+  const [authState, setAuthState] = useState<AuthState>({ status: "checking", user: null });
+  const [loginNotice, setLoginNotice] = useState("");
   const [page, setPage] = useState<Page>(initial.page);
   const [activePositionId, setActivePositionId] = useState<string | null>(initial.positionId);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
@@ -329,6 +342,10 @@ function App() {
   }, [activePositionId]);
 
   const loadWorkspace = useCallback(async (showLoading = true) => {
+    // The workspace loader also runs from buttons and post-mutation refreshes,
+    // so it has to gate on the same rule as the boot effect: never call the
+    // business API while the session is unknown or absent.
+    if (authState.status !== "authenticated") return;
     if (showLoading) setWorkspaceLoading(true);
     setWorkspaceError("");
     try {
@@ -350,12 +367,38 @@ function App() {
       setRefreshVersion((current) => current + 1);
       setWorkspaceLoading(false);
     }
+  }, [authState.status]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const requiresAuth = await authStatus().then((status) => status.enabled).catch(() => false);
+      if (cancelled) return;
+      if (!requiresAuth) {
+        setAuthState({ status: "authenticated", user: null });
+        return;
+      }
+      const session = await getAuthSession().catch(() => null);
+      if (cancelled) return;
+      setAuthState(session ? { status: "authenticated", user: session.user } : { status: "anonymous", user: null });
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
+    return onUnauthorized(() => {
+      setLoginNotice("登录状态已过期，请重新登录。");
+      setAuthState((current) => (current.status === "anonymous" ? current : { status: "anonymous", user: null }));
+    });
+  }, []);
+
+  useEffect(() => {
+    if (authState.status !== "authenticated") return;
     void loadWorkspace();
     getAgentStatus().then((status) => setAgentConfigured(status.configured)).catch(() => setAgentConfigured(false));
-  }, [loadWorkspace]);
+  }, [authState.status, loadWorkspace]);
 
   const candidateListFilters = useMemo<CandidateFilters>(() => ({
     search: debouncedCandidateSearch || undefined,
@@ -1374,6 +1417,43 @@ function App() {
       ? "位候选人（含归档）"
       : "位在库候选人";
 
+  async function handleLogout() {
+    try {
+      await logoutRequest();
+    } catch {
+      // Even if the server call fails, the local session must not linger in
+      // the UI: the next protected request would only bounce back to login.
+    }
+    setLoginNotice("");
+    setAuthState({ status: "anonymous", user: null });
+  }
+
+  if (authState.status === "checking") {
+    return (
+      <div className="tw-login">
+        <div className="tw-login-card tw-login-wait" role="status" aria-live="polite">
+          <span className="tw-login-mark">
+            <strong>拾才</strong>
+            <small>让优秀的人更容易被看见</small>
+          </span>
+          <p><Loader2 className="tw-login-spin" size={16} aria-hidden="true" />正在校验登录状态…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (authState.status === "anonymous") {
+    return (
+      <LoginPage
+        notice={loginNotice}
+        onSuccess={(user) => {
+          setLoginNotice("");
+          setAuthState({ status: "authenticated", user });
+        }}
+      />
+    );
+  }
+
   return (
 
 
@@ -1387,6 +1467,8 @@ function App() {
         mobileOpen={sidebarOpen}
         assistantHistoryOpen={assistantPanel === "history"}
         agentConfigured={agentConfigured}
+        user={authState.user}
+        onLogout={() => void handleLogout()}
         title={title}
         onNavigate={navigate}
         onOpenTool={openTool}

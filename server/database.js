@@ -518,6 +518,9 @@ function migrateReadonlyAttachmentDatabase(db, { backfill = true } = {}) {
 }
 
 function migrateAgentSessionDatabase(db) {
+  // V14：AI 会话归属。补列必须发生在下面 CREATE INDEX 之前：升级既有库时
+  // 表已存在且没有 user_id，先执行建索引语句会直接报 "no such column"。
+  // 新建库的建表语句同样包含该列，ensureColumn 对它是幂等的空操作。
   db.exec(`
     CREATE TABLE IF NOT EXISTS agent_sessions (
       id TEXT PRIMARY KEY,
@@ -526,12 +529,19 @@ function migrateAgentSessionDatabase(db) {
       next_sequence INTEGER NOT NULL DEFAULT 1 CHECK(next_sequence >= 1),
       active_request_id TEXT,
       active_request_started_at TEXT,
+      -- 会话所有者。为空表示该会话在接入认证之前创建，不再对任何用户可见。
+      user_id TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       archived_at TEXT
     );
+  `)
+  ensureColumn(db, 'agent_sessions', 'user_id', 'TEXT')
+  db.exec(`
     CREATE INDEX IF NOT EXISTS agent_sessions_updated_idx
       ON agent_sessions(status, updated_at DESC, id);
+    CREATE INDEX IF NOT EXISTS agent_sessions_user_idx
+      ON agent_sessions(user_id, status, updated_at DESC, id);
 
     CREATE TABLE IF NOT EXISTS agent_messages (
       id TEXT PRIMARY KEY,
@@ -736,6 +746,19 @@ export function migrateV13Database(db) {
   db.prepare(`
     INSERT INTO schema_migrations(version, name, applied_at)
     VALUES (13, 'candidate_years_experience_raw', ?)
+    ON CONFLICT(version) DO UPDATE SET name = excluded.name
+  `).run(now())
+
+  // V14：AI 会话归属。给 agent_sessions 增加 user_id 并建立按用户查询的索引。
+  // 迁移本身只加列和索引，不判定或删除任何既有会话——历史会话在接入认证前
+  // 创建、没有归属信息，保持 user_id 为空即对所有人不可见。
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS agent_sessions_user_idx
+      ON agent_sessions(user_id, status, updated_at DESC, id);
+  `)
+  db.prepare(`
+    INSERT INTO schema_migrations(version, name, applied_at)
+    VALUES (14, 'agent_session_ownership', ?)
     ON CONFLICT(version) DO UPDATE SET name = excluded.name
   `).run(now())
 }

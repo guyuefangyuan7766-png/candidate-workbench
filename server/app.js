@@ -99,6 +99,7 @@ import {
 } from './resume-search.js'
 import { ResumeSearchService } from './resume-search-service.js'
 import { HybridSearchService } from './hybrid-search-service.js'
+import { AuthError } from './auth/ldap.js'
 
 export const DEFAULT_CANDIDATE_IMPORT_MAX_FILE_BYTES = 64 * 1024 * 1024
 export const DEFAULT_CANDIDATE_IMPORT_ASYNC_THRESHOLD_BYTES = 8 * 1024 * 1024
@@ -266,6 +267,14 @@ function privateNoStore(res) {
   res.setHeader('Cache-Control', 'private, no-store')
 }
 
+/**
+ * 当前请求的登录用户 ID。未启用认证时返回 null，此时业务库按单用户语义运行，
+ * 会话归属过滤不生效；启用认证后每个请求都会带上真实用户 ID。
+ */
+function authenticatedUserId(req) {
+  return req?.auth?.user?.id ?? null
+}
+
 function stageValues(db) {
   return listStages(db).map((stage) => stage.value)
 }
@@ -293,7 +302,19 @@ function setCors(req, res, next) {
   ])
   const loopbackOrigin = typeof origin === 'string'
     && /^http:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d{1,5})?$/.test(origin)
-  const originAllowed = !origin || allowed.has(origin) || loopbackOrigin
+  // Same-origin requests are always allowed. Comparing the Origin against the
+  // request's own Host keeps LAN deployments working behind a reverse proxy
+  // without maintaining an origin allowlist, and still rejects cross-site
+  // writes because those carry a different Origin than Host.
+  let sameOrigin = false
+  if (typeof origin === 'string') {
+    try {
+      sameOrigin = new URL(origin).host.toLowerCase() === String(req.headers.host ?? '').toLowerCase()
+    } catch {
+      sameOrigin = false
+    }
+  }
+  const originAllowed = !origin || allowed.has(origin) || loopbackOrigin || sameOrigin
   if (origin && originAllowed) {
     res.setHeader('Access-Control-Allow-Origin', origin)
     res.setHeader('Vary', 'Origin')
@@ -325,6 +346,7 @@ function paginatedPayload(result) {
 }
 
 export function createApp(options = {}) {
+  const auth = options.auth ?? null
   const databasePath = options.databasePath ?? (options.db ? null : configuredDatabasePath())
   const backgroundSearchMaintenance = !options.db && databasePath !== ':memory:'
   const db = options.db ?? openDatabase(databasePath, { synchronizeSearch: !backgroundSearchMaintenance })
@@ -576,6 +598,22 @@ export function createApp(options = {}) {
     db.prepare('SELECT 1').get()
     res.json({ status: 'ok', service: 'recruitment-api', timestamp: new Date().toISOString() })
   })
+
+  if (auth) {
+    app.post('/api/auth/login', auth.middleware.loginHandler)
+    app.post('/api/auth/logout', auth.middleware.requireSession, auth.middleware.logoutHandler)
+    app.get('/api/auth/session', auth.middleware.sessionHandler)
+    app.get('/api/auth/me', auth.middleware.requireSession, auth.middleware.meHandler)
+    // Public by design: it exposes only the authentication mode and allowlist
+    // file status, never allowlist contents, credentials or session data.
+    app.get('/api/auth/status', (req, res) => {
+      res.setHeader('Cache-Control', 'private, no-store')
+      res.json(auth.middleware.status())
+    })
+    // Mounted by prefix so every existing and future /api route is protected
+    // by default; only the paths in PUBLIC_API_PATHS stay anonymous.
+    app.use('/api', auth.middleware.guard)
+  }
 
   app.get('/api/stages', (req, res) => res.json({ data: listStages(db) }))
 
@@ -1312,52 +1350,52 @@ export function createApp(options = {}) {
   app.get('/api/agent/status', (req, res) => res.json(agent.status()))
   app.post('/api/agent/sessions', (req, res) => {
     privateNoStore(res)
-    res.status(201).json(agent.createSession(req.body ?? {}))
+    res.status(201).json(agent.createSession({ ...(req.body ?? {}), userId: authenticatedUserId(req) }))
   })
   app.get('/api/agent/sessions', (req, res) => {
     privateNoStore(res)
-    res.json(agent.listSessions(req.query))
+    res.json(agent.listSessions({ ...req.query, userId: authenticatedUserId(req) }))
   })
   app.get('/api/agent/sessions/:id/messages', (req, res) => {
     privateNoStore(res)
-    res.json(agent.listSessionMessages(req.params.id, req.query))
+    res.json(agent.listSessionMessages(req.params.id, { ...req.query, userId: authenticatedUserId(req) }))
   })
   app.get('/api/agent/sessions/:id/tasks', (req, res) => {
     privateNoStore(res)
-    res.json(agent.listTasks(req.params.id, req.query))
+    res.json(agent.listTasks(req.params.id, { ...req.query, userId: authenticatedUserId(req) }))
   })
   app.post('/api/agent/sessions/:id/messages', asyncRoute(async (req, res) => {
     privateNoStore(res)
-    const result = await agent.querySession(req.params.id, req.body ?? {})
+    const result = await agent.querySession(req.params.id, { ...(req.body ?? {}), userId: authenticatedUserId(req) })
     if (result.state === 'processing') res.setHeader('Retry-After', '1')
     const status = result.state === 'processing' ? 202 : result.replayed ? 200 : 201
     res.status(status).json(result)
   }))
   app.get('/api/agent/tasks/:task_id', (req, res) => {
     privateNoStore(res)
-    res.json(agent.getTask(req.params.task_id))
+    res.json(agent.getTask(req.params.task_id, authenticatedUserId(req)))
   })
   app.post('/api/agent/tasks/:task_id/cancel', (req, res) => {
     privateNoStore(res)
-    res.json(agent.cancelTask(req.params.task_id))
+    res.json(agent.cancelTask(req.params.task_id, authenticatedUserId(req)))
   })
   app.post('/api/agent/tasks/:task_id/retry-answer', asyncRoute(async (req, res) => {
     privateNoStore(res)
-    const result = await agent.retryTaskAnswer(req.params.task_id)
+    const result = await agent.retryTaskAnswer(req.params.task_id, authenticatedUserId(req))
     if (result.state === 'processing') res.setHeader('Retry-After', '1')
     res.status(result.state === 'processing' ? 202 : 200).json(result)
   }))
   app.get('/api/agent/sessions/:id', (req, res) => {
     privateNoStore(res)
-    res.json(agent.getSession(req.params.id))
+    res.json(agent.getSession(req.params.id, authenticatedUserId(req)))
   })
   app.patch('/api/agent/sessions/:id', (req, res) => {
     privateNoStore(res)
-    res.json(agent.updateSession(req.params.id, req.body ?? {}))
+    res.json(agent.updateSession(req.params.id, { ...(req.body ?? {}), userId: authenticatedUserId(req) }))
   })
   app.delete('/api/agent/sessions/:id', (req, res) => {
     privateNoStore(res)
-    res.json(agent.deleteSession(req.params.id))
+    res.json(agent.deleteSession(req.params.id, { userId: authenticatedUserId(req) }))
   })
   app.post('/api/agent/tools/:name', asyncRoute(async (req, res) => {
     if (!AGENT_TOOL_NAMES.includes(req.params.name)) {
@@ -1413,13 +1451,18 @@ export function createApp(options = {}) {
       ? 503
       : isMulterError
       ? error.code === 'LIMIT_FILE_SIZE' ? 413 : 400
+      : error instanceof AuthError
+      ? error.status
       : Number.isInteger(error.status) ? error.status : 500
     if (databaseBusy) res.setHeader('Retry-After', '5')
     const retryAfterMs = Number(error?.details?.retry_after_ms ?? error?.details?.retryAfterMs)
     if (!databaseBusy && Number.isFinite(retryAfterMs) && retryAfterMs > 0) {
       res.setHeader('Retry-After', String(Math.max(1, Math.ceil(retryAfterMs / 1_000))))
     }
-    if (status >= 500 && !databaseBusy) console.error(error)
+    // Auth failures are expected operational outcomes (directory down, timeout)
+    // and are already reported to the caller with a stable code; they must not
+    // be logged as internal errors.
+    if (status >= 500 && !databaseBusy && !(error instanceof AuthError)) console.error(error)
     return res.status(status).json({
       error: {
         code: databaseBusy
@@ -1463,6 +1506,8 @@ export function createApp(options = {}) {
   app.locals.hybridResumeSearch = hybridResumeSearch
   app.locals.vectorMaintenance = vectorMaintenance
   app.locals.agent = agent
+  app.locals.auth = auth ?? null
+  app.locals.authStore = auth?.store ?? null
   app.locals.candidateImportConfig = candidateImportConfig
   app.locals.importUploadRoot = importUploadRoot
   Object.defineProperty(app.locals, 'candidateImportPreviewActive', {
@@ -1487,6 +1532,7 @@ export function createApp(options = {}) {
           attachmentBatches.close?.()
         ])
         if (db.open) db.close()
+        if (auth?.store && auth.store !== db && typeof auth.store.close === 'function') auth.store.close()
         if (temporaryImportUploadRoot) rmSync(temporaryImportUploadRoot, { recursive: true, force: true })
         if (temporaryAttachmentRoot) rmSync(temporaryAttachmentRoot, { recursive: true, force: true })
       })

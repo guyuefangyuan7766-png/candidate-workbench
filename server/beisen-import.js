@@ -31,8 +31,12 @@ const FIELD_ALIASES = {
   email: ['邮箱', '电子邮箱'],
   photo_url: ['证件照'],
   position_title: ['职位名称', '招聘职位', '应聘职位', '最后职位类投递的职位id'],
-  current_company: ['最近工作公司', '最近公司', '当前公司'],
-  current_title: ['最近工作职位', '最近职位', '当前职位'],
+  // 北森导出的实际表头是「最近任职公司 / 最近任职职位」（见 docs/FIELD_MAPPING.md
+  // 的 F3#103 与 F3#104）。早期别名表只覆盖了「最近工作公司 / 最近工作职位」，
+  // 导致这两列被整体忽略、140,381 位候选人的 current_company 与 current_title
+  // 全部为空。旧别名保留，继续兼容其他批次。
+  current_company: ['最近任职公司', '最近工作公司', '最近公司', '当前公司'],
+  current_title: ['最近任职职位', '最近工作职位', '最近职位', '当前职位'],
   location: ['现居住地', '现居地', '所在地'],
   gender: ['性别'],
   birth_date: ['出生日期'],

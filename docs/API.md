@@ -1,5 +1,49 @@
 # 本地 API 参考
 
+## 2026-09-21 LDAP 认证与鉴权边界（应用 0.6.0 / schema V13）
+
+新增四个认证端点。启用认证（`AUTH_ENABLED=true`）后，**除下列公开端点外，全部 `/api` 路由都要求有效会话**，未登录返回 `401 authentication_required`：
+
+| 方法 | 路径 | 鉴权 | 说明 |
+| --- | --- | --- | --- |
+| GET | `/api/health` | 公开 | 仅返回存活状态与时间戳 |
+| POST | `/api/auth/login` | 公开 | `{ username, password }`，成功返回用户对象并下发会话 Cookie |
+| GET | `/api/auth/status` | 公开 | 认证模式、加密状态、白名单文件状态；**不含白名单内容、凭据或会话数据** |
+| POST | `/api/auth/logout` | 需要会话 | 撤销当前会话并清除 Cookie，返回 `204` |
+| GET | `/api/auth/session` | 需要会话 | 返回 `{ user, expires_at }`，未登录返回 401 |
+| GET | `/api/auth/me` | 需要会话 | 返回 `{ user }` |
+
+用户对象投影不含 DN、LDAP 属性原文或任何凭据派生值：
+
+```json
+{
+  "user": {
+    "id": "uuid",
+    "username": "zhangsan",
+    "display_name": "zhangsan",
+    "email": null,
+    "role": "member"
+  },
+  "expires_at": "2026-09-21T15:00:00.000Z"
+}
+```
+
+认证相关错误码：
+
+| 场景 | 状态 | 错误码 |
+| --- | --- | --- |
+| 未登录访问受保护接口 | 401 | `authentication_required` |
+| 会话已过期 | 401 | `session_expired` |
+| 凭据错误（含账号不存在） | 401 | `invalid_credentials` |
+| 凭据正确但不在账号白名单 | 403 | `account_not_authorized` |
+| 账号被标记停用 | 403 | `account_disabled` |
+| LDAP 不可达或超时 | 503 | `auth_backend_unavailable` |
+| 登录尝试过于频繁 | 429 | `auth_rate_limited`（附 `Retry-After`） |
+
+判定顺序为**先验证凭据、后判白名单**：账号不存在或密码错误一律返回 `invalid_credentials`，避免未认证调用方枚举公司账号。LDAP 直接绑定无法区分"账号被停用"与"密码错误"，因此目录侧停用不会返回 `account_disabled`，统一按 `invalid_credentials` 处理；该错误码只由应用侧 `is_active` 触发。
+
+登录限流分两层：账号 5 次失败 / 5 分钟，来源地址 30 次失败 / 1 分钟。反向代理部署需设置 `AUTH_TRUST_PROXY=true`，否则来源地址恒为回环、IP 层限流退化为全局限流。
+
 ## 2026-09 人才检索增量（应用 0.2.0 / schema V13）
 
 正式本机服务沿用 0.2.0 / V13；远程混合检索补充的实际启用、索引与验收状态见 [补充交付](handoffs/2026-09-10-search-hybrid-formal-supplement.md)。开关、配置完整和索引可用是不同状态，不能只凭开关判断成功。
@@ -22,9 +66,9 @@
 
 ## 使用边界
 
-默认基地址为 `http://127.0.0.1:4173/api`。当前 API 只服务本机单用户版，没有认证、RBAC、字段级权限或租户隔离，不应通过代理或端口转发对外暴露。要转为部门共享软件，必须先增加服务端身份和权限边界。
+默认基地址为 `http://127.0.0.1:4173/api`。**认证默认关闭**，未启用时行为与之前版本一致（回环单用户、无鉴权）。启用后所有业务端点要求有效会话，但**仍然没有 RBAC、字段级权限或租户隔离**：白名单内的每个账号都能读取全部字段，包括 `include_sensitive=true` 的未打码联系方式。因此认证只解决"谁能进"，不构成可以全部门开放的准入条件，判断见 [设计规范](superpowers/specs/2026-09-21-ldap-auth-and-network-binding-design.md) 第 9.3 节。
 
-浏览器写请求还有一层 Origin 边界：除 `GET` / `HEAD` 外，服务端在 `express.json()` 和 multipart 解析器之前检查 `Origin`。缺少 `Origin` 的本机客户端、回环 Origin 和 `CORS_ORIGIN` 明确追加的 Origin 可以继续；其他 Origin 的写请求以及不允许的预检请求直接返回 `403 origin_not_allowed`，请求体不会进入 JSON 或附件解析器。这是本机版的跨域写入收口，不是认证、RBAC 或面向多人部署的 CSRF 防护。
+浏览器写请求还有一层 Origin 边界：除 `GET` / `HEAD` 外，服务端在 `express.json()` 和 multipart 解析器之前检查 `Origin`。缺少 `Origin` 的本机客户端、回环 Origin、**请求 `Origin` 与请求自身 `Host` 同源**以及 `CORS_ORIGIN` 明确追加的 Origin 可以继续；其他 Origin 的写请求以及不允许的预检请求直接返回 `403 origin_not_allowed`，请求体不会进入 JSON 或附件解析器。同源判定使反向代理与局域网部署无需维护来源白名单，并构成 CSRF 的第一层防护；配合会话 Cookie 的 `SameSite=Lax` 使用，但它仍不替代 RBAC。
 
 正常接受并进入应用响应链的请求会设置 `X-Content-Type-Options: nosniff`、`X-Frame-Options: DENY`、`Referrer-Policy: no-referrer`、`Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()`，以及包含 `default-src 'self'`、`base-uri 'none'`、`object-src 'none'` 和 `frame-ancestors 'none'` 的 Content Security Policy。前置 Origin 拒绝和请求体解析错误不应被表述为必然携带完整的应用响应头集合。
 

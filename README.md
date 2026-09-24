@@ -73,6 +73,12 @@ http://127.0.0.1:4173
 
 当前个人版强制只监听本机回环地址，不能作为部门共享服务器直接暴露到局域网或互联网。
 
+> 2026-09-21：LDAP 统一认证与受控网络监听**已实现**（应用 `0.6.0`）。设计见 [LDAP 认证设计规范](docs/superpowers/specs/2026-09-21-ldap-auth-and-network-binding-design.md)，实施计划见 [LDAP 认证实施计划](docs/superpowers/plans/2026-09-21-ldap-auth-and-network-binding.md)。
+>
+> 认证**默认关闭**：`AUTH_ENABLED` 未设为 `true` 时，上面的回环限制与"没有认证"的表述仍然有效。开启认证后全部 `/api`（除 health 与认证端点）需要有效会话，账号来自公司 LDAP，并可用 `data/auth-allowlist.txt` 限定到具体人。
+>
+> **开启认证不等于可以全部门开放**：当前仍没有 RBAC 与字段级权限，白名单内的每个账号都能看到全部候选人敏感字段。准入判断见设计规范第 9.3 节。
+
 ## Agent 配置
 
 模型密钥只通过服务端环境变量读取，不会写入浏览器代码：
@@ -130,6 +136,7 @@ node --test --test-concurrency=1 tests/backend/search-keyword-recall.test.mjs
 - [Agent 安全边界](docs/AGENT_SECURITY.md)
 - [隐私与数据治理](docs/PRIVACY.md)
 - [启动、备份与恢复](docs/OPERATIONS.md)
+- [公司本地服务器部署](docs/DEPLOYMENT_LOCAL_SERVER.md)
 - [测试与验收](docs/TESTING.md)
 - [迭代路线图](docs/ROADMAP.md)
 - [技术决策记录](docs/DECISIONS.md)

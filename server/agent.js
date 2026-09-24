@@ -2638,6 +2638,9 @@ export function createAgentService(db, overrides = {}) {
 
   const querySession = async (sessionId, input = {}) => {
     ensureConfigured()
+    // 归属校验必须在任何写入之前：非本人的会话按"不存在"处理，
+    // 否则调用方可以直接对他人的会话发消息。
+    if (typeof input.userId === 'string' && input.userId) sessions.getSession(sessionId, input.userId)
     const message = normalizeQueryMessage(input.message)
     const requestInput = {
       ...input,
@@ -2718,9 +2721,13 @@ export function createAgentService(db, overrides = {}) {
     }
   }
 
-  const getTask = (taskId) => taskResponse(taskId, true)
+  const getTask = (taskId, userId) => {
+    sessions.assertTaskOwnership(taskId, userId)
+    return taskResponse(taskId, true)
+  }
 
-  const cancelTask = (taskId) => {
+  const cancelTask = (taskId, userId) => {
+    sessions.assertTaskOwnership(taskId, userId)
     const task = sessions.requestTaskCancel(taskId)
     const queuedIndex = taskQueue.findIndex((entry) => entry.taskId === taskId)
     if (queuedIndex >= 0) {
@@ -2750,7 +2757,8 @@ export function createAgentService(db, overrides = {}) {
     return taskResponse(taskId, true)
   }
 
-  const retryTaskAnswer = async (taskId) => {
+  const retryTaskAnswer = async (taskId, userId) => {
+    sessions.assertTaskOwnership(taskId, userId)
     const task = sessions.getTask(taskId)
     if (['queued', 'planning', 'querying', 'retrieving', 'composing'].includes(task.status) && task.result) {
       return taskResponse(taskId, true)

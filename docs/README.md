@@ -16,6 +16,8 @@
 | [AGENT_SECURITY.md](AGENT_SECURITY.md) | Agent 工具、数据最小化和安全边界 |
 | [PRIVACY.md](PRIVACY.md) | 候选人数据分类、生命周期、模型外发和真实数据启用清单 |
 | [OPERATIONS.md](OPERATIONS.md) | 启动、配置、备份、恢复、升级和排障 |
+| [DEPLOYMENT_LOCAL_SERVER.md](DEPLOYMENT_LOCAL_SERVER.md) | 公司本地服务器的硬件配置、部署步骤、备份恢复和多人访问改造前置条件 |
+| [SERVER_DEPLOYMENT_RECORD.md](SERVER_DEPLOYMENT_RECORD.md) | **实际服务器（192.168.8.12）的部署记录**：架构、环境变量、防火墙、开机自启、白名单与待验证项 |
 | [TESTING.md](TESTING.md) | 自动化测试、手工验收和发布门槛 |
 | [ROADMAP.md](ROADMAP.md) | 从个人 PoC 到可选部门版的阶段规划 |
 | [DECISIONS.md](DECISIONS.md) | 已采纳的关键技术和产品决策 |
@@ -37,6 +39,9 @@
 | [evidence/round14-ui-polish/avatar-report.json](evidence/round14-ui-polish/avatar-report.json) | 两个头像组件的加载、成功、失败和无图状态证据 |
 | [evidence/round14-ui-polish/hidden-ui-audit.md](evidence/round14-ui-polish/hidden-ui-audit.md) | 永久无效 UI 删除依据与功能性隐藏节点保留清单 |
 | [evidence/assistant-a-20260918/qa-report.json](evidence/assistant-a-20260918/qa-report.json) | A 方案 AI 助手三视口、侧栏互斥、焦点/草稿/滚动保持和执行时间线证据 |
+| [superpowers/specs/2026-09-21-ldap-auth-and-network-binding-design.md](superpowers/specs/2026-09-21-ldap-auth-and-network-binding-design.md) | LDAP 统一认证、账号白名单、受控网络监听与鉴权边界设计规范（阶段 1 已实施） |
+| [superpowers/plans/2026-09-21-ldap-auth-and-network-binding.md](superpowers/plans/2026-09-21-ldap-auth-and-network-binding.md) | 上述规范的六阶段实施计划、文档同步清单与验收门禁 |
+| [handoffs/2026-09-21-ldap-auth-server-handover.md](handoffs/2026-09-21-ldap-auth-server-handover.md) | 给 IT/运维的交接单：域名与证书、反向代理、LDAP 连通性、服务器规格与上线检查清单 |
 | [../SECURITY.md](../SECURITY.md) | 安全假设、数据保护要求和漏洞处理 |
 | [../CHANGELOG.md](../CHANGELOG.md) | 面向版本的新增、变更、修复和限制 |
 | [../CONTRIBUTING.md](../CONTRIBUTING.md) | 开发、测试、数据安全和文档维护规范 |
@@ -46,9 +51,15 @@
 
 个人使用者：`README -> PRODUCT_SPEC -> OPERATIONS -> IMPORT_GUIDE`。
 
+准备部署到公司服务器：先读 `DEPLOYMENT_LOCAL_SERVER`，再按需要回到 `OPERATIONS` 查配置和排障细节。
+
+接手已部署的服务器：先读 `SERVER_DEPLOYMENT_RECORD`，它记录的是**当前实际状态**；待办事项见 `handoffs/2026-09-21-ldap-auth-server-handover.md`。
+
 开发维护者：`ARCHITECTURE -> DATA_MODEL -> API -> UI_DESIGN -> DECISIONS -> TESTING`；涉及 V13 工作年限或北森工作簿时，再阅读对应的设计、实施计划和后续 evidence。
 
 处理真实候选人数据前：必须先阅读 `FIELD_MAPPING`、`PRIVACY` 和根目录 `SECURITY`。
+
+准备开放内网访问或接入公司账号体系前：先读 `superpowers/specs/2026-09-21-ldap-auth-and-network-binding-design.md`，再读 `DEPLOYMENT_LOCAL_SERVER`。
 
 接入模型网关前：必须先阅读 `AGENT_SECURITY`、`PRIVACY` 和根目录 `SECURITY`。
 

@@ -257,9 +257,21 @@ export function createAgentSessionService(db, options = {}) {
     FROM agent_sessions s
   `
 
-  const getSession = (sessionId) => {
+  // 会话归属。接入认证前创建的会话 user_id 为空，归入一个不会与真实用户 ID
+  // 冲突的哨兵值，因此对所有人不可见——这正是"历史会话清空"想要的效果，
+  // 而且不需要真的删除行，审计上仍可追溯。
+  const LEGACY_OWNER = '__legacy__'
+  const ownerOf = (userId) => (typeof userId === 'string' && userId ? userId : LEGACY_OWNER)
+
+  /**
+   * 读取会话并在同一处校验归属。userId 为 undefined 表示调用方是内部编排
+   * （不是某个用户的请求），此时不施加归属过滤；API 层始终显式传 userId。
+   */
+  const getSession = (sessionId, userId) => {
     const id = requiredId(sessionId, 'session_id')
-    const row = db.prepare(`${sessionSelect} WHERE s.id = ?`).get(id)
+    const row = typeof userId === 'string' && userId
+      ? db.prepare(`${sessionSelect} WHERE s.id = ? AND s.user_id = ?`).get(id, userId)
+      : db.prepare(`${sessionSelect} WHERE s.id = ?`).get(id)
     if (!row) throw sessionError(404, 'agent_session_not_found', 'Agent 会话不存在')
     return sessionFromRow(row)
   }
@@ -268,13 +280,16 @@ export function createAgentSessionService(db, options = {}) {
     const timestamp = now()
     const id = randomUUID()
     const title = normalizedTitle(input.title)
+    // 未显式传 userId 时写入哨兵值，绝不写入 NULL：NULL 会让新会话也落入
+    // "历史无主"分支，从而创建出谁都看不见的会话。
+    const owner = ownerOf(input.userId)
     db.prepare(`
       INSERT INTO agent_sessions(
         id, title, status, next_sequence, active_request_id, active_request_started_at,
-        created_at, updated_at, archived_at
-      ) VALUES (?, ?, 'active', 1, NULL, NULL, ?, ?, NULL)
-    `).run(id, title, timestamp, timestamp)
-    return getSession(id)
+        user_id, created_at, updated_at, archived_at
+      ) VALUES (?, ?, 'active', 1, NULL, NULL, ?, ?, ?, NULL)
+    `).run(id, title, owner, timestamp, timestamp)
+    return getSession(id, input.userId)
   }
 
   const listSessions = (input = {}) => {
@@ -284,8 +299,18 @@ export function createAgentSessionService(db, options = {}) {
     if (!['active', 'archived', 'all'].includes(status)) {
       throw sessionError(400, 'validation_error', 'status 必须是 active、archived 或 all')
     }
-    const where = status === 'all' ? '' : 'WHERE s.status = ?'
-    const parameters = status === 'all' ? [] : [status]
+    // 归属过滤与状态过滤组合；调用方传 userId 时只看自己的会话。
+    const conditions = []
+    const parameters = []
+    if (typeof input.userId === 'string' && input.userId) {
+      conditions.push('s.user_id = ?')
+      parameters.push(input.userId)
+    }
+    if (status !== 'all') {
+      conditions.push('s.status = ?')
+      parameters.push(status)
+    }
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
     const total = Number(db.prepare(`SELECT COUNT(*) AS count FROM agent_sessions s ${where}`).get(...parameters).count)
     const rows = db.prepare(`
       ${sessionSelect} ${where}
@@ -305,7 +330,10 @@ export function createAgentSessionService(db, options = {}) {
 
   const updateSession = (sessionId, input = {}) => withTransaction(db, () => {
     const id = requiredId(sessionId, 'session_id')
-    const existing = db.prepare('SELECT * FROM agent_sessions WHERE id = ?').get(id)
+    // 归属校验放在读取处：非本人的会话按"不存在"处理，避免暴露他人会话是否存在。
+    const existing = typeof input.userId === 'string' && input.userId
+      ? db.prepare('SELECT * FROM agent_sessions WHERE id = ? AND user_id = ?').get(id, input.userId)
+      : db.prepare('SELECT * FROM agent_sessions WHERE id = ?').get(id)
     if (!existing) throw sessionError(404, 'agent_session_not_found', 'Agent 会话不存在')
     const status = input.status ?? existing.status
     if (!['active', 'archived'].includes(status)) {
@@ -325,21 +353,27 @@ export function createAgentSessionService(db, options = {}) {
       status === 'archived' ? (existing.archived_at ?? timestamp) : null,
       id
     )
-    return getSession(id)
+    return getSession(id, input.userId)
   })
 
-  const deleteSession = (sessionId) => withTransaction(db, () => {
+  const deleteSession = (sessionId, input = {}) => withTransaction(db, () => {
     const id = requiredId(sessionId, 'session_id')
-    const row = db.prepare('SELECT active_request_id FROM agent_sessions WHERE id = ?').get(id)
+    const row = typeof input.userId === 'string' && input.userId
+      ? db.prepare('SELECT active_request_id FROM agent_sessions WHERE id = ? AND user_id = ?').get(id, input.userId)
+      : db.prepare('SELECT active_request_id FROM agent_sessions WHERE id = ?').get(id)
     if (!row) throw sessionError(404, 'agent_session_not_found', 'Agent 会话不存在')
     if (row.active_request_id) throw sessionError(409, 'session_busy', 'Agent 会话仍有请求正在处理')
-    db.prepare('DELETE FROM agent_sessions WHERE id = ?').run(id)
+    if (typeof input.userId === 'string' && input.userId) {
+      db.prepare('DELETE FROM agent_sessions WHERE id = ? AND user_id = ?').run(id, input.userId)
+    } else {
+      db.prepare('DELETE FROM agent_sessions WHERE id = ?').run(id)
+    }
     return { deleted: true, session_id: id }
   })
 
   const listMessages = (sessionId, input = {}) => {
     const id = requiredId(sessionId, 'session_id')
-    getSession(id)
+    getSession(id, input.userId)
     const pageSize = boundedInteger(input.page_size ?? input.pageSize, 50, 1, AGENT_SESSION_LIMITS.maxPageSize, 'page_size')
     const beforeSequence = input.before_sequence === undefined || input.before_sequence === null || input.before_sequence === ''
       ? null
@@ -402,6 +436,21 @@ export function createAgentSessionService(db, options = {}) {
     return taskFromRow(row)
   }
 
+  /**
+   * 校验某个任务是否属于该用户。任务本身不带归属字段，通过它所属的会话判定。
+   * 非本人的任务按"不存在"处理，避免暴露他人任务是否存在。
+   */
+  const assertTaskOwnership = (taskId, userId) => {
+    if (typeof userId !== 'string' || !userId) return
+    const id = requiredId(taskId, 'task_id')
+    const row = db.prepare(`
+      SELECT t.id FROM agent_tasks t
+        JOIN agent_sessions s ON s.id = t.session_id
+       WHERE t.id = ? AND s.user_id = ?
+    `).get(id, userId)
+    if (!row) throw sessionError(404, 'agent_task_not_found', 'Agent 任务不存在')
+  }
+
   const getTaskForRequest = (sessionId, clientRequestId) => {
     const id = requiredId(sessionId, 'session_id')
     const requestId = requiredId(clientRequestId, 'client_request_id')
@@ -444,7 +493,7 @@ export function createAgentSessionService(db, options = {}) {
 
   const listTasks = (sessionId, input = {}) => {
     const id = requiredId(sessionId, 'session_id')
-    getSession(id)
+    getSession(id, input.userId)
     const pageSize = boundedInteger(
       input.page_size ?? input.pageSize,
       20,
@@ -914,6 +963,7 @@ export function createAgentSessionService(db, options = {}) {
     failTurn,
     createTask,
     getTask,
+    assertTaskOwnership,
     getTaskForRequest,
     getTurnForTask,
     getAssistantForTask,

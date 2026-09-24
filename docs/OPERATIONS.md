@@ -68,7 +68,9 @@
 http://127.0.0.1:4173
 ```
 
-> 当前没有登录、认证、RBAC、多用户隔离或 SQLite 静态加密，并且程序拒绝非回环监听地址。它不是部门服务器，不应通过端口转发、反向代理、共享 Windows 会话或改监听地址提供给其他人。
+> **2026-09-21 第十五轮更新：** 应用已支持 LDAP 统一认证（`AUTH_ENABLED=true`），并允许在多个显式开关同时满足时监听内网地址。**默认仍然关闭认证、只允许回环监听**，此时行为与改造前完全一致。
+>
+> 即使开启认证，当前仍**没有 RBAC、字段级权限、操作人审计和 SQLite 静态加密**：白名单内的每个账号都能看到全部候选人敏感字段。是否可交付使用见 [LDAP 认证设计规范](superpowers/specs/2026-09-21-ldap-auth-and-network-binding-design.md) 第 9.3 节。
 
 应用不是 Windows 服务。手工运行 `start.cmd` 时需要保留终端窗口；本次由隐藏的 PowerShell 后台进程调用原 `start.ps1` 启动，日志路径见本次运行记录。没有配置开机自启，电脑重启或休眠会影响可用性。
 
@@ -175,6 +177,62 @@ Invoke-RestMethod http://127.0.0.1:4173/api/health
 | `AGENT_MODEL_PLANNING_TIMEOUT_MS` | `90000` | 模型规划阶段首次尝试超时，允许 1-120 秒；重试单次最多 120 秒。 |
 | `AGENT_MODEL_COMPOSITION_TIMEOUT_MS` | `90000` | 模型回答阶段首次尝试超时，允许 1-120 秒；重试单次最多 120 秒。 |
 | `CORS_ORIGIN` | 未设置 | 可追加浏览器源；不是认证，也不会开放监听。 |
+
+### 5.1 LDAP 认证配置
+
+完整清单见 [.env.example](../.env.example)。启用认证时至少需要 `AUTH_ENABLED=true`、`LDAP_URL`、`LDAP_USER_DN_TEMPLATE`，缺少任一项**启动会直接失败**，不会带着半套配置运行。
+
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `AUTH_ENABLED` | `false` | 总开关。关闭时保持个人回环模式，不需要登录。 |
+| `LDAP_URL` | 未设置 | 本公司环境为 `ldap://ldap.wan5d.com:389`（无 LDAPS）。 |
+| `LDAP_USER_DN_TEMPLATE` | 未设置 | `cn=%s,ou=People,dc=wooduan,dc=com`，`%s` 为登录账号。 |
+| `LDAP_ALLOW_PLAINTEXT` | `true` | 明文 LDAP 需显式接受；具备加密能力后改为 `false`。 |
+| `LDAP_ATTRIBUTE_LOOKUP` | `off` | `off` 显示名使用登录账号；`anonymous` 额外尝试匿名读取目录属性，失败自动降级且不影响登录。 |
+| `AUTH_ALLOWLIST_FILE` | 主库同目录 `auth-allowlist.txt` | 账号白名单文件，每 30 秒重读。 |
+| `AUTH_ALLOWED_USERS` | 未设置 | 仅作名单文件缺失时的启动引导值，逗号分隔。 |
+| `AUTH_COOKIE_SECURE` | `false` | HTTPS 部署必须为 `true`。 |
+| `AUTH_TRUST_PROXY` | `false` | 反向代理部署必须为 `true`，否则来源地址全部记为回环。 |
+| `AUTH_SESSION_TTL_MS` | `43200000` | 会话空闲期限（12 小时），命中时滑动续期。 |
+| `AUTH_SESSION_ABSOLUTE_TTL_MS` | `2592000000` | 会话绝对期限（30 天）。 |
+| `AUTH_DB_PATH` | 主库同目录 `auth.db` | 认证与会话数据库。 |
+| `AUTH_LOGIN_RATE_LIMIT` / `..._WINDOW_MS` | `5` / `300000` | 单账号失败阈值，主防线。 |
+| `AUTH_LOGIN_IP_RATE_LIMIT` / `..._WINDOW_MS` | `30` / `60000` | 单来源地址阈值，次级防线，避免同一出口互相误伤。 |
+| `AUTH_ALLOW_NON_LOOPBACK` | `false` | 允许监听非回环地址的独立开关。 |
+| `AUTH_BIND_HOSTS` | `127.0.0.1,::1` | 允许绑定的地址白名单。 |
+
+受控网络监听需要**四个条件同时满足**：`AUTH_ENABLED=true`、`AUTH_ALLOW_NON_LOOPBACK=true`、LDAP 配置完整、地址在 `AUTH_BIND_HOSTS` 内。任何单个开关都不足以放开监听。
+
+本次部署由反向代理提供 HTTPS，应用保持回环绑定，因此上述两项保持默认。
+
+## 5.2 账号白名单运维
+
+正式名单是文件，不是环境变量：Node 的 `process.env` 在进程启动后不会跟随系统环境变量变化，"改环境变量即时生效"在技术上不成立。
+
+```text
+data/auth-allowlist.txt
+```
+
+格式：一行一个登录名，`#` 开头为注释，忽略空行与 BOM，大小写不敏感。
+
+```text
+# 招聘团队
+zhangsan
+lisi
+```
+
+行为约定：
+
+| 情形 | 结果 |
+| --- | --- |
+| 文件不存在且未配置引导变量 | 不启用白名单，所有通过 LDAP 认证的账号均可登录 |
+| 文件存在且非空 | 只有列入的账号可通过；名单外账号返回 `403 account_not_authorized` |
+| 文件存在但为空或只有注释 | **拒绝所有登录**并打印告警，避免误删内容导致意外放开 |
+| 文件读取失败（权限、被占用） | 保留上一次成功名单并打印告警，不放开为允许所有人 |
+
+**移除账号即时生效：** 服务在每次请求解析会话时重新判定白名单，被移除的账号在**下一次请求**即失效，不需要等会话过期或强制他登出。这是人员离职、转岗时的主要动作，也弥补了"直接绑定无法识别目录侧停用"的缺口。
+
+正式名单文件应与主库同级保护（限定服务账户与管理员读写），并纳入备份范围。
 
 数据库路径优先级：
 

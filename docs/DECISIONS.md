@@ -331,3 +331,19 @@
 - 决策：不得仅凭 `hidden`、`display:none`、`visibility:hidden` 或 `opacity:0` 删除节点。删除前必须确认调用路径不可达、无事件/ARIA/焦点/动画需求，并完成代码引用搜索与浏览器 DOM 审计；删除组件必须同步清理 import、state、handler、id、aria 关系和孤立 CSS。
 - 保留范围：screen-reader-only 内容、hover/focus/active 状态、响应式隐藏列和移动替代控件、加载/空态/错误态、确认弹窗、用户可打开的折叠区域，以及焦点管理、动画和条件显示所需节点。
 - 后果：本轮删除不可达 AI drawer、无引用 `ExportMenu`、未传入 `overlays` 和无外部调用回退；保留 `tw-content-stack[hidden]`、执行过程 `hidden`、响应式列和交互状态。后续 UI 清理按 `ui-cleanup-contract.test.mjs` 和 `docs/evidence/round14-ui-polish/qa-report.json` 复核。
+
+## ADR-042：账号体系接入公司 LDAP，认证数据独立于业务主库
+
+- 日期：2026-09-21
+- 状态：**已采纳，尚未实施**。规范见 `docs/superpowers/specs/2026-09-21-ldap-auth-and-network-binding-design.md`，实施计划见 `docs/superpowers/plans/2026-09-21-ldap-auth-and-network-binding.md`。
+- 决策：登录凭据以公司 LDAP（`ldap.wan5d.com`）为唯一来源，应用不维护密码、不存储密码哈希。服务端使用不透明随机会话令牌，库内只保存 `SHA-256(token)`，通过 `HttpOnly`、`SameSite=Lax` Cookie 传递。支持两种绑定模式：模式 A 用 `LDAP_USER_DN_TEMPLATE` 直接绑定，模式 B 用只读服务账号搜索真实 DN 后再用用户凭据绑定。认证与会话数据落在独立 `data/auth.db`，不进入主库 `schema_migrations` 版本链。
+- 原因：公司已有统一账号体系，自建账号会带来密码管理、离职员清理和合规风险。主库的 V1–V13 迁移链被文档和 `database-migration-idempotence-v9` 测试精确断言，把认证表塞进主库会污染这一不变量，且认证数据的生命周期与候选人数据完全不同，可整体清空重建、不需要与业务数据同步迁移。
+- 后果：备份范围必须包含 `auth.db`，部署手册已同步。会话与登录限流为进程内或单库状态，因此**只支持单实例部署**；多实例需要改用共享存储，当前明确不支持。LDAP 不可达时无法登录，但已建立的会话在有效期内仍可继续使用。
+
+## ADR-043：受控网络监听取代"仅回环"硬限制
+
+- 日期：2026-09-21
+- 状态：**已采纳，尚未实施**；实施后将取代 ADR-003 的"任何情况下都不得非回环监听"表述，ADR-003 保留为历史决策。
+- 决策：把 `server/index.mjs` 的回环硬编码改为两模式守卫。个人模式（`AUTH_ENABLED` 未开启）保持只允许 `127.0.0.1`、`localhost`、`::1`；受控网络模式要求同时满足四个条件才允许绑定非回环地址：`AUTH_ENABLED=true`、地址在 `AUTH_BIND_HOSTS` 白名单内、已配置完整 LDAP、`AUTH_ALLOW_NON_LOOPBACK=true`。`HOST` 只接受字面 IP，不接受主机名，避免 DNS 解析带来的不确定性。同时把 `setCors` 从"只放行回环来源"改为"请求 Origin 与请求 Host 同源时允许"，使局域网访问可用并构成 CSRF 的第一层防护。
+- 原因：原始回环限制建立时系统没有任何身份概念，是最低成本的安全边界。接入 LDAP 认证与持久会话后，回环限制不再是唯一的纵深控制；继续硬编码会让服务器部署只能依赖 RDP。但放开监听必须是显式、多条件、可审计的动作，不能退化成"改一个 `HOST` 就上内网"。**2026-09-21 进一步确认：本次部署由运维侧反向代理提供 HTTPS，应用保持回环绑定即可对外提供服务，因此受控网络模式虽然实现，但本次不启用**——这比直接暴露端口少一整类风险。
+- 后果：任何单个开关都不足以放开监听，误配置不会造成静默暴露。非回环且 `AUTH_COOKIE_SECURE=false` 时启动打印显著告警；HTTPS 由反向代理提供，上线检查清单要求置 `true`。**该决策只解除"无认证不得对外"的技术限制，不构成可以全部门开放的准入结论**——RBAC、字段级权限与操作人审计在阶段 2、3 完成前仍然缺失，任何能登录公司 LDAP 的账号都能查看全部候选人敏感字段。

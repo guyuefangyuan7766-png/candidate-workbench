@@ -1127,7 +1127,7 @@ test('talent migration is idempotent and preserves legacy candidate rows', () =>
     })
     assert.deepEqual(
       db.prepare('SELECT version FROM schema_migrations ORDER BY version').all().map((row) => row.version),
-      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
     )
     for (const table of [
       'talent_pools',

@@ -29,6 +29,34 @@ import type {
   ResumeSearchOptionsResponse,
   TalentPool,
 } from "./types";
+import type { AuthSession, AuthStatus, AuthUser } from "./auth";
+
+type UnauthorizedListener = () => void;
+
+const unauthorizedListeners = new Set<UnauthorizedListener>();
+
+/**
+ * Notifies the app shell that the session is gone and the login surface must
+ * take over. This lives here rather than in `auth.ts` because this module is
+ * imported directly by Node-based contract tests, which resolve runtime
+ * imports by file path rather than through the bundler.
+ */
+export function onUnauthorized(listener: UnauthorizedListener) {
+  unauthorizedListeners.add(listener);
+  return () => {
+    unauthorizedListeners.delete(listener);
+  };
+}
+
+function emitUnauthorized() {
+  for (const listener of unauthorizedListeners) {
+    try {
+      listener();
+    } catch {
+      // A failing listener must not mask the original request error.
+    }
+  }
+}
 
 export interface CandidateDetail extends Candidate {
   notes: CandidateNote[];
@@ -379,6 +407,7 @@ export class ApiError extends Error {
 interface RequestOptions {
   timeoutMs?: number;
   onResponse?: (response: Response) => void;
+  suppressUnauthorizedEvent?: boolean;
 }
 
 function requestWithTimeout(signal: AbortSignal | null | undefined, timeoutMs: number) {
@@ -428,12 +457,14 @@ export async function request<T>(path: string, init?: RequestInit, options: Requ
         // while reading the body must still reach the timeout/recovery path.
         if (timeout.signal.aborted) throw error;
       }
-      throw new ApiError(
+      const failure = new ApiError(
         response.status,
         payload?.error?.code ?? "request_error",
         payload?.error?.message ?? `API ${response.status}: ${path}`,
         payload?.error?.details,
       );
+      if (response.status === 401 && !options.suppressUnauthorizedEvent) emitUnauthorized();
+      throw failure;
     }
 
     if (response.status === 204) return undefined as T;
@@ -1934,3 +1965,25 @@ export function searchCandidateResumes(
     { signal },
   );
 }
+
+export function getAuthSession(signal?: AbortSignal) {
+  return request<AuthSession>("/api/auth/session", { signal }, { suppressUnauthorizedEvent: true });
+}
+
+export function authStatus(signal?: AbortSignal) {
+  return request<AuthStatus>("/api/auth/status", { signal }, { suppressUnauthorizedEvent: true });
+}
+
+export function login(username: string, password: string) {
+  return request<AuthSession>(
+    "/api/auth/login",
+    { method: "POST", body: JSON.stringify({ username, password }) },
+    { suppressUnauthorizedEvent: true },
+  );
+}
+
+export function logout() {
+  return request<void>("/api/auth/logout", { method: "POST" }, { suppressUnauthorizedEvent: true });
+}
+
+export type { AuthUser, AuthSession, AuthStatus };

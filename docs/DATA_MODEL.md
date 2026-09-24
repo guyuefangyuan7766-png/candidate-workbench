@@ -1,10 +1,69 @@
 # 数据模型
 
+## 2026-09-22 V14：AI 会话归属（schema `V14`）
+
+接入 LDAP 认证后多人共用同一实例，而 AI 会话在设计时**没有归属概念**——`agent_sessions` 没有 `user_id`，所有会话对所有人可见、可重命名、可删除。这是真实缺陷，V14 修复它。
+
+**迁移内容（加法且幂等）**：`agent_sessions` 增加可空列 `user_id TEXT`，并建立 `agent_sessions_user_idx(user_id, status, updated_at DESC, id)`。新建库在建表语句中直接带该列，升级库由 `ensureColumn` 补列后建索引。
+
+**归属语义**：
+
+- API 层从登录会话取用户 ID 并传入每个会话操作；列表、读取、重命名、归档、删除、消息分页、任务查询全部按 `user_id` 过滤。
+- **非本人的会话按"不存在"返回 `404 agent_session_not_found`**，而不是 403——避免暴露他人会话是否存在。
+- 任务本身没有归属列，通过所属会话判定；任务详情、取消、重试回答都会先校验归属。
+- **迁移前创建的会话 `user_id` 为空，对所有人不可见**；不删除、不猜测归属，需要彻底清理时使用 `scripts/purge-legacy-agent-sessions.mjs`（默认预演，加 `--apply` 才删除，级联清理消息、任务与摘要）。
+- 新建会话在未显式传 `userId` 时写入哨兵值 `__legacy__` 而**不是 NULL**——若写 NULL，新会话会落入"历史无主"分支，变成谁都看不见。
+- 未启用认证时（单用户模式）不施加归属过滤，`options.auth` 为空即保持原有行为。
+
+**回滚**：与 schema 无关的代码回退即可；`user_id` 列保留，重新启用后历史会话仍不可见。
+
+## 2026-09-21 认证数据库（应用 0.6.0）
+
+认证与会话数据**不在业务主库内**，而是落在独立的 `data/auth.db`，由 `server/auth/store.js` 在启动时幂等建表。这是刻意的边界：业务库的 `schema_migrations` 版本链被文档与 `database-migration-idempotence-v9` 测试精确断言为 `[1..13]`，而会话属于可重建状态，生命周期与候选人数据完全不同，可以整体撤销或清空，不需要与业务数据同步迁移。
+
+```sql
+CREATE TABLE auth_users (
+  id TEXT PRIMARY KEY,
+  username TEXT NOT NULL UNIQUE,   -- 规范化登录名（LDAP uid），小写
+  ldap_dn TEXT NOT NULL,           -- 登录验证时使用的真实 DN
+  display_name TEXT,
+  email TEXT,
+  role TEXT NOT NULL DEFAULT 'member',  -- 阶段 1 仅记录，不作为授权依据
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  last_login_at TEXT
+);
+
+CREATE TABLE auth_sessions (
+  id TEXT PRIMARY KEY,
+  token_hash TEXT NOT NULL UNIQUE,       -- SHA-256(token)，不存会话明文
+  user_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL,
+  last_seen_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL,              -- 滑动空闲期限
+  absolute_expires_at TEXT NOT NULL,     -- 绝对上限
+  revoked_at TEXT,
+  user_agent TEXT,
+  client_ip TEXT
+);
+```
+
+关键性质：
+
+- **不存密码**：没有任何密码、密码哈希或凭据派生列。用户密码只在一次 LDAP `bind` 中使用，不落盘、不写日志。
+- **令牌只存哈希**：`token_hash` 为 `SHA-256`，数据库或备份泄露不能直接冒用会话。
+- **`role` 暂不参与授权**：阶段 1 固定写入 `member`，字段先建好以避免阶段 2 再迁移。
+- **`is_active`** 是应用侧开关；它与目录状态无关——直接绑定模式读不到目录属性，因此无法反映 LDAP 侧的停用。
+- 会话撤销（`revoked_at`）与过期行清理（每小时一次）都不影响业务库。
+
+账号白名单是独立文本文件 `data/auth-allowlist.txt`，不是数据表：服务每 30 秒重读一次，编辑后无需重启。白名单与 `is_active` 在**每次请求**解析会话时重新判定，因此移除账号后其已建立的会话在下次请求即失效。
+
 ## 适用范围
 
 本文描述当前 SQLite 人才库的实际模型。当前工作区应用为 `0.5.0`，尚未正式部署；默认数据库为 `data/recruitment.db`，测试使用 `:memory:` 或临时数据库。
 
-系统的业务中心是“候选人资料 + 人才库分组 + 职位关联”。它保留从北森导入的申请、面试、测评、授权和其他原始历史，但这些记录是可追溯资料，不是可执行的招聘流程。当前仍不是完整 ATS：没有面试排期、面试官任务、Offer 审批、入职流程、用户、RBAC 或租户实体。
+系统的业务中心是“候选人资料 + 人才库分组 + 职位关联”。它保留从北森导入的申请、面试、测评、授权和其他原始历史，但这些记录是可追溯资料，不是可执行的招聘流程。当前仍不是完整 ATS：没有面试排期、面试官任务、Offer 审批或入职流程。认证账号与会话记录在独立的 `auth.db`（见上节），业务库内仍没有用户、RBAC 或租户实体。
 
 `candidates.current_title` 表示候选人当前任职；`positions.title` 表示平台中的招聘职位。`candidates.stage` 是旧版全局招聘阶段，仅作数据兼容：它默认不进入普通候选人响应和自动导入映射，但可由用户通过 V8 Agent 业务全字段只读工具显式查询。
 
@@ -27,6 +86,7 @@
 | 11 | `candidate_hire_status_and_date` | 给 `candidates` 加法增加入职状态/日期列及索引 |
 | 12 | `candidate_hire_information` | 给 `candidates` 加法增加 `hire_position` 及职位文本索引 |
 | 13 | `candidate_years_experience_raw` | 给 `candidates` 加法增加工作年限来源原文列，并为仅有数值的旧行回填规范数字文本 |
+| 14 | `agent_session_ownership` | 给 `agent_sessions` 加法增加 `user_id` 与按用户查询的索引；不判定、不删除既有会话 |
 
 `openDatabase()` 在每次启动时幂等地核验表、列和索引，再记录迁移。v3 只增加可空 `photo_url`；v4 只在该列为空时回填合法来源照片；v5 只创建 `deletion_audits`；v6 只新增附件/审计/履历表、索引、FTS5 虚拟表和同步触发器，并将既有候选人、履历区块和已解析附件回填到 `candidate_resume_documents`/`candidate_resume_fts`；v7 只增加三个人口字段和一个索引，并仅从已保存北森来源载荷补齐空值。V8 创建 Agent 会话/消息/摘要、`search_documents_v2` 及其 FTS5 表、dirty queue、checkpoint、表级/字段级 coverage 和同步触发器；同步打开或维护任务会对既有业务搜索文档/FTS 执行可恢复回填，保留 V6 的 `candidate_resume_documents`/`candidate_resume_fts`。V9 单独创建持久 `agent_tasks`，记录 `trace_id` 和任务状态；同时给 `agent_query_audits` 增加 `trace_id`、`task_id`、`phase` 及相关索引。V10 的迁移名为 `durable_attachment_import_batches`，创建持久表 `attachment_import_batches`/`attachment_import_items`，并建立幂等、状态和批次查询索引；V11 增加 `hire_status`/`hire_date`，V12 增加 `hire_position`。V13 使用 `ensureColumn` 加法确保 `years_experience REAL` 与 `years_experience_raw TEXT NOT NULL DEFAULT ''` 存在，登记 `(13, 'candidate_years_experience_raw')`；只在原文为空且数值非空时回填规范数字文本，不覆盖非空原文，也不把 `NULL` 变成 `0`。这些迁移都不重建或清空旧业务表。Task 7 已完成最多 100 条历史只读样本验证，脱敏聚合记录见 [v13-years-experience-import-20260825.json](evidence/v13-years-experience-import-20260825.json)；正式库当前已应用 V1-V13，本轮正式导入证据另见 `evidence/beisen-candidate-import-b-20260827.json`。V8 正式迁移的历史耗时 `746.419` 秒是维护窗口/验收边界，不是每次启动的固定耗时。当前没有自动 down migration；V13 回滚为回滚应用代码并保留新增列，删除该列只能在另行备份并经批准的离线维护中执行。
 

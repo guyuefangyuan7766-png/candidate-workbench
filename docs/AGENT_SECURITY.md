@@ -1,5 +1,17 @@
 # Agent 安全边界
 
+## 2026-09-21 认证与 Agent 鉴权边界（应用 0.6.0）
+
+启用 LDAP 认证（`AUTH_ENABLED=true`）后，**全部 `/api/agent/*` 端点同样需要有效会话**：会话、消息、任务、工具调用与导出接口都在统一的 `/api` 前缀守卫之后，公开路径只有 `/api/health`、`/api/auth/login` 和 `/api/auth/status`。未登录调用返回 `401 authentication_required`。
+
+但这只解决"谁能调用 Agent"，**不构成 Agent 的授权模型**：
+
+- Agent 仍以服务端配置的**单一身份**访问数据库，不感知调用者是白名单内的哪一个账号，因此所有审计记录（`agent_query_audits` 的表/列范围、耗时、行数）都**不包含操作者身份**。
+- Agent 的全字段只读能力不受任何角色约束。任何被允许登录的账号都能通过 Agent 读取未打码联系方式、薪资、照片地址、`raw_payload` 与附件正文——与直接调用业务 API 的可见范围一致，没有额外限制。
+- 因此"接入 LDAP"不会让 Agent 变成有权限区分的功能，也不会让 `deletion_audits` 具备可归因的操作者身份。完整的 RBAC 与操作人审计仍在阶段 2/3。
+
+会话 Cookie 使用 `HttpOnly` + `SameSite=Lax`；Agent 端点的响应同样返回 `Cache-Control: private, no-store`。
+
 ## 2026-09 检索执行边界增量（应用 0.2.0）
 
 2026-09-10 用户进一步授权完成正式混合检索，作为 0.2.0 / V13 补充，包含既有网关的正式本人材料向量回填及持续维护。仅使用既有服务端配置，不连接新供应商、不迁移主库。正式索引维护属于授权业务处理，不用正式候选人数据做评测、浏览器截图或测试 fixture；所有正式运行记录仅含脱敏聚合。实际启用状态见 [补充交付](handoffs/2026-09-10-search-hybrid-formal-supplement.md)。

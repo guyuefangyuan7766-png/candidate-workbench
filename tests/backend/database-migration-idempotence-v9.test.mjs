@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { DatabaseSync } from 'node:sqlite'
 import { test } from 'node:test'
 import { DEFAULT_STAGES } from '../../server/constants.js'
 import { synchronizeBusinessSearch } from '../../server/business-search.js'
@@ -102,7 +103,7 @@ test('V10 migration is idempotent for legacy resume FTS, attachment batches, and
 
     db = openDatabase(databasePath)
     const firstBackfill = migrationSnapshot(db)
-    assert.deepEqual(firstBackfill.versions, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
+    assert.deepEqual(firstBackfill.versions, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])
     assert.equal(firstBackfill.resume_documents, 2)
     assert.equal(firstBackfill.resume_fts, 2)
     assert.equal(firstBackfill.dirty_rows, 0)
@@ -186,6 +187,65 @@ test('V10 migration is idempotent for legacy resume FTS, attachment batches, and
     assert.ok(probeCounts(db).stage >= 1)
   } finally {
     if (db?.open) db.close()
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('V14 upgrades an existing V13 database that has no user_id column', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'candidate-workbench-v14-upgrade-'))
+  const databasePath = join(directory, 'legacy-v13.db')
+  try {
+    // Reproduce a database that already ran V1-V13 but whose agent_sessions
+    // table predates ownership. Adding the index before the column would fail
+    // here with "no such column: user_id" — a fresh-database test cannot catch
+    // that, which is exactly how the first attempt at this migration broke.
+    const legacy = new DatabaseSync(databasePath)
+    legacy.exec(`
+      CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL);
+      CREATE TABLE agent_sessions (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL DEFAULT '新对话',
+        status TEXT NOT NULL DEFAULT 'active',
+        next_sequence INTEGER NOT NULL DEFAULT 1,
+        active_request_id TEXT,
+        active_request_started_at TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        archived_at TEXT
+      );
+    `)
+    const insert = legacy.prepare('INSERT INTO schema_migrations(version, name, applied_at) VALUES (?, ?, ?)')
+    for (let version = 1; version <= 13; version += 1) insert.run(version, `legacy-${version}`, new Date().toISOString())
+    legacy
+      .prepare('INSERT INTO agent_sessions(id, title, status, next_sequence, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?)')
+      .run('legacy-session', '迁移前的对话', 'active', new Date().toISOString(), new Date().toISOString())
+    legacy.close()
+
+    const db = openDatabase(databasePath)
+    try {
+      assert.equal(db.prepare('SELECT MAX(version) AS v FROM schema_migrations').get().v, 14)
+      const columns = db.prepare('PRAGMA table_info(agent_sessions)').all().map((row) => row.name)
+      assert.ok(columns.includes('user_id'), 'user_id 应被补齐')
+      assert.ok(
+        db.prepare("SELECT 1 FROM sqlite_schema WHERE name = 'agent_sessions_user_idx'").get(),
+        'agent_sessions_user_idx 应存在'
+      )
+      const preserved = db.prepare('SELECT id, user_id FROM agent_sessions').all()
+      assert.equal(preserved.length, 1, '既有会话不能被删除')
+      assert.equal(preserved[0].user_id, null, '既有会话保持无归属')
+      assert.equal(db.prepare('PRAGMA foreign_key_check').all().length, 0)
+    } finally {
+      db.close()
+    }
+
+    // Reopening must stay idempotent.
+    const reopened = openDatabase(databasePath)
+    try {
+      assert.equal(reopened.prepare('SELECT COUNT(*) AS c FROM schema_migrations WHERE version = 14').get().c, 1)
+    } finally {
+      reopened.close()
+    }
+  } finally {
     rmSync(directory, { recursive: true, force: true })
   }
 })

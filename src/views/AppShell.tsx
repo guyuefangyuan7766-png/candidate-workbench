@@ -5,6 +5,7 @@ import {
   FileText,
   FolderKanban,
   Home,
+  LogOut,
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
@@ -13,6 +14,7 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
+import type { AuthUser } from "../auth";
 
 export type NavPage = "dashboard" | "candidates" | "talent-pools" | "positions" | "position-detail";
 export type ToolPageId = "assistant" | "resume-search" | "attachment-parser";
@@ -40,6 +42,8 @@ export interface AppShellProps {
   mobileOpen: boolean;
   assistantHistoryOpen?: boolean;
   agentConfigured: boolean;
+  user?: AuthUser | null;
+  onLogout?: () => void;
   title: string;
   onNavigate: (page: Exclude<NavPage, "position-detail">) => void;
   onOpenTool: (tool: ToolPageId) => void;
@@ -52,7 +56,7 @@ export interface AppShellProps {
 export function AppShell(props: AppShellProps) {
   const {
     page, toolPage, toolOpen, importOpen = false, collapsed, mobileOpen, assistantHistoryOpen = false, agentConfigured, title,
-    onNavigate, onOpenTool, onOpenImport, onToggleCollapse, onToggleMobile, children,
+    user = null, onLogout, onNavigate, onOpenTool, onOpenImport, onToggleCollapse, onToggleMobile, children,
   } = props;
   const isAssistantPage = toolOpen && toolPage === "assistant";
   const isAssistantHistoryOpen = isAssistantPage && assistantHistoryOpen;
@@ -135,9 +139,22 @@ export function AppShell(props: AppShellProps) {
           })}
         </nav>
         <div className="tw-sidebar-foot">
+          {user && (
+            <div className="tw-account">
+              <span className="tw-account-name" title={user.email ?? user.username}>{user.display_name || user.username}</span>
+              <span className="tw-account-id">{user.username}</span>
+              <button className="tw-account-logout" type="button" onClick={onLogout}>
+                <LogOut size={13} aria-hidden="true" />
+                退出登录
+              </button>
+            </div>
+          )}
           <div>成为企业的长期人才伙伴</div>
           <div>{new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "long", day: "numeric" }).format(new Date())}</div>
         </div>
+        {user && (
+          <span className="tw-account-mini" title={`${user.display_name || user.username}（${user.username}）`}>{user.username}</span>
+        )}
       </aside>
 
       <div className="tw-shell">
@@ -154,6 +171,14 @@ export function AppShell(props: AppShellProps) {
           </button>
           <span className="tw-topbar-title"><strong>{title}</strong><span>人才资料管理</span></span>
           <span className="tw-chips-spacer" />
+          {user && (
+            <span className="tw-account-inline">
+              <span className="tw-account-inline-name">{user.display_name || user.username}</span>
+              <button className="tw-icon-plain" type="button" onClick={onLogout} aria-label="退出登录" title="退出登录">
+                <LogOut size={17} />
+              </button>
+            </span>
+          )}
           <button className="tw-btn tw-btn-sm" type="button" onClick={() => onOpenTool("assistant")}>
             <Sparkles size={15} />助手
           </button>
