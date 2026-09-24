@@ -309,6 +309,9 @@ function buildRequestBody(texts) {
     '3. 每条 evidence 必须是该区块在原文里连续出现的一段文字，不能改写。',
     '4. 同一区块有多段经历时，entries 里放多条；一条经历里没有的字段不要填“-”。',
     '5. 只抽取列出的区块类型，不要输出教育经历、工作经历、项目经历。',
+    '6. 简历里出现的每个字段都要有落点：能对上规范字段的用规范字段名；',
+    '   确实不对应任何规范字段的，保留简历里的原字段名放进该区块的 fields，不要丢。',
+    '7. 简历标题很短（例如只有“语言能力：普通话”）时也要抽取，不要因为内容少而跳过。',
     '',
     buildSchemaPrompt()
   ].join('\n')
@@ -370,6 +373,9 @@ function normalizeEntry(type, entry) {
   const schema = SECTION_SCHEMAS[type]
   const fields = {}
   const extra = {}
+  // 「附加信息」是兜底区块：简历里出现的字段名原样保留并展示；
+  // 其余区块只接受规范字段与同义合并结果，避免把正文句子写进结构化数据。
+  const keepUnknownLabels = type === 'other'
   for (const [rawName, rawValue] of Object.entries(entry?.fields ?? {})) {
     const name = normalizeFieldName(type, rawName)
     const cleanName = String(rawName ?? '').trim()
@@ -381,12 +387,58 @@ function normalizeEntry(type, entry) {
       continue
     }
     // 规范字段之外的字段保留下来，前端按原名展示，报告里列出待并入规范。
-    if (cleanName && !extra[cleanName]) extra[cleanName] = value.slice(0, 2000)
+    if (cleanName && keepUnknownLabels && !extra[cleanName]) extra[cleanName] = value.slice(0, 2000)
   }
   if (!Object.keys(fields).length && !Object.keys(extra).length) return null
   const ordered = {}
   for (const name of schema.fields) if (fields[name]) ordered[name] = fields[name]
   return { fields: ordered, extra }
+}
+
+// 经验类区块的合并键：同一「单位 + 开始时间」只保留一条，避免同一段经历
+// 同时出现在管理经历/校园经历里。技能、语言这类清单型区块不参与合并。
+const MERGE_KEY_FIELDS = Object.freeze({
+  internship: ['单位名称', '开始时间'],
+  campus: ['职务名称', '实践名称', '活动名称', '开始时间'],
+  management: ['组织', '开始时间']
+})
+
+function mergeKeyFor(type, fields) {
+  const names = MERGE_KEY_FIELDS[type]
+  if (!names) return null
+  const parts = names.map((name) => String(fields[name] ?? '').trim().replace(/\s+/g, '').toLowerCase()).filter(Boolean)
+  if (parts.length < 2) return null
+  return `${type}\u0000${parts.join('\u0000')}`
+}
+
+// 与已接受的条目比较：同区块、同主键（单位）、时间区间有重叠即视为同一条。
+function sameExperience(left, right) {
+  const leftPrimary = String(left['单位名称'] ?? left['实践名称'] ?? left['职务名称'] ?? left['组织'] ?? '').trim().replace(/\s+/g, '')
+  const rightPrimary = String(right['单位名称'] ?? right['实践名称'] ?? right['职务名称'] ?? right['组织'] ?? '').trim().replace(/\s+/g, '')
+  if (!leftPrimary || !rightPrimary) return false
+  if (!leftPrimary.includes(rightPrimary) && !rightPrimary.includes(leftPrimary)) return false
+  const leftStart = String(left['开始时间'] ?? '').trim()
+  const rightStart = String(right['开始时间'] ?? '').trim()
+  if (!leftStart || !rightStart) return true
+  const leftYear = leftStart.match(/(19|20)\d{2}/)?.[0] ?? ''
+  const rightYear = rightStart.match(/(19|20)\d{2}/)?.[0] ?? ''
+  return !leftYear || !rightYear || leftYear === rightYear
+}
+
+function dedupeEntries(type, entries) {
+  const seenKeys = new Set()
+  const seenEntries = []
+  const kept = []
+  let removed = 0
+  for (const entry of entries) {
+    const key = mergeKeyFor(type, entry.fields)
+    if (key && seenKeys.has(key)) { removed += 1; continue }
+    if (seenEntries.some((existing) => sameExperience(existing, entry.fields))) { removed += 1; continue }
+    if (key) seenKeys.add(key)
+    seenEntries.push(entry.fields)
+    kept.push(entry)
+  }
+  return { kept, removed }
 }
 
 function normalizedEvidenceContext(text) {
@@ -417,7 +469,33 @@ function evidenceLocatable(evidence, context) {
   return total > 0 && hits / total >= 0.45
 }
 
-function buildSectionRow(candidateId, type, fields, extra, sortOrder) {
+// 第二道闸：证据不可定位时，检查该区块的字段值是否能在原文找到。
+// 值来自原文即可入库，并用命中的原文片段补出证据，避免整段合法内容被丢弃。
+function fieldValuesGrounded(entries, context) {
+  const values = []
+  for (const entry of entries) {
+    for (const value of Object.values(entry.fields ?? {})) values.push(String(value))
+    for (const value of Object.values(entry.extra ?? {})) values.push(String(value))
+  }
+  const probes = values
+    .flatMap((value) => value.split(/\n|[；;|｜]/))
+    .map((value) => value.trim())
+    .filter((value) => value.length >= 4)
+    .slice(0, 12)
+  if (!probes.length) return null
+  let hits = 0
+  let firstHit = ''
+  for (const probe of probes) {
+    const normalized = probe.replace(/\s+/g, '')
+    if (context.normalizedText.includes(normalized.slice(0, Math.min(24, normalized.length)))) {
+      hits += 1
+      if (!firstHit) firstHit = probe.slice(0, 240)
+    }
+  }
+  return hits >= Math.min(2, probes.length) ? { hits, evidence: firstHit } : null
+}
+
+function buildSectionRow(candidateId, type, fields, extra, sortOrder, originalTitle = '') {
   const schema = SECTION_SCHEMAS[type]
   const heading = schema.headingFields.map((name) => fields[name]).filter(Boolean).join(' · ')
   const start = fields['开始时间'] ?? fields['获得时间'] ?? fields['发表时间'] ?? ''
@@ -433,7 +511,7 @@ function buildSectionRow(candidateId, type, fields, extra, sortOrder) {
     id: randomUUID(),
     candidateId,
     sectionType: type,
-    title: heading ? `${heading}${''}` : schema.title,
+    title: heading || originalTitle || schema.title,
     content,
     structured: { ...fields, ...(Object.keys(extra ?? {}).length ? { _extra: extra } : {}), semantic_type: type, source: 'origin_resume_parse' },
     sortOrder
@@ -449,6 +527,9 @@ const stats = {
   sectionsProposed: 0,
   sectionsAccepted: 0,
   sectionsRejected: 0,
+  entriesDeduped: 0,
+  unmatchedFieldsCaptured: 0,
+  sectionsAcceptedByFieldValues: 0,
   rowsInserted: 0,
   candidatesWithSections: 0,
   candidatesPlanned: 0,
@@ -526,30 +607,70 @@ for (const result of results) {
     if (!entry) { bump(stats.rejectReasons, 'unknown_candidate_id'); continue }
     const evidenceContext = normalizedEvidenceContext(entry.text)
     const accepted = []
+    const acceptedByType = new Map()
     for (const section of resume.sections ?? []) {
-      const type = String(section?.section_type ?? '').trim()
+      const rawType = String(section?.section_type ?? '').trim()
+      // 解析出的区块名不在规范类型里时，不丢弃：并入「附加信息」，标题保留原区块名。
+      const type = SECTION_SCHEMAS[rawType] ? rawType : 'other'
+      const sectionTitle = SECTION_SCHEMAS[rawType] ? '' : rawType
       const schema = SECTION_SCHEMAS[type]
-      if (!schema) { stats.sectionsRejected += 1; bump(stats.rejectReasons, `unknown_type:${type}`); continue }
-      if (!evidenceLocatable(section?.evidence, evidenceContext)) {
-        stats.sectionsRejected += 1
-        bump(stats.rejectReasons, `evidence_not_locatable:${type}`)
-        continue
-      }
+      if (!schema) { stats.sectionsRejected += 1; bump(stats.rejectReasons, `unknown_type:${rawType}`); continue }
       const entries = []
       for (const rawEntry of section.entries ?? []) {
         const normalized = normalizeEntry(type, rawEntry)
-        if (normalized) entries.push(normalized)
+        if (!normalized) continue
+        const hasCanonical = Object.keys(normalized.fields).length > 0
+        const hasExtra = Object.keys(normalized.extra).length > 0
+        // 其他区块允许只有原始字段（这是它的职责）；结构化区块必须有规范字段，
+        // 否则视为解析噪声丢弃。
+        if (hasCanonical || (type === 'other' && hasExtra)) entries.push(normalized)
+      }
+      let evidence = String(section.evidence ?? '').slice(0, 500)
+      if (!evidenceLocatable(section?.evidence, evidenceContext)) {
+        const grounded = fieldValuesGrounded(entries, evidenceContext)
+        if (!grounded) {
+          stats.sectionsRejected += 1
+          bump(stats.rejectReasons, `evidence_not_locatable:${rawType}`)
+          continue
+        }
+        evidence = grounded.evidence
+        stats.sectionsAcceptedByFieldValues += 1
       }
       if (!entries.length) {
         stats.sectionsRejected += 1
-        bump(stats.rejectReasons, `no_valid_fields:${type}`)
+        bump(stats.rejectReasons, `no_valid_fields:${rawType}`)
         continue
       }
       stats.sectionsProposed += 1
-      stats.sectionsAccepted += 1
-      bump(stats.byType, type, entries.length)
-      accepted.push({ type, entries, evidence: String(section.evidence ?? '').slice(0, 500) })
+      // 同一候选人的同类区块合并进一个 section，后续统一去重。
+      const existing = acceptedByType.get(type)
+      if (existing) {
+        existing.entries.push(...entries)
+        if (sectionTitle && !existing.originalTitles.includes(sectionTitle)) existing.originalTitles.push(sectionTitle)
+      } else {
+        acceptedByType.set(type, {
+          type,
+          entries: [...entries],
+          originalTitles: sectionTitle ? [sectionTitle] : [],
+          evidence
+        })
+      }
     }
+
+    // 去重合并：同一段经历只留一条。
+    for (const section of acceptedByType.values()) {
+      const { kept, removed } = dedupeEntries(section.type, section.entries)
+      stats.entriesDeduped += removed
+      if (kept.length) {
+        section.entries = kept
+        stats.sectionsAccepted += 1
+        bump(stats.byType, section.type, kept.length)
+        accepted.push(section)
+      } else {
+        acceptedByType.delete(section.type)
+      }
+    }
+
     batchPlan.push({ entry, accepted })
   }
 }
@@ -569,7 +690,10 @@ try {
         continue
       }
       section.entries.forEach(({ fields, extra }, entryIndex) => {
-        const row = buildSectionRow(plan.entry.candidateId, section.type, fields, extra, sortOrder)
+        const row = buildSectionRow(
+          plan.entry.candidateId, section.type, fields, extra, sortOrder,
+          section.originalTitles?.join(' · ') ?? ''
+        )
         const structured = { ...row.structured, entry_index: entryIndex, evidence: section.evidence, parser: PARSER_VERSION }
         for (const name of Object.keys(extra ?? {})) bump(stats.extraFieldNames, name)
         sortOrder += 1
