@@ -154,6 +154,11 @@ node server/index.mjs
   SQLite 把 9.8 万条候选集整体 materialize，8 分钟内涨到 2.9 GB 并最终 OOM。
 - 失败批次补跑用 `--candidate-ids <逗号分隔的 candidateId>`（报告里
   `status=batch_failed` 的那些人）。
+- **畸形 PDF 已隔离**：`scripts/extract-origin-text.mjs` 单文件独立进程提取
+  （120s 超时），原生层崩溃只影响该候选人，主循环记为 `text_failed` 继续。
+- **重启方式**：`node scripts/run-phase3-full.mjs`；已解析过的人会被跳过。
+  进度看 `data/phase3-full-progress.jsonl`，详细统计看
+  `data/phase3-full-report.json`。
 
 ### 增量同步（2026-09-24 实测）
 
