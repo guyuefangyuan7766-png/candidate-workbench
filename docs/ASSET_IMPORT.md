@@ -58,6 +58,7 @@
 | 目录索引事实 | 来源索引区块 | 履历 |
 | `standard.pdf` | `candidate_attachments`（`attachment_type='resume'`） | 履历 |
 | `origin/origin.pdf` | `candidate_attachments`（`attachment_type='resume_origin'`） | 履历 |
+| `personProfile.IDPhoto` + `standard.pdf` 内嵌图 | `candidate_attachments`（`attachment_type='avatar'`）+ `candidates.photo_url` | 头像 |
 | `catalog/files` 每行 | `asset_file_index` | 数据库 |
 | `catalog/candidates` 校验字段 | `candidate_asset_index` | 数据库 |
 | `_revision/revision.json` | `asset_sync_revisions` | 数据库 |
@@ -71,6 +72,12 @@
 
 - **只存档不解析**：`parse_status='pending'`、`extracted_text=''`，因此不会写
   `candidate_resume_documents`，也不进全文/向量索引。搜索能力来自结构化区块。
+- **头像单独同步（阶段 2）**：`candidate_attachments` 里 `attachment_type='avatar'`
+  的行不是资产原件，而是从 `standard.pdf` 第一页提取的证件照副本，由
+  `scripts/sync-candidate-avatars.mjs` 生成（`source='avatar_sync'`、
+  `parse_status='parsed'`）。2026-09-24 全量结果：32,258 张、6.4 GiB，
+  覆盖 27.1% 候选人；明细与清洗记录见 `docs/PHASE_PLAN.md` 阶段 2 与
+  `data/avatar-dedupe-audit.json`、`data/avatar-audit/`（本地复核材料，已 gitignore）。
 - **原始简历按魔数判真实类型**：上游 `origin.pdf` 里约六成其实是 HTML，
   只有约 28% 是真 PDF。导入时按文件头判定并改名为 `origin.html` / `origin.pdf` 等，
   写入对应 MIME。

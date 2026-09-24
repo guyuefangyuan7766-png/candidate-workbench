@@ -122,7 +122,7 @@ node server/index.mjs
 | 阶段 | 目标 | 状态 |
 | --- | --- | --- |
 | 阶段 1 | 原始简历内嵌展示，档案左侧新增简历区块 | **基础版已完成**，待完善长简历滚动与移动端 |
-| 阶段 2 | 把简历里的证件照同步到头像框 | 方案完成，**可行性已验证**：8 个有证件照标记的样本里 6 个能从 `standard.pdf` 提取到合格头像 |
+| 阶段 2 | 把简历里的证件照同步到头像框 | **已完成（2026-09-24）**：32,258 人有头像，占 27.1%；误提已清洗，详见 `docs/PHASE_PLAN.md` |
 | 阶段 3 | 用 Codex 解析原始简历，补齐缺失字段并显示 | 方案完成，**需先确认合规**（会把 10.9 万份真实简历发给模型网关） |
 
 ### 阶段 2 要点
@@ -131,8 +131,10 @@ node server/index.mjs
   （`server/attachment-avatar.js`），合格条件 ≥96×96、宽高比 0.55–1.35
 - 落盘后插 `candidate_attachments`（`attachment_type='avatar'`），
   设 `candidates.photo_url = 'attachment-avatar:<附件ID>'`
-- 覆盖预估约 22%，实施前先随机抽 200 人实测
-- 风险：可能把 logo 或水印误当头像，验收需人工抽检 50 人
+- **门禁**：只处理身份与证件区块里 `IDPhoto` 有值的候选人。无标记档案里
+  `standard.pdf` 内嵌的是同一张 160×160 默认剪影占位图，不设门禁会大面积误提。
+- 实际覆盖 27.1%（有标记人群 89.1%）；脚本 `scripts/sync-candidate-avatars.mjs`
+  可重跑（幂等），`scripts/dedupe-candidate-avatars.mjs` 负责清误提
 
 ### 阶段 3 要点
 

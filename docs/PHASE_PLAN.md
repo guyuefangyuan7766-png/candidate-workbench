@@ -101,7 +101,9 @@
 ### 覆盖预估
 
 约 29.6%（有证件照标记）× 75%（提取成功）≈ **全量 22%**。
-未标记但有照片的档案理论上也能提，实施前先随机抽 200 人实测真实覆盖率。
+"未标记但有照片的档案理论上也能提"这一条**已被实测否定**：无 `IDPhoto` 标记的
+档案里，`standard.pdf` 内嵌的是同一张 160×160 默认剪影占位图（全库同 sha），
+必须用标记做门禁，否则会把占位图当成头像。
 
 ### 风险与验收
 
@@ -109,6 +111,35 @@
   需要转码的先转成 JPEG/PNG 再入库（`resolveCandidateAvatar` 只接受
   `image/jpeg` 与 `image/png`）
 - **验收**：随机抽 50 人人工核对头像是否正确，并统计提取成功率
+
+### 实施结果（2026-09-24 完成）
+
+- 先导实测：随机 200 位有标记候选人 → 182 张可提取（91%），0 报错。
+- 全量：**36,223** 位有 `IDPhoto` 标记的候选人里 **32,258 人**写入了本地头像，
+  占有标记者 **89.1%**、占全部 118,918 人的 **27.1%**；落盘 6.4 GiB，
+  均 208 KB，最大 4.72 MB。另 3,965 人的证件照小于 96×96 下限或 PDF 内
+  没有可用图像，保持姓名首字头像。
+- 写入内容：`candidate_attachments`（`attachment_type='avatar'`、
+  `parse_status='parsed'`、`source='avatar_sync'`）+ `candidates.photo_url=
+  'attachment-avatar:<附件ID>'`。已有 `photo_url` 的候选人一律跳过，不覆盖。
+- 误提清洗：重复字节扫描发现 261 个跨候选人重复图组。其中 **136 组（680 人）
+  跨不同姓名**——卡通默认头像、产品界面截图、二维码、广告图、宠物照——已删除
+  附件行/文件并回滚 `photo_url`，留档 `data/avatar-dedupe-audit.json`；
+  另有 125 组（311 人）是同名重复档案的真实照片，保留。
+  追加校验：**24 张**颜色多样性 < 2% 的扁平图形（占位剪影、二维码、UI 截图）
+  也已清除；同类残留检测未见其他命中。
+- 端到端校验：32,258 行头像全部通过「文件存在 / 大小一致 / sha256 一致 /
+  可解码」检查；随机 25 人走 `GET /api/candidates/:id/avatar` 全部 200，
+  返回字节与库内 sha256 一致。
+- **验收口径（2026-09-24 用户确认）**：生活照、毕业照、艺术照都可以，只要
+  能看清人脸即可；不需要再收紧“必须是标准证件照”。因此上述非证件照头像
+  按通过处理，不做额外过滤。
+- 脚本：`scripts/sync-candidate-avatars.mjs`（同步，支持 `--limit`/`--random`/
+  `--apply`）、`scripts/dedupe-candidate-avatars.mjs`（清误提，默认 dry-run）。
+- 复核材料（含真实头像，仅存本地、已 gitignore）：`data/avatar-audit/`——
+  `index.html` 随机 96 张落库头像接触表、`rejected-duplicate-groups.png` 与
+  `rejected-low-diversity.png` 被清除的误提拼图、`ui-avatar-verification.png`
+  界面取证、`README.json` 汇总。
 
 ---
 

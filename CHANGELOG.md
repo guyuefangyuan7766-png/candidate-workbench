@@ -2,6 +2,33 @@
 
 格式参考 Keep a Changelog，版本号遵循语义化版本。
 
+## 人才资产副本 - 2026-09-24
+
+### 新增
+
+- **阶段 2：把原始简历里的证件照同步到头像框。** 新增
+  `scripts/sync-candidate-avatars.mjs`：复用 `server/attachment-avatar.js` 的
+  `extractPdfAvatarCandidates` / `selectPdfAvatarCandidate`，从 `standard.pdf`
+  第一页提取证件照，清洗元数据后写入 `data/private/attachments/files/`，并落
+  `candidate_attachments`（`attachment_type='avatar'`、`source='avatar_sync'`）
+  与 `candidates.photo_url='attachment-avatar:<附件ID>'`。支持 `--limit` 抽样、
+  `--random` 可复现随机、`--apply` 写入；未加 `--apply` 时只读。幂等：已有头像
+  或 `photo_url` 非空的候选人直接跳过。
+- 新增 `scripts/dedupe-candidate-avatars.mjs` 清理误提（默认 dry-run）：删除
+  跨不同姓名共用的重复图（模板头像 / 产品截图 / 二维码 / 宠物照），以及颜色
+  多样性 < 2% 的扁平图形（默认剪影、纯色块、UI 截图）。清理留档
+  `data/avatar-dedupe-audit.json`。
+- 全量结果（2026-09-24）：118,918 位候选人中 **32,258 人**有本地头像
+  （**27.1%**，占 36,223 位有 `IDPhoto` 标记者的 **89.1%**），落盘 6.4 GiB。
+  清理误提 680 + 24 条。全部 32,258 行通过文件存在 / 大小 / sha256 / 可解码校验，
+  随机 25 人走 `GET /api/candidates/:id/avatar` 全部 200 且字节与 sha256 一致。
+
+### 变更
+
+- `docs/HANDOFF.md`、`docs/PHASE_PLAN.md`、`docs/ASSET_IMPORT.md` 记录阶段 2
+  的实测口径与结果，并修正原方案里「未标记档案也能提取照片」的推断——实测那
+  部分是同一张 160×160 默认剪影占位图，必须以 `IDPhoto` 标记做门禁。
+
 ## [0.6.0] - 2026-09-21（开发中）
 
 ### 新增
