@@ -146,7 +146,25 @@ node server/index.mjs
   `--limit/--offset` 断点续跑；`--candidate-ids` 定向补跑失败批次
 - 字段口径与同义合并表见 `docs/PHASE_PLAN.md` 阶段 3；规范字段外的字段进
   `structured_data._extra`，不丢弃
-- 试点实测：100 份约 3.5 分钟；全量 98,333 份外推约 55–60 小时（10 份/批 ×5 并发）
+- 试点实测：500 人次约 4 分钟/100 份；全量按实测吞吐外推约 2.5–3 小时
+  （10 份/批 ×5 并发）。全量入口 `scripts/run-phase3-full.mjs`，每 60 秒写
+  `data/phase3-full-progress.jsonl` 心跳，可随时中断后重跑续传。
+- **长跑内存**：解析脚本改为「键集分页 + 分波处理」（`PHASE3_WAVE` 默认 500
+  人/波），RSS 稳定在 ~150 MB；不要退回 `LIMIT ? OFFSET ?` 写法——实测那会让
+  SQLite 把 9.8 万条候选集整体 materialize，8 分钟内涨到 2.9 GB 并最终 OOM。
+- 失败批次补跑用 `--candidate-ids <逗号分隔的 candidateId>`（报告里
+  `status=batch_failed` 的那些人）。
+
+### 增量同步（2026-09-24 实测）
+
+- 入口 `scripts/incremental-sync.mjs`：`--check`（拉最新 manifest 并算差集）→
+  `--download --shards N`（按分片下载简历快照，断点续跑）→ `--import`（写库）。
+- **`sync.export` 的 `applicantIds` 不生效**（传 2 个 ID 仍导出整片 39,651 个档案），
+  所以增量只能整份索引差集 + 分片快照，不能按人精确拉取。
+- 当日实测差集：新增 41 人、指纹变化 55 人、索引消失 4 人。
+- 解析环节天然增量：解析器只挑没有解析产物的人，新导入者自动入队。
+- 待实测：`--download` + `--import` 尚未用真实增量跑完整链路（差集与产物下载
+  已验证；导入脚本沿用首次全量导入器）。
 
 ## 六、待决策（需要人拍板）
 

@@ -95,6 +95,25 @@
 
 本次导入后已演练过一次：118,918 条指纹全部一致，变化 0、新增 0、本地独有 0。
 
+### 实测补充（2026-09-24）
+
+- **`sync.export` 的 `applicantIds` 参数不生效**：传入 2 个 applicantId，agent
+  仍然导出整片 39,651 个档案（93 MB）。因此无法按 ID 精细拉取，增量只能走
+  「整份索引 + 差集 + 分片快照」。
+- **真实增量已跑通差集**：当日新快照与本地基线比对得到
+  `generationId=fsgen-3264a818-…`（本地为 `fsgen-396a2209-…`），
+  新增 **41** 人、指纹变化 **55** 人、索引消失 **4** 人、无法定位 4 人，
+  其余 118,859 人一致。
+- **manifest 产物可直连下载**：`agent artifacts <taskId>` 返回 6 个产物
+  （asset-candidates / asset-files / asset-pools / asset-pool-members /
+  manifest / execution-log），OSS `-internal` 域名在本机可直连，下载后
+  sha256 与 size 全部校验通过。
+- 新增脚本 `scripts/incremental-sync.mjs`：`--check` 拉最新清单并算差集；
+  `--download --shards N` 按分片下载简历快照（含断点续跑）；`--import` 才写库。
+- **简历解析天然增量**：`scripts/parse-origin-resume-sections.mjs` 只处理
+  「没有 `origin-section-parse-v1` 产物」的候选人，所以新导入的人会自动
+  进入解析队列，不需要额外标记。
+
 ## 已知口径差异
 
 | 项 | 索引声明 | 实际导入 | 原因 |

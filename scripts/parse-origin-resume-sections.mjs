@@ -12,11 +12,10 @@
 // 留请求副本，只落解析结果。字段口径来自 C 盘旧项目实测的区块字段名。
 import { DatabaseSync } from 'node:sqlite'
 import { randomUUID } from 'node:crypto'
-import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { execFileSync, spawn } from 'node:child_process'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { parseAttachment, validateAttachmentFile } from '../server/attachment-parser.js'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const PARSER_VERSION = 'origin-section-parse-v1'
@@ -223,11 +222,13 @@ const candidateFilter = options.candidateIds?.length
   : ''
 const queryParams = options.candidateIds?.length ? [...options.candidateIds] : []
 
-const candidates = db.prepare(`
-  SELECT a.candidate_id, a.storage_path, a.mime_type, a.file_size, c.name
+// 分波取数：以 candidate_attachments 主键（a.id）做游标顺序扫描。
+// 不要加 ORDER BY / OFFSET：实测在 13 GB 主库上会让 SQLite 整体物化候选集，
+// 8 分钟涨到 2.9 GB 并最终以 0xC0000005（访问违例）崩溃。
+const candidateQuery = db.prepare(`
+  SELECT a.id AS attachment_id, a.candidate_id, a.storage_path, a.mime_type, a.file_size, c.name
   FROM candidate_attachments a
   JOIN candidates c ON c.id = a.candidate_id
-  JOIN candidate_source_records s ON s.candidate_id = a.candidate_id AND s.record_type = 'talent_profile'
   WHERE a.attachment_type = 'resume_origin'
     AND a.mime_type IN ('text/html','text/plain','application/pdf')
     AND COALESCE(c.archived_at, '') = ''
@@ -239,9 +240,10 @@ const candidates = db.prepare(`
     )
     ${parserFilter}
     ${candidateFilter}
-  ORDER BY a.candidate_id
-  LIMIT ? OFFSET ?
-`).all(...queryParams, options.limit, options.offset)
+    AND a.id > ?
+  LIMIT ?
+`)
+const waveSize = Math.max(options.batchSize, Number.parseInt(process.env.PHASE3_WAVE ?? '500', 10) || 500)
 
 const eligibleTotal = db.prepare(`
   SELECT COUNT(*) AS n
@@ -258,37 +260,51 @@ const eligibleTotal = db.prepare(`
     )
 `).get().n
 
-function htmlToText(html) {
-  return String(html)
-    .replace(/<!--[\s\S]*?-->/g, ' ')
-    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ')
-    .replace(/<\/(td|th|div|p|li|tr|h[1-6]|table)>/gi, '\n')
-    .replace(/<\/(br)>/gi, '\n')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/(li)>/gi, '\n')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;|&apos;/gi, "'")
-    .replace(/&[a-z]+;/gi, ' ')
-    .replace(/[ \t\u00a0]+/g, ' ')
-    .replace(/\n{3,}/g, '\n\n')
-    .split('\n').map((line) => line.trim()).filter(Boolean).join('\n')
-    .trim()
+// 逐份隔离提取：PDF 解析在原生层，畸形文件会让进程直接退出（0xC0000005），
+// 因此每份正文都交给独立子进程，崩溃/超时只影响这一份。
+function extractTextInChild(storagePath, mimeType, timeoutMs = 120_000) {
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, ['scripts/extract-origin-text.mjs', storagePath, mimeType], {
+      cwd: ROOT,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true
+    })
+    let stdout = ''
+    let stderr = ''
+    let settled = false
+    const timer = setTimeout(() => {
+      if (settled) return
+      settled = true
+      child.kill()
+      resolve({ ok: false, error: 'extract_timeout' })
+    }, timeoutMs)
+    child.stdout.on('data', (chunk) => { stdout += chunk })
+    child.stderr.on('data', (chunk) => { stderr += chunk })
+    child.on('error', (error) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      resolve({ ok: false, error: String(error?.message ?? error).slice(0, 120) })
+    })
+    child.on('exit', (code) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      if (code !== 0) return resolve({ ok: false, error: `extract_exit_${code}` })
+      try {
+        const parsed = JSON.parse(stdout)
+        resolve(parsed)
+      } catch {
+        resolve({ ok: false, error: `extract_bad_output:${stderr.slice(0, 80)}` })
+      }
+    })
+  })
 }
 
 async function extractText(row) {
-  const buffer = readFileSync(row.storage_path)
-  if (row.mime_type === 'text/html') return { text: htmlToText(buffer.toString('utf8')), method: 'html_strip' }
-  if (row.mime_type === 'text/plain') return { text: buffer.toString('utf8'), method: 'plain' }
-  const file = { buffer, originalname: row.storage_path.split(/[\\/]/).pop(), mimetype: row.mime_type }
-  const validated = validateAttachmentFile(file)
-  const parsed = await parseAttachment(file, validated)
-  const text = parsed?.records?.map((record) => record?.values?.raw_text ?? '').filter(Boolean).join('\n') ?? ''
-  return { text, method: `attachment_parser:${parsed?.format ?? 'pdf'}` }
+  const result = await extractTextInChild(row.storage_path, row.mime_type)
+  if (!result.ok) throw Object.assign(new Error(result.error), { code: result.error })
+  return { text: result.text ?? '', method: result.method ?? 'unknown' }
 }
 
 function buildSchemaPrompt() {
@@ -519,7 +535,7 @@ function buildSectionRow(candidateId, type, fields, extra, sortOrder, originalTi
 }
 
 const stats = {
-  candidates: candidates.length,
+  candidates: 0,
   textExtracted: 0,
   textFailed: 0,
   batches: 0,
@@ -544,44 +560,45 @@ const perCandidate = []
 
 function bump(map, key, amount = 1) { map[key] = (map[key] ?? 0) + amount }
 
-const prepared = []
-for (const row of candidates) {
-  try {
-    const { text, method } = await extractText(row)
-    if (!text || text.length < 40) { stats.textFailed += 1; continue }
-    stats.textExtracted += 1
-    stats.inputCharacters += text.length
-    prepared.push({ candidateId: row.candidate_id, name: row.name, text, method })
-  } catch (error) {
-    stats.textFailed += 1
-    perCandidate.push({ candidate_id: row.candidate_id, name: row.name, status: 'text_failed', error: String(error?.message ?? error).slice(0, 120) })
-  }
-}
-
-const batches = []
-for (let index = 0; index < prepared.length; index += options.batchSize) {
-  batches.push(prepared.slice(index, index + options.batchSize))
-}
-stats.batches = batches.length
-
-const results = new Array(batches.length)
-let cursor = 0
-async function worker() {
-  while (cursor < batches.length) {
-    const index = cursor
-    cursor += 1
-    const batch = batches[index]
-    stats.batches += 0
+// 取正文 + 调模型：一个 wave 的全部候选在这里处理完，返回批次结果。
+async function runWave(rows) {
+  const prepared = []
+  for (const row of rows) {
     try {
-      const { json, usage } = await callGateway(batch)
-      results[index] = { batch, json, usage, error: null }
+      const { text, method } = await extractText(row)
+      if (!text || text.length < 40) { stats.textFailed += 1; continue }
+      stats.textExtracted += 1
+      stats.inputCharacters += text.length
+      prepared.push({ candidateId: row.candidate_id, name: row.name, text, method })
     } catch (error) {
-      stats.batchFailed += 1
-      results[index] = { batch, json: null, usage: null, error: String(error?.message ?? error).slice(0, 200) }
+      stats.textFailed += 1
+      perCandidate.push({ candidate_id: row.candidate_id, name: row.name, status: 'text_failed', error: String(error?.message ?? error).slice(0, 120) })
     }
   }
+  const batches = []
+  for (let index = 0; index < prepared.length; index += options.batchSize) {
+    batches.push(prepared.slice(index, index + options.batchSize))
+  }
+  stats.batches += batches.length
+  const results = new Array(batches.length)
+  let cursor = 0
+  async function callWorker() {
+    while (cursor < batches.length) {
+      const index = cursor
+      cursor += 1
+      const batch = batches[index]
+      try {
+        const { json, usage } = await callGateway(batch)
+        results[index] = { batch, json, usage, error: null }
+      } catch (error) {
+        stats.batchFailed += 1
+        results[index] = { batch, json: null, usage: null, error: String(error?.message ?? error).slice(0, 200) }
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(options.concurrency, Math.max(1, batches.length)) }, () => callWorker()))
+  return results
 }
-await Promise.all(Array.from({ length: Math.min(options.concurrency, Math.max(1, batches.length)) }, () => worker()))
 
 const insertSection = db.prepare(`
   INSERT INTO candidate_profile_sections(
@@ -595,7 +612,9 @@ const existingTypes = db.prepare(`
 `)
 const maxSort = db.prepare('SELECT COALESCE(MAX(sort_order), 0) AS n FROM candidate_profile_sections WHERE candidate_id = ?')
 
-const batchPlan = []
+// 校验 + 入计划：把模型输出转成待写入的区块。
+function planWave(results) {
+  const batchPlan = []
 for (const result of results) {
   if (result.error) {
     for (const entry of result.batch) perCandidate.push({ candidate_id: entry.candidateId, name: entry.name, status: 'batch_failed', error: result.error })
@@ -674,11 +693,16 @@ for (const result of results) {
     batchPlan.push({ entry, accepted })
   }
 }
+  return batchPlan
+}
 
-let transactionStarted = false
-try {
-  if (options.apply) { db.exec('BEGIN IMMEDIATE'); transactionStarted = true }
-  const timestamp = new Date().toISOString()
+// 写库：一个 wave 一次事务，写完即提交。
+function writeWave(batchPlan) {
+  if (!batchPlan.length) return
+  let transactionStarted = false
+  try {
+    if (options.apply) { db.exec('BEGIN IMMEDIATE'); transactionStarted = true }
+    const timestamp = new Date().toISOString()
   for (const plan of batchPlan) {
     const already = new Set(existingTypes.all(plan.entry.candidateId).map((row) => row.section_type))
     let sortOrder = Number(maxSort.get(plan.entry.candidateId).n) + 1
@@ -728,24 +752,65 @@ try {
       inserted
     })
   }
-  if (transactionStarted) { db.exec('COMMIT'); transactionStarted = false }
-} catch (error) {
-  if (transactionStarted) { try { db.exec('ROLLBACK') } catch {} }
-  throw error
+    if (transactionStarted) { db.exec('COMMIT'); transactionStarted = false }
+  } catch (error) {
+    if (transactionStarted) { try { db.exec('ROLLBACK') } catch {} }
+    throw error
+  }
 }
 
-const report = {
-  mode: options.apply ? 'apply' : 'dry-run',
-  model,
-  limit: options.limit,
-  offset: options.offset,
-  batchSize: options.batchSize,
-  concurrency: options.concurrency,
-  elapsedMs: Date.now() - startedAt,
-  stats,
-  perCandidate
+function writeReport() {
+  const report = {
+    mode: options.apply ? 'apply' : 'dry-run',
+    model,
+    limit: options.limit,
+    offset: options.offset,
+    batchSize: options.batchSize,
+    concurrency: options.concurrency,
+    elapsedMs: Date.now() - startedAt,
+    stats,
+    perCandidate
+  }
+  mkdirSync(dirname(options.reportPath), { recursive: true })
+  writeFileSync(options.reportPath, `${JSON.stringify(report, null, 2)}\n`)
+  return report
 }
-mkdirSync(dirname(options.reportPath), { recursive: true })
-writeFileSync(options.reportPath, `${JSON.stringify(report, null, 2)}\n`)
+
+let stopping = false
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.once(signal, () => {
+    // 优雅退出：当前 wave 写完后结束，丢弃未开始的 wave，下次运行会自动续跑。
+    stopping = true
+    console.error(`[avatar] 收到 ${signal}，当前波次结束后退出`)
+  })
+}
+
+let processed = 0
+let waveIndex = 0
+let cursorId = '' // 游标：上一波最后一个 candidate_attachments.id（UUID 均大于空串）
+while (true) {
+  if (stopping) break
+  const remaining = options.limit - processed
+  if (remaining <= 0) break
+  const rows = candidateQuery.all(
+    ...queryParams,
+    cursorId,
+    Math.min(remaining, waveSize)
+  )
+  if (!rows.length) break
+  cursorId = rows[rows.length - 1].attachment_id
+  waveIndex += 1
+  const waveStartedAt = Date.now()
+  const results = await runWave(rows)
+  writeWave(planWave(results))
+  processed += rows.length
+  stats.candidates += rows.length
+  const elapsedSeconds = Math.max(1, (Date.now() - startedAt) / 1000)
+  console.log(`[wave ${waveIndex}] ${processed}/${options.limit} 人，落库 ${stats.rowsInserted} 行，` +
+    `${(processed / elapsedSeconds).toFixed(1)} 人/秒，RSS ${Math.round(process.memoryUsage().rss / 1048576)}MB，` +
+    `本波 ${Math.round((Date.now() - waveStartedAt) / 1000)}s`)
+}
+
+const report = writeReport()
 db.close()
 console.log(JSON.stringify({ ...report, perCandidate: `${perCandidate.length} 条（见报告文件）`, reportPath: options.reportPath }, null, 1))

@@ -45,6 +45,16 @@
 
 ### 变更
 
+- **增量同步工具落地（2026-09-24 实测）**：新增 `scripts/incremental-sync.mjs`，
+  串起「拉最新 manifest → 按 profile_sha256 与本地做差集 → 按分片下载简历快照
+  → 导入 → 解析补齐字段」这条链路；`--check` 默认只读。实测当日快照与本地基线
+  差集：新增 41 人、指纹变化 55 人、索引消失 4 人。同时确认
+  `sync.export` 的 `applicantIds` 参数**不会收窄导出范围**（传 2 个 ID 仍返回
+  39,651 个档案），因此增量必须走「整份索引 + 差集 + 分片快照」。
+- **阶段 3 全量入口**：新增 `scripts/run-phase3-full.mjs`，每 60 秒写
+  `data/phase3-full-progress.jsonl` 心跳，可中断续跑；解析脚本只处理没有解析
+  产物的候选人，因此新导入的人会自动进入队列。
+
 - `docs/HANDOFF.md`、`docs/PHASE_PLAN.md`、`docs/ASSET_IMPORT.md` 记录阶段 2
   的实测口径与结果，并修正原方案里「未标记档案也能提取照片」的推断——实测那
   部分是同一张 160×160 默认剪影占位图，必须以 `IDPhoto` 标记做门禁。
