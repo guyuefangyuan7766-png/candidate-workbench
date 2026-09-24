@@ -45,6 +45,16 @@
 
 ### 变更
 
+- **增量导入器（2026-09-24）**：新增 `scripts/import-incremental.mjs`，只处理差集里的
+  「新增 / 指纹变化」候选人：更新主表字段、归档并重建北森来源区块（保留模型解析
+  区块 `origin-section-parse-v1`）、刷新索引与求职偏好、补齐缺失的简历附件。默认
+  预演，`--apply` 才写库。同日验证：差集 41 新增 + 55 变化被正确识别，并确认新导入者
+  会被解析脚本自动纳入队列，继续补实习/校园/技能等项目字段。
+- **心跳与长跑**：新增 `scripts/phase3-heartbeat.mjs`，把进度心跳放到独立进程（主进程
+  有同步 SQLite 查询，自己写心跳会被事件循环堵住）；`scripts/incremental-sync.mjs`
+  的分片下载改到 `data/incremental/resumes/` 并自动解压、按 sha256 校验续传。
+
+
 - **增量同步工具落地（2026-09-24 实测）**：新增 `scripts/incremental-sync.mjs`，
   串起「拉最新 manifest → 按 profile_sha256 与本地做差集 → 按分片下载简历快照
   → 导入 → 解析补齐字段」这条链路；`--check` 默认只读。实测当日快照与本地基线

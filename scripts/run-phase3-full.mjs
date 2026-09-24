@@ -6,8 +6,7 @@
 // 心跳写入 data/phase3-full-progress.jsonl，解析结果写入数据库
 // candidate_profile_sections（parser=origin-section-parse-v1）。
 import { spawn } from 'node:child_process'
-import { DatabaseSync } from 'node:sqlite'
-import { appendFileSync, mkdirSync, openSync, writeFileSync } from 'node:fs'
+import { mkdirSync, openSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -39,42 +38,25 @@ const child = spawn('node', [
 writeFileSync(resolve(DATA, 'phase3-full.pid'), String(child.pid))
 console.log(JSON.stringify({ started: child.pid, log: logPath, progress: progressPath }, null, 1))
 
-function snapshot() {
-  const db = new DatabaseSync(resolve(DATA, 'recruitment.db'), { readOnly: true })
-  const stats = db.prepare(`
-    SELECT COUNT(*) AS rows, COUNT(DISTINCT candidate_id) AS candidates
-    FROM candidate_profile_sections
-    WHERE archived_at IS NULL AND json_extract(structured_data, '$.parser') = 'origin-section-parse-v1'
-  `).get()
-  const remaining = db.prepare(`
-    SELECT COUNT(*) AS n FROM candidate_attachments a
-    JOIN candidates c ON c.id = a.candidate_id
-    WHERE a.attachment_type = 'resume_origin'
-      AND a.mime_type IN ('text/html','text/plain','application/pdf')
-      AND COALESCE(c.archived_at, '') = ''
-      AND NOT EXISTS (
-        SELECT 1 FROM candidate_profile_sections p
-        WHERE p.candidate_id = a.candidate_id AND p.archived_at IS NULL
-          AND json_extract(p.structured_data, '$.parser') = 'origin-section-parse-v1'
-      )
-  `).get().n
-  db.close()
-  return { ...stats, remaining }
-}
-
 const startedAt = Date.now()
 let finished = false
 child.on('exit', (code, signal) => {
   finished = true
-  appendFileSync(progressPath, `${JSON.stringify({ at: new Date().toISOString(), event: 'exit', code, signal, ...snapshot() })}\n`)
+  appendFileSync(progressPath, `${JSON.stringify({ at: new Date().toISOString(), event: 'exit', code, signal })}\n`)
 })
+
+// 心跳放在独立子进程里：主进程要跑同步 SQLite 查询（candidate_attachments 是
+// 22.8 万行 + json_extract），如果自己写心跳会把事件循环堵住，心跳就断了。
+const heartbeat = spawn('node', ['scripts/phase3-heartbeat.mjs', progressPath, String(startedAt)], {
+  cwd: ROOT,
+  stdio: ['ignore', 'ignore', 'pipe'],
+  windowsHide: true
+})
+heartbeat.stderr.on('data', (chunk) => process.stderr.write(`[heartbeat] ${chunk}`))
 
 while (!finished) {
   await new Promise((resolveSleep) => setTimeout(resolveSleep, 60_000))
-  if (finished) break
-  const line = { at: new Date().toISOString(), elapsedMin: Number(((Date.now() - startedAt) / 60000).toFixed(1)), ...snapshot() }
-  appendFileSync(progressPath, `${JSON.stringify(line)}\n`)
 }
 
-const final = snapshot()
-console.log(JSON.stringify({ finished: true, ...final, elapsedMin: Number(((Date.now() - startedAt) / 60000).toFixed(1)) }, null, 1))
+try { heartbeat.kill() } catch {}
+console.log(JSON.stringify({ finished: true, elapsedMin: Number(((Date.now() - startedAt) / 60000).toFixed(1)) }, null, 1))

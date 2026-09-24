@@ -104,8 +104,8 @@ async function downloadArtifacts(taskId, targetDir, { only = null } = {}) {
     if (!item.url) continue
     if (only && !only(item.name)) continue
     const target = resolve(targetDir, item.name)
-    // 已存在且 sha256 一致就跳过，支持断点续跑。
-    if (existsSync(target) && statSync(target).size === item.sizeBytes) {
+    // 已存在且 sha256 一致才跳过；只有大小相符不算数（可能是不完整下载）。
+    if (existsSync(target)) {
       const sha = createHash('sha256').update(readFileSync(target)).digest('hex')
       if (sha === item.sha256) { saved.push({ name: item.name, skipped: true }); continue }
     }
@@ -120,6 +120,17 @@ async function downloadArtifacts(taskId, targetDir, { only = null } = {}) {
     })
   }
   return saved
+}
+
+// 分片产物是 zip（内含 candidates/<relativeDir>/origin.pdf 等），下载后需要解压。
+// 用系统自带 tar 解压（Windows 10+ 自带 bsdtar，能处理 zip），避免引入依赖。
+async function extractArtifact(zipPath, targetDir) {
+  mkdirSync(targetDir, { recursive: true })
+  const result = spawnSync('tar', ['-xf', zipPath, '-C', targetDir], { encoding: 'utf8' })
+  if (result.status !== 0) {
+    throw new Error(`解压失败 ${zipPath}: ${String(result.stderr ?? '').slice(0, 200)}`)
+  }
+  return true
 }
 
 async function computeDelta(indexPath) {
@@ -187,10 +198,21 @@ if (options.download) {
       summary.steps.push({ step: 'download', shard: index, status: result.status, error: result.error })
       continue
     }
-    const saved = await downloadArtifacts(result.taskId, resolve(WORK, 'resumes'))
-    state.downloadedShards[`origin:${index}/${options.shards}`] = { taskId: result.taskId, at: new Date().toISOString(), files: saved.length }
+    // zip 落到 resumes/_zips，解压到 resumes/，保证与首次导入的目录结构一致
+    // （scripts/import-incremental.mjs 读 <base>/candidates/<relativeDir>/origin.pdf）。
+    const zipDir = resolve(WORK, 'resumes', '_zips')
+    const saved = await downloadArtifacts(result.taskId, zipDir, { only: (name) => name.endsWith('.zip') })
+    let extracted = 0
+    for (const item of saved) {
+      if (!item.name?.endsWith('.zip')) continue
+      await extractArtifact(resolve(zipDir, item.name), resolve(WORK, 'resumes'))
+      extracted += 1
+    }
+    state.downloadedShards[`origin:${index}/${options.shards}`] = {
+      taskId: result.taskId, at: new Date().toISOString(), zips: saved.length, extracted
+    }
     saveState(state)
-    summary.steps.push({ step: 'download', shard: index, files: saved.length })
+    summary.steps.push({ step: 'download', shard: index, zips: saved.length, extracted })
   }
 }
 

@@ -159,6 +159,31 @@ node server/index.mjs
 - **重启方式**：`node scripts/run-phase3-full.mjs`；已解析过的人会被跳过。
   进度看 `data/phase3-full-progress.jsonl`，详细统计看
   `data/phase3-full-report.json`。
+- **长跑要挂在不会随会话退出的地方**：`run-phase3-full.mjs` 内部再 spawn 解析器，
+  并由独立进程 `scripts/phase3-heartbeat.mjs` 每 60 秒写心跳（主进程有同步
+  SQLite 查询，自己写心跳会被事件循环堵住）。在自己的终端里直接跑最稳：
+  ```
+  cd D:\talent-asset-workbench
+  node scripts/run-phase3-full.mjs
+  ```
+  中断后重跑同一条命令即可续传。
+
+### 增量导入（新导入者也会被解析）
+
+```
+node scripts/incremental-sync.mjs --check                    # 拉最新索引 + 算差集
+node scripts/incremental-sync.mjs --download --shards 32     # 下载档案分片（续传）
+node scripts/import-incremental.mjs                          # 预演：只列差集
+node scripts/import-incremental.mjs --apply                  # 写库（需停应用服务）
+node scripts/run-phase3-full.mjs                             # 新导入者自动进解析队列
+```
+
+- 增量导入只处理「新增 / 指纹变化」的人：更新主表字段、重建北森来源区块（归档旧
+  区块、保留模型解析出的 `origin-section-parse-v1` 区块）、刷新索引与偏好。
+- **原始简历解析同样覆盖新导入者**：解析器按「没有解析产物」筛人，导入完直接跑
+  全量入口即可，新人的实习/校园/技能等项目字段会被补上。
+- 分片是按整份快照切分的（与 applicantId 前缀无关），所以增量必然要下载整份
+  分片；`data/incremental/sync-state.json` 记录已完成分片，可断点续跑。
 
 ### 增量同步（2026-09-24 实测）
 
