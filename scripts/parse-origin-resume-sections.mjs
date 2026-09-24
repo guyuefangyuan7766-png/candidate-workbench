@@ -244,6 +244,11 @@ const candidateQuery = db.prepare(`
   LIMIT ?
 `)
 const waveSize = Math.max(options.batchSize, Number.parseInt(process.env.PHASE3_WAVE ?? '500', 10) || 500)
+// 正文提取是 CPU 密集（PDF 解析）且每份独立子进程；批量上限之外的并发还要
+// 与模型调用重叠，所以这里用适中并发 + 分块流水线（见 runWave）。
+const extractConcurrency = Math.max(1, Math.min(6, Number.parseInt(process.env.PHASE3_EXTRACT_CONCURRENCY ?? '4', 10) || 4))
+// 波内分块大小：小块先完成提取就先发模型，避免「全部提取完再统一调用」的空等。
+const chunkSize = Math.max(options.batchSize, Number.parseInt(process.env.PHASE3_CHUNK ?? '50', 10) || 50)
 
 const eligibleTotal = db.prepare(`
   SELECT COUNT(*) AS n
@@ -305,6 +310,27 @@ async function extractText(row) {
   const result = await extractTextInChild(row.storage_path, row.mime_type)
   if (!result.ok) throw Object.assign(new Error(result.error), { code: result.error })
   return { text: result.text ?? '', method: result.method ?? 'unknown' }
+}
+
+// 受控并发提取：保持结果顺序与入参一致，便于与批次对齐。
+async function extractTextsInOrder(rows, concurrency) {
+  const results = new Array(rows.length)
+  let cursor = 0
+  async function worker() {
+    while (cursor < rows.length) {
+      const index = cursor
+      cursor += 1
+      const row = rows[index]
+      try {
+        const { text, method } = await extractText(row)
+        results[index] = { ok: true, row, text, method }
+      } catch (error) {
+        results[index] = { ok: false, row, error: String(error?.message ?? error).slice(0, 120) }
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, rows.length) }, () => worker()))
+  return results
 }
 
 function buildSchemaPrompt() {
@@ -560,21 +586,35 @@ const perCandidate = []
 
 function bump(map, key, amount = 1) { map[key] = (map[key] ?? 0) + amount }
 
-// 取正文 + 调模型：一个 wave 的全部候选在这里处理完，返回批次结果。
-async function runWave(rows) {
+async function extractChunk(rows, offset, count) {
+  const chunk = rows.slice(offset, offset + count)
+  const extracted = await extractTextsInOrder(chunk, extractConcurrency)
   const prepared = []
-  for (const row of rows) {
-    try {
-      const { text, method } = await extractText(row)
-      if (!text || text.length < 40) { stats.textFailed += 1; continue }
-      stats.textExtracted += 1
-      stats.inputCharacters += text.length
-      prepared.push({ candidateId: row.candidate_id, name: row.name, text, method })
-    } catch (error) {
+  for (const item of extracted) {
+    if (!item.ok) {
       stats.textFailed += 1
-      perCandidate.push({ candidate_id: row.candidate_id, name: row.name, status: 'text_failed', error: String(error?.message ?? error).slice(0, 120) })
+      perCandidate.push({
+        candidate_id: item.row.candidate_id, name: item.row.name,
+        status: 'text_failed', error: item.error
+      })
+      continue
     }
+    if (!item.text || item.text.length < 40) {
+      stats.textFailed += 1
+      perCandidate.push({
+        candidate_id: item.row.candidate_id, name: item.row.name,
+        status: 'text_too_short', chars: item.text?.length ?? 0
+      })
+      continue
+    }
+    stats.textExtracted += 1
+    stats.inputCharacters += item.text.length
+    prepared.push({ candidateId: item.row.candidate_id, name: item.row.name, text: item.text, method: item.method })
   }
+  return { chunk, prepared }
+}
+
+async function modelResults(prepared) {
   const batches = []
   for (let index = 0; index < prepared.length; index += options.batchSize) {
     batches.push(prepared.slice(index, index + options.batchSize))
@@ -598,6 +638,28 @@ async function runWave(rows) {
   }
   await Promise.all(Array.from({ length: Math.min(options.concurrency, Math.max(1, batches.length)) }, () => callWorker()))
   return results
+}
+
+// 波内流水线：第 n 块的模型调用与第 n+1 块的正文提取重叠执行。
+async function runWave(rows, onChunkDone) {
+  let offset = 0
+  let pending = null
+  while (offset < rows.length) {
+    const current = await extractChunk(rows, offset, chunkSize)
+    const previous = pending
+    offset += chunkSize
+    const nextExtraction = offset < rows.length ? extractChunk(rows, offset, chunkSize) : null
+    const calls = modelResults(current.prepared)
+    pending = Promise.all([nextExtraction, calls]).then(([, results]) => results)
+    if (previous) {
+      const results = await previous
+      if (onChunkDone) onChunkDone(results)
+    }
+  }
+  if (pending) {
+    const results = await pending
+    if (onChunkDone) onChunkDone(results)
+  }
 }
 
 const insertSection = db.prepare(`
@@ -801,12 +863,17 @@ while (true) {
   cursorId = rows[rows.length - 1].attachment_id
   waveIndex += 1
   const waveStartedAt = Date.now()
-  const results = await runWave(rows)
-  writeWave(planWave(results))
+  // 每块结果一出就写库（分块提交），避免整波结束才落盘。
+  let waveInserted = 0
+  const before = stats.rowsInserted
+  await runWave(rows, (results) => {
+    writeWave(planWave(results))
+  })
+  waveInserted = stats.rowsInserted - before
   processed += rows.length
   stats.candidates += rows.length
   const elapsedSeconds = Math.max(1, (Date.now() - startedAt) / 1000)
-  console.log(`[wave ${waveIndex}] ${processed}/${options.limit} 人，落库 ${stats.rowsInserted} 行，` +
+  console.log(`[wave ${waveIndex}] ${processed}/${options.limit} 人，落库 ${stats.rowsInserted} 行（本波 +${waveInserted}），` +
     `${(processed / elapsedSeconds).toFixed(1)} 人/秒，RSS ${Math.round(process.memoryUsage().rss / 1048576)}MB，` +
     `本波 ${Math.round((Date.now() - waveStartedAt) / 1000)}s`)
 }
