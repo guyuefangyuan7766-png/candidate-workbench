@@ -6,6 +6,19 @@
 
 ### 新增
 
+- **阶段 3 试点：用模型解析原始简历补全履历区块。** 新增
+  `scripts/parse-origin-resume-sections.mjs`：选「九类区块全空 + 有可解析原件」
+  的候选人，HTML 去标签 / PDF 走 `server/attachment-parser.js` 取正文，按批调
+  `AGENT_BASE_URL` 网关解析成规范区块（实习/校园/技能/语言/证书/培训/奖励/
+  论文/管理/附加信息），本地做字段白名单与证据可定位校验后，只补空缺写入
+  `candidate_profile_sections`。字段口径取自 C 盘旧项目实测，含 78 个规范字段
+  与 143 条按区块作用域的同义合并；规范字段之外的字段写入
+  `structured_data._extra` 不丢弃。支持 `--limit` / `--offset` / `--batch-size`
+  / `--concurrency` / `--candidate-ids` 定向补跑 / `--apply`。
+- **100 份试点已落库**：99 份取到正文，写入 **611 行 / 69 位候选人**（技能 225、
+  奖励 116、证书 74、校园 59、实习 40、管理 35、语言 30、培训 18、论文 14）；
+  质量校验全绿（缺字段 0、缺证据 0、空标题 0、内容不一致 0）；约 3.5 分钟/100 份。
+
 - **阶段 2：把原始简历里的证件照同步到头像框。** 新增
   `scripts/sync-candidate-avatars.mjs`：复用 `server/attachment-avatar.js` 的
   `extractPdfAvatarCandidates` / `selectPdfAvatarCandidate`，从 `standard.pdf`
