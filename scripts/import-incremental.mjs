@@ -14,7 +14,7 @@
 // 先归档旧的「北森来源」区块，保留后续由模型解析出来的区块（parser=origin-section-parse-v1）。
 import { DatabaseSync } from 'node:sqlite'
 import { createHash, randomUUID } from 'node:crypto'
-import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { createInterface } from 'node:readline'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -257,8 +257,10 @@ const statements = {
       imported_at = excluded.imported_at
   `),
   findAttachment: db.prepare(`
-    SELECT id FROM candidate_attachments WHERE candidate_id = ? AND attachment_type = ? LIMIT 1
+    SELECT id, storage_path, sha256 FROM candidate_attachments WHERE candidate_id = ? AND attachment_type = ? LIMIT 1
   `),
+  deleteAttachment: db.prepare('DELETE FROM candidate_attachments WHERE id = ?'),
+  countByPath: db.prepare('SELECT COUNT(*) AS n FROM candidate_attachments WHERE storage_path = ?'),
   insertAttachment: db.prepare(`
     INSERT INTO candidate_attachments(id, candidate_id, original_filename, storage_path, mime_type,
       file_size, sha256, attachment_type, parse_status, parser_version, extracted_text, source,
@@ -286,16 +288,25 @@ function importResumeFiles(candidateId, relativeDir, timestamp) {
     if (!existsSync(item.path)) continue
     if (statSync(item.path).size > MAX_ATTACHMENT_BYTES) continue
     const existing = statements.findAttachment.get(candidateId, item.type)
-    if (existing) continue
     const buffer = readFileSync(item.path)
+    const sha256 = createHash('sha256').update(buffer).digest('hex')
+    if (existing) {
+      // 内容没变就跳过；变了就替换——否则本地永远留着旧简历，
+      // 重新解析拿到的还是旧内容（增量链路的必要一环）。
+      if (existing.sha256 === sha256) continue
+      statements.deleteAttachment.run(existing.id)
+      if (!Number(statements.countByPath.get(existing.storage_path).n) && existsSync(existing.storage_path)) {
+        try { unlinkSync(existing.storage_path) } catch {}
+      }
+    }
     const detected = detectMime(buffer, 'pdf')
     const target = join(ATTACHMENT_DIR, `${randomUUID()}.${detected.extension}`)
     writeFileSync(target, buffer)
     statements.insertAttachment.run(
       randomUUID(), candidateId, item.filename, target, detected.mime,
-      buffer.length, createHash('sha256').update(buffer).digest('hex'), item.type, timestamp, timestamp
+      buffer.length, sha256, item.type, timestamp, timestamp
     )
-    imported.push(item.type)
+    imported.push(existing ? `${item.type}:replaced` : item.type)
   }
   return imported
 }

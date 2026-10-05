@@ -195,6 +195,7 @@ function parseArgs(argv) {
     concurrency: 8,
     seed: 'phase3-pilot',
     candidateIds: null,
+    backfillOther: false,
     verbose: false,
     reportPath: resolve(ROOT, 'data', 'origin-section-parse-report.json')
   }
@@ -208,6 +209,7 @@ function parseArgs(argv) {
     else if (arg === '--concurrency') options.concurrency = Number.parseInt(next(), 10)
     else if (arg === '--seed') options.seed = next()
     else if (arg === '--candidate-ids') options.candidateIds = next().split(',').map((value) => value.trim()).filter(Boolean)
+    else if (arg === '--backfill-other') options.backfillOther = true
     else if (arg === '--report') options.reportPath = resolve(next())
     else if (arg === '--verbose') options.verbose = true
     else if (arg === '--help' || arg === '-h') {
@@ -237,19 +239,80 @@ const apiKey = process.env.AGENT_API_KEY || readEnvironmentVariable('AGENT_API_K
 const model = process.env.AGENT_RESUME_MODEL || process.env.AGENT_MODEL || readEnvironmentVariable('AGENT_RESUME_MODEL') || readEnvironmentVariable('AGENT_MODEL') || 'deepseek/deepseek-flash'
 if (!baseUrl || !apiKey) throw new Error('缺少 AGENT_BASE_URL / AGENT_API_KEY，无法调用解析模型')
 
+// 批次额度自测：跑前后各读一次网关累计用量，报告里直接给出本批消耗。
+// 网关用量接口返回单位是「分」，usd 字段已换算。
+async function readGatewayQuota() {
+  try {
+    const response = await fetch(`${baseUrl}/dashboard/billing/usage`, {
+      headers: { authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(15000)
+    })
+    if (!response.ok) return null
+    const body = await response.json()
+    const raw = Number(body?.total_usage)
+    if (!Number.isFinite(raw)) return null
+    return { raw, usd: Number((raw / 100).toFixed(4)), at: new Date().toISOString() }
+  } catch {
+    return null
+  }
+}
+const quotaBefore = await readGatewayQuota()
+
 const db = new DatabaseSync(options.dbPath)
 db.exec('PRAGMA busy_timeout = 15000')
 
+// 解析状态表：记录「解析的是哪一版原件」。
+// 没有它就有两个死结：①扫过但没内容的候选人会被反复重扫（白花钱）；
+// ②简历更新后 sha 变了也进不了队列（永远用旧内容）。
+db.exec(`
+  CREATE TABLE IF NOT EXISTS candidate_resume_parse_state (
+    candidate_id TEXT PRIMARY KEY,
+    parser TEXT NOT NULL,
+    outcome TEXT NOT NULL CHECK(outcome IN ('parsed','no_content','failed')),
+    source_attachment_id TEXT,
+    source_sha256 TEXT,
+    sections_written INTEGER NOT NULL DEFAULT 0,
+    attempts INTEGER NOT NULL DEFAULT 1,
+    last_error TEXT,
+    first_at TEXT NOT NULL,
+    last_at TEXT NOT NULL
+  )
+`)
+db.exec('CREATE INDEX IF NOT EXISTS candidate_resume_parse_state_sha_idx ON candidate_resume_parse_state(parser, source_sha256)')
+const PARSER_NAME = 'origin-section-parse-v1'
+
 const ORIGIN_TEXT_TYPES = new Set(['text/html', 'text/plain', 'application/pdf'])
 
-// 默认只处理「还没有本解析器产物」的候选人，保证幂等、可断点续跑。
-// --candidate-ids 用于定向补跑（例如上一轮网络失败的批次）。
-const parserFilter = `AND NOT EXISTS (
+// 选人条件（三条同时成立）：
+//  1. 有可解析的原始简历；
+//  2. 属于目标人群：已有解析状态（说明是我们处理过的人），或九类区块为空（新面孔）；
+//  3. 需要解析：没有状态，或状态里的原件 sha256 与当前原件不同（简历更新过）。
+// 这样「扫过但没内容」的人会被状态记下、不再重扫；而简历更新（sha 变化）会重新入队。
+const hasState = `EXISTS (
+    SELECT 1 FROM candidate_resume_parse_state st
+    WHERE st.candidate_id = a.candidate_id AND st.parser = '${PARSER_NAME}'
+  )`
+const needsParse = `NOT EXISTS (
+    SELECT 1 FROM candidate_resume_parse_state st
+    WHERE st.candidate_id = a.candidate_id AND st.parser = '${PARSER_NAME}'
+      AND st.source_sha256 IS NOT NULL AND st.source_sha256 = a.sha256
+  )`
+const emptyNineTypes = `NOT EXISTS (
+    SELECT 1 FROM candidate_profile_sections existing
+    WHERE existing.candidate_id = a.candidate_id
+      AND existing.section_type IN ('internship','campus','skill','language','certificate','training','award','publication','management')
+      AND existing.archived_at IS NULL
+  )`
+// 补录模式（--backfill-other）只针对已经有解析产物的人，规则不同。
+const parserFilter = options.backfillOther
+  ? `AND EXISTS (
        SELECT 1 FROM candidate_profile_sections parsed
        WHERE parsed.candidate_id = a.candidate_id
          AND parsed.archived_at IS NULL
-         AND json_extract(parsed.structured_data, '$.parser') = 'origin-section-parse-v1'
+         AND json_extract(parsed.structured_data, '$.parser') = '${PARSER_NAME}'
      )`
+  : `AND (${hasState} OR ${emptyNineTypes}) AND ${needsParse}`
+const existingSectionFilter = ''
 const candidateFilter = options.candidateIds?.length
   ? `AND a.candidate_id IN (${options.candidateIds.map(() => '?').join(',')})`
   : ''
@@ -259,18 +322,13 @@ const queryParams = options.candidateIds?.length ? [...options.candidateIds] : [
 // 不要加 ORDER BY / OFFSET：实测在 13 GB 主库上会让 SQLite 整体物化候选集，
 // 8 分钟涨到 2.9 GB 并最终以 0xC0000005（访问违例）崩溃。
 const candidateQuery = db.prepare(`
-  SELECT a.id AS attachment_id, a.candidate_id, a.storage_path, a.mime_type, a.file_size, c.name
+  SELECT a.id AS attachment_id, a.candidate_id, a.storage_path, a.mime_type, a.file_size, a.sha256, c.name
   FROM candidate_attachments a
   JOIN candidates c ON c.id = a.candidate_id
   WHERE a.attachment_type = 'resume_origin'
     AND a.mime_type IN ('text/html','text/plain','application/pdf')
     AND COALESCE(c.archived_at, '') = ''
-    AND NOT EXISTS (
-      SELECT 1 FROM candidate_profile_sections existing
-      WHERE existing.candidate_id = a.candidate_id
-        AND existing.section_type IN ('internship','campus','skill','language','certificate','training','award','publication','management')
-        AND existing.archived_at IS NULL
-    )
+    ${existingSectionFilter}
     ${parserFilter}
     ${candidateFilter}
     AND a.id > ?
@@ -487,6 +545,8 @@ const PORTAL_NOISE_PATTERN = /(招聘|投递|应聘|门户|站内|关注|收藏|
 function isCoveredElsewhereLabel(label) {
   const normalized = String(label ?? '').normalize('NFKC').toLowerCase().replace(/[\s\u3000]+/g, '')
   if (!normalized) return true
+  // 解码失败留下的替换字符（乱码标签）一律不要。
+  if (/[\uFFFD]/.test(normalized)) return true
   if (COVERED_ELSEWHERE_LABELS.has(normalized)) return true
   if (/(验证码|匹配度|投递|招聘门户|简历编号)/u.test(normalized)) return true
   if (PORTAL_NOISE_PATTERN.test(normalized)) return true
@@ -692,6 +752,10 @@ async function extractChunk(rows, offset, count) {
         candidate_id: item.row.candidate_id, name: item.row.name,
         status: 'text_failed', error: item.error
       })
+      recordState({
+        candidateId: item.row.candidate_id, attachmentId: item.row.attachment_id,
+        sha256: item.row.sha256, outcome: 'failed', error: item.error
+      })
       continue
     }
     if (!item.text || item.text.length < 40) {
@@ -700,11 +764,22 @@ async function extractChunk(rows, offset, count) {
         candidate_id: item.row.candidate_id, name: item.row.name,
         status: 'text_too_short', chars: item.text?.length ?? 0
       })
+      recordState({
+        candidateId: item.row.candidate_id, attachmentId: item.row.attachment_id,
+        sha256: item.row.sha256, outcome: 'failed', error: 'text_too_short'
+      })
       continue
     }
     stats.textExtracted += 1
     stats.inputCharacters += item.text.length
-    prepared.push({ candidateId: item.row.candidate_id, name: item.row.name, text: item.text, method: item.method })
+    prepared.push({
+      candidateId: item.row.candidate_id,
+      name: item.row.name,
+      text: item.text,
+      method: item.method,
+      attachmentId: item.row.attachment_id,
+      sha256: item.row.sha256
+    })
   }
   return { chunk, prepared }
 }
@@ -777,6 +852,30 @@ const existingTitles = db.prepare(`
   WHERE candidate_id = ? AND archived_at IS NULL
 `)
 const maxSort = db.prepare('SELECT COALESCE(MAX(sort_order), 0) AS n FROM candidate_profile_sections WHERE candidate_id = ?')
+// 重新解析前先把上一版的本解析器产物归档，避免新旧两套并存。
+const archiveParserRows = db.prepare(`
+  UPDATE candidate_profile_sections SET archived_at = ?, updated_at = ?
+  WHERE candidate_id = ? AND archived_at IS NULL
+    AND json_extract(structured_data, '$.parser') = ?
+`)
+const upsertParseState = db.prepare(`
+  INSERT INTO candidate_resume_parse_state(
+    candidate_id, parser, outcome, source_attachment_id, source_sha256,
+    sections_written, attempts, last_error, first_at, last_at
+  ) VALUES(?, ?, ?, ?, ?, ?, 1, ?, ?, ?)
+  ON CONFLICT(candidate_id) DO UPDATE SET
+    outcome = excluded.outcome,
+    source_attachment_id = excluded.source_attachment_id,
+    source_sha256 = excluded.source_sha256,
+    sections_written = excluded.sections_written,
+    attempts = candidate_resume_parse_state.attempts + 1,
+    last_error = excluded.last_error,
+    last_at = excluded.last_at
+`)
+const pendingStates = []
+function recordState(entry) {
+  pendingStates.push(entry)
+}
 
 // 校验 + 入计划：把模型输出转成待写入的区块。
 function planWave(results) {
@@ -786,10 +885,18 @@ for (const result of results) {
     for (const entry of result.batch) perCandidate.push({ candidate_id: entry.candidateId, name: entry.name, status: 'batch_failed', error: result.error })
     continue
   }
-  const byCandidate = new Map(result.batch.map((entry) => [entry.candidateId, entry]))
-  for (const resume of result.json?.resumes ?? []) {
-    const entry = byCandidate.get(String(resume?.candidate_id ?? '').trim())
-    if (!entry) { bump(stats.rejectReasons, 'unknown_candidate_id'); continue }
+  // 以「我们发出去的候选人」为主循环：即使模型没返回这个人，也要落一条状态，
+  // 否则他会每次都被重新扫描（白花额度）。
+  const byCandidate = new Map(
+    (result.json?.resumes ?? []).map((resume) => [String(resume?.candidate_id ?? '').trim(), resume])
+  )
+  for (const entry of result.batch) {
+    const resume = byCandidate.get(entry.candidateId)
+    if (!resume) {
+      bump(stats.rejectReasons, 'missing_resume_in_response')
+      batchPlan.push({ entry, accepted: [] })
+      continue
+    }
     const evidenceContext = normalizedEvidenceContext(entry.text)
     const accepted = []
     const acceptedByType = new Map()
@@ -857,7 +964,11 @@ for (const result of results) {
       }
     }
 
-    batchPlan.push({ entry, accepted })
+    // 补录模式只保留「附加信息」：其余类型在早前批次已经入库，重复写会产生同义重复。
+    const finalAccepted = options.backfillOther
+      ? accepted.filter((section) => section.type === 'other')
+      : accepted
+    batchPlan.push({ entry, accepted: finalAccepted })
   }
 }
   return batchPlan
@@ -878,6 +989,11 @@ function writeWave(batchPlan) {
     let inserted = 0
     let planned = 0
     const skippedTitles = []
+    // 重新解析（sha 变化）时先把上一版产物归档，避免新旧并存；
+    // 只有确实要写入新内容时才归档，避免「新版没解析出东西」反而丢了旧数据。
+    if (!options.backfillOther && plan.accepted.length > 0) {
+      archiveParserRows.run(timestamp, timestamp, plan.entry.candidateId, PARSER_NAME)
+    }
     for (const section of plan.accepted) {
       // 标题取该区块第一条的标题（经历类会带单位/职位，天然区分）。
       const sectionTitle = section.entries.length
@@ -911,6 +1027,16 @@ function writeWave(batchPlan) {
     }
     if (planned) { stats.candidatesPlanned += 1; stats.rowsPlanned += planned }
     if (inserted) stats.candidatesWithSections += 1
+    // 记账：无论有没有产出都写状态，下次就不会再扫这一版简历。
+    if (!options.backfillOther) {
+      recordState({
+        candidateId: plan.entry.candidateId,
+        attachmentId: plan.entry.attachmentId ?? null,
+        sha256: plan.entry.sha256 ?? null,
+        outcome: inserted > 0 ? 'parsed' : 'no_content',
+        error: null
+      })
+    }
     perCandidate.push({
       candidate_id: plan.entry.candidateId,
       name: plan.entry.name,
@@ -933,6 +1059,21 @@ function writeWave(batchPlan) {
       inserted
     })
   }
+    // 落盘状态（与区块写在同一事务里）
+    if (options.apply) {
+      const stamp = timestamp
+      for (const state of pendingStates.splice(0, pendingStates.length)) {
+        upsertParseState.run(
+          state.candidateId, PARSER_NAME, state.outcome,
+          state.attachmentId ?? null, state.sha256 ?? null,
+          state.outcome === 'parsed' ? 1 : 0,
+          state.error ?? null, stamp, stamp
+        )
+        stats.stateRecorded = (stats.stateRecorded ?? 0) + 1
+        if (state.outcome === 'no_content') stats.stateNoContent = (stats.stateNoContent ?? 0) + 1
+        else if (state.outcome === 'failed') stats.stateFailed = (stats.stateFailed ?? 0) + 1
+      }
+    }
     if (transactionStarted) { db.exec('COMMIT'); transactionStarted = false }
   } catch (error) {
     if (transactionStarted) { try { db.exec('ROLLBACK') } catch {} }
@@ -940,12 +1081,20 @@ function writeWave(batchPlan) {
   }
 }
 
-function writeReport() {
+function writeReport(quotaAfter = null) {
   const report = {
     mode: options.apply ? 'apply' : 'dry-run',
     model,
     startedAt: new Date(startedAt).toISOString(),
     finishedAt: new Date().toISOString(),
+    quota: quotaBefore || quotaAfter
+      ? {
+          before: quotaBefore,
+          after: quotaAfter,
+          deltaUsd: quotaBefore && quotaAfter ? Number((quotaAfter.usd - quotaBefore.usd).toFixed(4)) : null,
+          deltaRaw: quotaBefore && quotaAfter ? Number((quotaAfter.raw - quotaBefore.raw).toFixed(4)) : null
+        }
+      : null,
     limit: options.limit,
     offset: options.offset,
     batchSize: options.batchSize,
@@ -999,6 +1148,7 @@ while (true) {
     `本波 ${Math.round((Date.now() - waveStartedAt) / 1000)}s`)
 }
 
-const report = writeReport()
+const quotaAfter = await readGatewayQuota()
+const report = writeReport(quotaAfter)
 db.close()
 console.log(JSON.stringify({ ...report, perCandidate: `${perCandidate.length} 条（见报告文件）`, reportPath: options.reportPath }, null, 1))
