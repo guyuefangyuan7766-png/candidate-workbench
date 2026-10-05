@@ -84,7 +84,7 @@ const SECTION_SCHEMAS = Object.freeze({
     time: [],
     fields: [
       '特殊技能', '特长', '社会活动', '宗教信仰', '推荐信', '专利成果', '专业组织',
-      '学术专著', '兴趣爱好', '荣誉', '标题', '获得荣誉', '内容', '其他'
+      '学术专著', '兴趣爱好', '荣誉', '获得荣誉', '其他'
     ]
   }
 })
@@ -152,6 +152,39 @@ const FIELD_ALIASES = Object.freeze({
   other: {}
 })
 
+// 标题去重：同义标题归一到同一个 key。
+// 规则：NFKC + 去空白/标点 + 小写；命中同义表则用表里的规范 key，否则用清洗后的字面量。
+// 这样「附加信息 / 其他信息 / 补充资料」这类写法不会各插一遍，
+// 而「附加资料与素材」（导入期的素材登记）与简历里的「附加信息」仍视为不同区块。
+const SECTION_TITLE_SYNONYMS = new Map(Object.entries({
+  附加信息: 'extra-info', 其他信息: 'extra-info', 补充信息: 'extra-info',
+  附加资料: 'extra-info', 补充资料: 'extra-info', 其他资料: 'extra-info', 更多信息: 'extra-info',
+  技能: 'skills', 专业技能: 'skills', 技能清单: 'skills', 核心技能: 'skills', 相关技能: 'skills', 技能与专长: 'skills',
+  语言能力: 'languages', 语言技能: 'languages', 语言水平: 'languages', 外语能力: 'languages', 语言: 'languages',
+  证书: 'certificates', 资格证书: 'certificates', 证书情况: 'certificates', 获得证书: 'certificates',
+  奖励与荣誉: 'awards', 荣誉奖励: 'awards', 获奖情况: 'awards', 奖项: 'awards',
+  实习经历: 'internships', 实习经验: 'internships', 实习履历: 'internships',
+  校园经历: 'campus', 校园实践: 'campus', 在校经历: 'campus', 校内经历: 'campus',
+  培训经历: 'training', 培训: 'training', 培训情况: 'training',
+  论文与作品: 'publications', 论文作品: 'publications', 发表论文: 'publications',
+  管理经历: 'management', 管理经验: 'management',
+  工作经历: 'experience', 工作经验: 'experience', 职业经历: 'experience',
+  教育经历: 'education', 教育背景: 'education', 学习经历: 'education',
+  项目经历: 'projects', 项目经验: 'projects',
+  自我评价: 'self-summary', 个人评价: 'self-summary', 个人总结: 'self-summary', 自我总结: 'self-summary'
+}))
+
+function sectionTitleKey(title) {
+  const cleaned = String(title ?? '')
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[\s\u3000]+/g, '')
+    .replace(/[·・、,，。.；;：:|\/\\()（）\[\]【】<>《》"'“”‘’\-—_+*#]/g, '')
+    .trim()
+  if (!cleaned) return ''
+  return SECTION_TITLE_SYNONYMS.get(cleaned) ?? cleaned
+}
+
 function parseArgs(argv) {
   const options = {
     dbPath: process.env.DB_PATH ? resolve(process.env.DB_PATH) : resolve(ROOT, 'data', 'recruitment.db'),
@@ -159,7 +192,7 @@ function parseArgs(argv) {
     offset: 0,
     apply: false,
     batchSize: 5,
-    concurrency: 4,
+    concurrency: 8,
     seed: 'phase3-pilot',
     candidateIds: null,
     verbose: false,
@@ -248,7 +281,7 @@ const waveSize = Math.max(options.batchSize, Number.parseInt(process.env.PHASE3_
 // 与模型调用重叠，所以这里用适中并发 + 分块流水线（见 runWave）。
 const extractConcurrency = Math.max(1, Math.min(6, Number.parseInt(process.env.PHASE3_EXTRACT_CONCURRENCY ?? '4', 10) || 4))
 // 波内分块大小：小块先完成提取就先发模型，避免「全部提取完再统一调用」的空等。
-const chunkSize = Math.max(options.batchSize, Number.parseInt(process.env.PHASE3_CHUNK ?? '50', 10) || 50)
+const chunkSize = Math.max(options.batchSize, Number.parseInt(process.env.PHASE3_CHUNK ?? '100', 10) || 100)
 
 const eligibleTotal = db.prepare(`
   SELECT COUNT(*) AS n
@@ -379,8 +412,12 @@ async function callGateway(texts) {
       })
       const raw = await response.text()
       if (!response.ok) {
-        // 5xx / 429 属于可重试；4xx 直接抛出，避免无意义重试。
-        if (response.status >= 500 || response.status === 429) throw new Error(`gateway_${response.status}: ${raw.slice(0, 200)}`)
+        // 5xx / 429 可重试；403 里如果是「额度不足」，等额度恢复即可，也必须重试
+        // （上一轮全量就是被 insufficient_user_quota 打断的，6,525 个批次失败）。
+        const quotaExhausted = response.status === 403 && /insufficient_user_quota|额度不足/.test(raw)
+        if (response.status >= 500 || response.status === 429 || quotaExhausted) {
+          throw new Error(`gateway_${response.status}: ${raw.slice(0, 200)}`)
+        }
         throw Object.assign(new Error(`gateway_${response.status}: ${raw.slice(0, 200)}`), { fatal: true })
       }
       let parsed
@@ -411,6 +448,58 @@ function normalizeFieldName(type, rawName) {
   return null
 }
 
+// 这些字段已经在候选人主表（姓名/性别/电话/邮箱/学历/公司…）、求职意向表
+// （期望薪资/工作地/到岗时间…）或附件登记里，属于重复内容；
+// 还有一类是招聘门户的运行痕迹（验证码、简历编号），不属于简历内容。
+const COVERED_ELSEWHERE_LABELS = new Set([
+  // 基本身份
+  '姓名', '名字', '性别', '年龄', '出生年月', '出生日期', '出生时间', '生日', '身高', '体重',
+  '手机', '手机号', '电话', '联系电话', '联系方式', '邮箱', '电子邮箱', 'e-mail', 'email', 'mail',
+  '微信', '微信号', '微信号码', 'qq', 'qq号', 'msisdn', 'mobile', 'tel', 'photo',
+  // 户籍与住址
+  '户口', '户口/国籍', '国籍', '户籍', '籍贯', '民族', '婚姻状况', '婚姻状态', '政治面貌', '居住地', '现居住地', '现居住',
+  '住址', '家庭住址', '现住址', '通讯地址', '联系地址',
+  '所在地', '现所在地', '地址', '家庭地址', '城市', '地点', '所在地区', '所在城市',
+  // 教育与在职
+  '学历', '最高学历', '最高学历/学位', '学历/学位', '学历学位', '学校', '学校名称', '毕业院校', '毕业学校',
+  '专业', '专业院系', '所学专业', '毕业年份', '毕业时间', '学位', '教育程度', '工作经验', '工作年限', '经验',
+  '最近工作', '目前公司', '公司名称', '当前公司', '目前职位', '当前职位', '所在公司', '在职时间',
+  '公司', '职位', '岗位', '职务',
+  // 求职意向（已存 candidate_preferences）
+  '期望工作地区', '期望工作地点', '期望工作地', '期望工作性质', '期望从事职业', '期望从事行业', '期望行业',
+  '期望月薪', '期望薪资', '期望年薪', '税前期望月薪', '目标地点', '目标职能', '求职意向', '求职状态',
+  '目前状态', '目前状况', '目前再找工作', '工作状态', '到岗时间', '可到岗时间', '工作类型', '工作性质',
+  '目前年收入', '目前年薪', '职能', '职能/职位', '行业', '行业类别', '个人标签', '求职方向', '意向岗位', '意向城市',
+  // 附件与门户痕迹
+  '附件', '附件链接', '附件描述', '文件名', '文件大小', '文件类型', '素材', '验证码', '简历编号', '简历来源',
+  '投递时间', '投递职位', '更新时间', '匹配度', '简历匹配度', 'id', '编号',
+  '应聘时间', '应聘职位', '应聘公司', '应聘岗位', '流程状态', '简历', '简历附件', '现居地', '现居住于',
+  '标题', '内容', '主题',
+  '微信公众号', '公众号', '微博', '博客', '主页', '个人主页', '直播', '站内信', '关注', '粉丝',
+  '出生年份', '出生地', '地区', '职位记录', '招聘动态', '最近公司', '最近职位', '最近经历', '工作经历记录',
+  '现居', '时间', '候选人', '面试官', '面试方式', '面试地点', '面试时间', '面试结果', '面试评价',
+  '推荐职位', '推荐顾问', '推荐时间', '期望职位', '管理经验'
+])
+
+// 门户/平台类字样一律不当作简历字段（招聘、投递、浏览、关注…）。
+const PORTAL_NOISE_PATTERN = /(招聘|投递|应聘|门户|站内|关注|收藏|浏览|点击|动态|匹配|猎头|岗位发布)/u
+
+function isCoveredElsewhereLabel(label) {
+  const normalized = String(label ?? '').normalize('NFKC').toLowerCase().replace(/[\s\u3000]+/g, '')
+  if (!normalized) return true
+  if (COVERED_ELSEWHERE_LABELS.has(normalized)) return true
+  if (/(验证码|匹配度|投递|招聘门户|简历编号)/u.test(normalized)) return true
+  if (PORTAL_NOISE_PATTERN.test(normalized)) return true
+  // 复合标签（「最高学历/学位-学校」「最近工作-职位」）按分隔符拆开，任一段已覆盖即视为重复。
+  const parts = normalized.split(/[-—/\\·、|()（）\[\]【】]+/u).filter(Boolean)
+  if (parts.length > 1 && parts.some((part) => COVERED_ELSEWHERE_LABELS.has(part) || part === 'id')) return true
+  // 后缀命中（「所任职位」「所在行业」「婚姻状态」「家庭住址」）
+  for (const covered of COVERED_ELSEWHERE_LABELS) {
+    if (covered.length >= 2 && normalized.endsWith(covered) && normalized !== covered) return true
+  }
+  return false
+}
+
 function normalizeEntry(type, entry) {
   const schema = SECTION_SCHEMAS[type]
   const fields = {}
@@ -429,7 +518,12 @@ function normalizeEntry(type, entry) {
       continue
     }
     // 规范字段之外的字段保留下来，前端按原名展示，报告里列出待并入规范。
-    if (cleanName && keepUnknownLabels && !extra[cleanName]) extra[cleanName] = value.slice(0, 2000)
+    if (cleanName && keepUnknownLabels && !extra[cleanName]) {
+      // 基础身份、求职意向与门户运行痕迹已经在候选人主表/求职意向里，
+      // 不再重复塞进「附加信息」，否则会出现「姓名/验证码/目前状态」这类噪声行。
+      const labelLooksLikeField = cleanName.length <= 20 && !/[\r\n]/.test(cleanName)
+      if (labelLooksLikeField && !isCoveredElsewhereLabel(cleanName)) extra[cleanName] = value.slice(0, 2000)
+    }
   }
   if (!Object.keys(fields).length && !Object.keys(extra).length) return null
   const ordered = {}
@@ -562,6 +656,7 @@ function buildSectionRow(candidateId, type, fields, extra, sortOrder, originalTi
 
 const stats = {
   candidates: 0,
+  usage: { calls: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0 },
   textExtracted: 0,
   textFailed: 0,
   batches: 0,
@@ -629,6 +724,12 @@ async function modelResults(prepared) {
       const batch = batches[index]
       try {
         const { json, usage } = await callGateway(batch)
+        if (usage) {
+          stats.usage.calls += 1
+          stats.usage.promptTokens += Number(usage.prompt_tokens ?? 0)
+          stats.usage.completionTokens += Number(usage.completion_tokens ?? 0)
+          stats.usage.totalTokens += Number(usage.total_tokens ?? 0)
+        }
         results[index] = { batch, json, usage, error: null }
       } catch (error) {
         stats.batchFailed += 1
@@ -640,24 +741,25 @@ async function modelResults(prepared) {
   return results
 }
 
-// 波内流水线：第 n 块的模型调用与第 n+1 块的正文提取重叠执行。
+// 波内流水线：第 n+1 块的正文提取与第 n 块的模型调用重叠执行。
+// 注意每块只提取一次——提取结果先启动、下一轮再 await，避免重复提取。
 async function runWave(rows, onChunkDone) {
-  let offset = 0
-  let pending = null
-  while (offset < rows.length) {
-    const current = await extractChunk(rows, offset, chunkSize)
-    const previous = pending
-    offset += chunkSize
-    const nextExtraction = offset < rows.length ? extractChunk(rows, offset, chunkSize) : null
-    const calls = modelResults(current.prepared)
-    pending = Promise.all([nextExtraction, calls]).then(([, results]) => results)
-    if (previous) {
-      const results = await previous
+  const chunkCount = Math.ceil(rows.length / chunkSize)
+  let extractPromise = extractChunk(rows, 0, chunkSize)
+  let modelPromise = null
+  for (let index = 0; index < chunkCount; index += 1) {
+    const chunk = await extractPromise
+    const nextOffset = (index + 1) * chunkSize
+    extractPromise = nextOffset < rows.length ? extractChunk(rows, nextOffset, chunkSize) : null
+    const calls = modelResults(chunk.prepared)
+    if (modelPromise) {
+      const results = await modelPromise
       if (onChunkDone) onChunkDone(results)
     }
+    modelPromise = calls
   }
-  if (pending) {
-    const results = await pending
+  if (modelPromise) {
+    const results = await modelPromise
     if (onChunkDone) onChunkDone(results)
   }
 }
@@ -668,8 +770,10 @@ const insertSection = db.prepare(`
     sort_order, sensitivity, source_record_id, created_at, updated_at
   ) VALUES (?, ?, ?, ?, ?, ?, ?, 'internal', ?, ?, ?)
 `)
-const existingTypes = db.prepare(`
-  SELECT DISTINCT section_type FROM candidate_profile_sections
+// 判重看「标题」而不是「类型」：同一类型下标题不同就允许新增，
+// 标题同义（如「附加信息」vs「其他信息」）才跳过。
+const existingTitles = db.prepare(`
+  SELECT title FROM candidate_profile_sections
   WHERE candidate_id = ? AND archived_at IS NULL
 `)
 const maxSort = db.prepare('SELECT COALESCE(MAX(sort_order), 0) AS n FROM candidate_profile_sections WHERE candidate_id = ?')
@@ -704,7 +808,8 @@ for (const result of results) {
         const hasExtra = Object.keys(normalized.extra).length > 0
         // 其他区块允许只有原始字段（这是它的职责）；结构化区块必须有规范字段，
         // 否则视为解析噪声丢弃。
-        if (hasCanonical || (type === 'other' && hasExtra)) entries.push(normalized)
+        // 「附加信息」还要求至少 3 个字段：只有一两个零散标签的多半是门户痕迹。
+        if (hasCanonical || (type === 'other' && Object.keys(normalized.extra).length >= 3)) entries.push(normalized)
       }
       let evidence = String(section.evidence ?? '').slice(0, 500)
       if (!evidenceLocatable(section?.evidence, evidenceContext)) {
@@ -766,13 +871,22 @@ function writeWave(batchPlan) {
     if (options.apply) { db.exec('BEGIN IMMEDIATE'); transactionStarted = true }
     const timestamp = new Date().toISOString()
   for (const plan of batchPlan) {
-    const already = new Set(existingTypes.all(plan.entry.candidateId).map((row) => row.section_type))
+    const existingKeys = new Set(
+      existingTitles.all(plan.entry.candidateId).map((row) => sectionTitleKey(row.title))
+    )
     let sortOrder = Number(maxSort.get(plan.entry.candidateId).n) + 1
     let inserted = 0
     let planned = 0
+    const skippedTitles = []
     for (const section of plan.accepted) {
-      if (already.has(section.type)) {
-        stats.skippedExistingSections += section.entries.length
+      // 标题取该区块第一条的标题（经历类会带单位/职位，天然区分）。
+      const sectionTitle = section.entries.length
+        ? buildSectionRow(plan.entry.candidateId, section.type, section.entries[0].fields, section.entries[0].extra, 0, section.originalTitles?.join(' · ') ?? '').title
+        : (section.originalTitles?.join(' · ') || SECTION_SCHEMAS[section.type].title)
+      const titleKey = sectionTitleKey(sectionTitle)
+      if (titleKey && existingKeys.has(titleKey)) {
+        stats.skippedExistingSections += 1
+        skippedTitles.push(sectionTitle)
         continue
       }
       section.entries.forEach(({ fields, extra }, entryIndex) => {
@@ -781,6 +895,7 @@ function writeWave(batchPlan) {
           section.originalTitles?.join(' · ') ?? ''
         )
         const structured = { ...row.structured, entry_index: entryIndex, evidence: section.evidence, parser: PARSER_VERSION }
+        if (entryIndex === 0 && titleKey) existingKeys.add(titleKey)
         for (const name of Object.keys(extra ?? {})) bump(stats.extraFieldNames, name)
         sortOrder += 1
         planned += 1
@@ -802,10 +917,14 @@ function writeWave(batchPlan) {
       status: options.apply ? 'written' : 'planned',
       method: plan.entry.method,
       accepted: plan.accepted.map((section) => section.type),
-      skipped_existing: plan.accepted.filter((section) => already.has(section.type)).map((section) => section.type),
+      skipped_titles: skippedTitles,
       sections: plan.accepted.map((section) => ({
         section_type: section.type,
-        skipped: already.has(section.type),
+        skipped: skippedTitles.includes(
+          section.entries.length
+            ? buildSectionRow(plan.entry.candidateId, section.type, section.entries[0].fields, section.entries[0].extra, 0, section.originalTitles?.join(' · ') ?? '').title
+            : (section.originalTitles?.join(' · ') || SECTION_SCHEMAS[section.type].title)
+        ),
         entries: section.entries.map(({ fields, extra }) => ({
           fields,
           ...(Object.keys(extra ?? {}).length ? { extra_fields: extra } : {})
@@ -825,6 +944,8 @@ function writeReport() {
   const report = {
     mode: options.apply ? 'apply' : 'dry-run',
     model,
+    startedAt: new Date(startedAt).toISOString(),
+    finishedAt: new Date().toISOString(),
     limit: options.limit,
     offset: options.offset,
     batchSize: options.batchSize,
