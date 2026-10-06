@@ -296,6 +296,13 @@ const needsParse = `NOT EXISTS (
     SELECT 1 FROM candidate_resume_parse_state st
     WHERE st.candidate_id = a.candidate_id AND st.parser = '${PARSER_NAME}'
       AND st.source_sha256 IS NOT NULL AND st.source_sha256 = a.sha256
+      AND (
+        st.outcome IN ('parsed','no_content')
+        OR (
+          st.outcome = 'failed'
+          AND (st.attempts >= 3 OR st.last_at > strftime('%Y-%m-%dT%H:%M:%fZ','now','-6 hours'))
+        )
+      )
   )`
 const emptyNineTypes = `NOT EXISTS (
     SELECT 1 FROM candidate_profile_sections existing
@@ -829,13 +836,13 @@ async function runWave(rows, onChunkDone) {
     const calls = modelResults(chunk.prepared)
     if (modelPromise) {
       const results = await modelPromise
-      if (onChunkDone) onChunkDone(results)
+      if (onChunkDone) await onChunkDone(results)
     }
     modelPromise = calls
   }
   if (modelPromise) {
     const results = await modelPromise
-    if (onChunkDone) onChunkDone(results)
+    if (onChunkDone) await onChunkDone(results)
   }
 }
 
@@ -975,11 +982,26 @@ for (const result of results) {
 }
 
 // 写库：一个 wave 一次事务，写完即提交。
-function writeWave(batchPlan) {
+async function writeWave(batchPlan) {
   if (!batchPlan.length) return
   let transactionStarted = false
   try {
-    if (options.apply) { db.exec('BEGIN IMMEDIATE'); transactionStarted = true }
+    if (options.apply) {
+      // 应用服务可能在同时写库（会话/活动），SQLITE_BUSY 不该让整批崩掉：重试几次。
+      let started = false
+      for (let attempt = 1; attempt <= 5 && !started; attempt += 1) {
+        try {
+          db.exec('BEGIN IMMEDIATE')
+          started = true
+        } catch (error) {
+          const locked = /locked|busy/i.test(String(error?.message ?? ''))
+          if (!locked || attempt === 5) throw error
+          stats.writeRetries = (stats.writeRetries ?? 0) + 1
+          await new Promise((resolveSleep) => setTimeout(resolveSleep, 3000 * attempt))
+        }
+      }
+      transactionStarted = true
+    }
     const timestamp = new Date().toISOString()
   for (const plan of batchPlan) {
     const existingKeys = new Set(
@@ -1136,8 +1158,8 @@ while (true) {
   // 每块结果一出就写库（分块提交），避免整波结束才落盘。
   let waveInserted = 0
   const before = stats.rowsInserted
-  await runWave(rows, (results) => {
-    writeWave(planWave(results))
+  await runWave(rows, async (results) => {
+    await writeWave(planWave(results))
   })
   waveInserted = stats.rowsInserted - before
   processed += rows.length

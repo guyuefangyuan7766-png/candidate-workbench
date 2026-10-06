@@ -28,6 +28,11 @@ const REPORT_PATHS = [
   'data/phase3-batch-200-final3.json',
   'data/phase3-batch-200-final4.json',
   'data/phase3-batch-200-final5.json',
+  'data/phase3-b2000-1-report.json',
+  'data/phase3-b2000-2-report.json',
+  'data/phase3-b2000-3-report.json',
+  'data/phase3-b2000-4-report.json',
+  'data/phase3-b2000-5-report.json',
   '.codex-tmp/pilot100.json',
   '.codex-tmp/pilot-topup.json',
   '.codex-tmp/pilot-retry.json',
@@ -116,6 +121,60 @@ const summary = {
 
 const existing = new Set(db.prepare('SELECT candidate_id FROM candidate_resume_parse_state').all().map((row) => row.candidate_id))
 
+// ── 3. 重建 10,000 批次里「扫过但无产出」的记录 ─────────────────────────────
+// 那批运行时脚本还没做到「每人必记账」，报告只含有产出的人。
+// 该批按 candidate_attachments.id 升序扫描，因此：凡是 id 小于「该批有产出者最大 id」
+// 且当时在队列里的人，必定被扫过。这里用保守上界重建，宁少不多。
+const reconstruct = process.argv.includes('--reconstruct-b2000')
+let boundaryId = null
+if (reconstruct) {
+  const ids = []
+  for (let index = 1; index <= 5; index += 1) {
+    const path = resolve(ROOT, `data/phase3-b2000-${index}-report.json`)
+    if (!existsSync(path)) continue
+    const report = JSON.parse(readFileSync(path, 'utf8'))
+    for (const entry of report.perCandidate ?? []) {
+      if (Number(entry.inserted ?? 0) > 0) ids.push(entry.candidate_id)
+    }
+  }
+  if (ids.length) {
+    const placeholders = ids.map(() => '?').join(',')
+    const row = db.prepare(`
+      SELECT MAX(a.id) AS maxId FROM candidate_attachments a
+      WHERE a.attachment_type = 'resume_origin' AND a.candidate_id IN (${placeholders})
+    `).get(...ids)
+    boundaryId = row?.maxId ?? null
+  }
+}
+
+const reconstructStmt = db.prepare(`
+  INSERT INTO candidate_resume_parse_state(
+    candidate_id, parser, outcome, source_attachment_id, source_sha256,
+    sections_written, attempts, last_error, first_at, last_at
+  )
+  SELECT a.candidate_id, ?, 'no_content', a.id, a.sha256, 0, 1, NULL, ?, ?
+  FROM candidate_attachments a
+  JOIN candidates c ON c.id = a.candidate_id
+  WHERE a.attachment_type = 'resume_origin'
+    AND a.mime_type IN ('text/html','text/plain','application/pdf')
+    AND COALESCE(c.archived_at, '') = ''
+    AND a.id <= ?
+    AND NOT EXISTS (
+      SELECT 1 FROM candidate_resume_parse_state st
+      WHERE st.candidate_id = a.candidate_id AND st.parser = ?
+    )
+    AND NOT EXISTS (
+      SELECT 1 FROM candidate_profile_sections s
+      WHERE s.candidate_id = a.candidate_id AND s.archived_at IS NULL
+        AND json_extract(s.structured_data, '$.parser') = ?
+    )
+    AND NOT EXISTS (
+      SELECT 1 FROM candidate_profile_sections e
+      WHERE e.candidate_id = a.candidate_id AND e.archived_at IS NULL
+        AND e.section_type IN ('internship','campus','skill','language','certificate','training','award','publication','management')
+    )
+`)
+
 // 报告来源的状态行必须带上「当时解析的那份原件」的 sha256，否则选人条件
 // （sha 相同才跳过）会把它们继续当成待解析。这里用当前原件补齐。
 const currentOrigin = db.prepare(`
@@ -155,6 +214,11 @@ if (apply) {
       patched += Number(updateMissingSha.run(origin.attachment_id, origin.sha256, row.candidate_id).changes)
     }
     summary.shaPatched = patched
+    if (boundaryId) {
+      const changes = Number(reconstructStmt.run(PARSER, timestamp, timestamp, boundaryId, PARSER, PARSER).changes)
+      summary.reconstructedNoContent = changes
+      summary.boundaryAttachmentId = boundaryId
+    }
     db.exec('COMMIT')
   } catch (error) {
     try { db.exec('ROLLBACK') } catch {}
