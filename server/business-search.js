@@ -45,7 +45,10 @@ const TABLE_POLICIES = Object.freeze([
   { table: 'candidate_talent_pools', key: ['candidate_id', 'talent_pool_id'], entityType: 'candidate_talent_pool', candidateId: 'candidate_id', title: ['talent_pool_id'], searchable: false },
   { table: 'candidate_profile_sections', key: ['id'], entityType: 'candidate_profile_section', entityId: 'id', candidateId: 'candidate_id', title: ['title', 'section_type'], archived: 'archived_at', json: ['structured_data'] },
   { table: 'candidate_preferences', key: ['candidate_id'], entityType: 'candidate_preference', entityId: 'candidate_id', candidateId: 'candidate_id', title: ['employment_status'], json: ['desired_titles', 'desired_locations', 'raw_payload'] },
-  { table: 'candidate_source_records', key: ['id'], entityType: 'candidate_source_record', entityId: 'id', candidateId: 'candidate_id', title: ['source_name', 'source_system'], json: ['raw_payload'] },
+  // §11.4 索引收缩后，这张表只剩 source_timestamp 可索引（实测全空），
+  // 其余列（source_system/source_record_id/source_name/record_type/raw_payload）
+  // 全部按元数据排除，因此整表不参与检索（否则覆盖校验永远 pending）。
+  { table: 'candidate_source_records', key: ['id'], entityType: 'candidate_source_record', entityId: 'id', candidateId: 'candidate_id', title: ['source_name', 'source_system'], json: [], searchable: false },
   { table: 'candidate_assessments', key: ['id'], entityType: 'candidate_assessment', entityId: 'id', candidateId: 'candidate_id', title: ['title', 'assessment_type'], json: ['raw_payload'], exclude: ['position_id'] },
   { table: 'candidate_consents', key: ['id'], entityType: 'candidate_consent', entityId: 'id', candidateId: 'candidate_id', title: ['agreement_name', 'consent_type'], json: ['raw_payload'] },
   { table: 'candidate_position_sources', key: ['id'], entityType: 'candidate_position_source', entityId: 'id', candidateId: 'candidate_id', title: ['source_system', 'source_application_id'], json: ['raw_payload'], exclude: ['position_id'] },
@@ -64,6 +67,20 @@ const POLICY_BY_TABLE = new Map(TABLE_POLICIES.map((policy) => [policy.table, po
 const DENIED_COLUMNS = new Map([
   ['candidate_attachments', new Set(['storage_path'])],
   ['candidate_resume_vectors', new Set(['vector'])]
+])
+
+// 不参与检索的元数据列（docs/VECTOR_HYBRID_PLAN.md §11.4）。
+// 这些列此前被当成普通标量列全量索引，把 2,527 万行撑到了约 400–600 万行能覆盖的规模：
+// 区块的排序/来源键、来源记录的渠道键、附件的哈希与解析状态，以及 structured_data /
+// raw_payload 两棵 JSON 快照树。它们只用于流水线对账与去重，检索侧没有人会按它们查。
+const UNINDEXED_SEARCH_COLUMNS = new Map([
+  ['candidate_profile_sections', new Set(['source_record_id', 'sort_order', 'section_type', 'structured_data'])],
+  ['candidate_source_records', new Set(['source_system', 'source_record_id', 'source_name', 'record_type', 'raw_payload'])],
+  ['candidate_preferences', new Set(['raw_payload'])],
+  ['candidate_assessments', new Set(['raw_payload'])],
+  ['candidate_consents', new Set(['raw_payload'])],
+  ['candidate_position_sources', new Set(['raw_payload'])],
+  ['candidate_attachments', new Set(['sha256', 'parse_status', 'parser_version', 'source', 'mime_type'])]
 ])
 
 const INTERNAL_SEARCH_NAMES = new Set([
@@ -130,6 +147,9 @@ export function isReadonlyBusinessColumn(tableName, columnName, declaredType = '
   const column = String(columnName ?? '').toLowerCase()
   if (!POLICY_BY_TABLE.has(table) || !column) return false
   if (String(declaredType ?? '').trim().toUpperCase().includes('BLOB')) return false
+  // DENIED_COLUMNS 里的列（如 candidate_attachments.storage_path）既不进索引，
+  // 也不属于只读业务列契约；否则物理路径会被当成普通可读字段暴露出去。
+  if (DENIED_COLUMNS.get(table)?.has(column)) return false
   // The Agent has an explicit read-only contract; expose all scalar business
   // columns so complete candidate and talent-pool matching can be performed.
   return true
@@ -165,6 +185,7 @@ function columnExclusionReason(table, column, policy) {
   if (Number(column.hidden) !== 0) return 'hidden_column'
   if (String(column.type ?? '').trim().toUpperCase().includes('BLOB')) return 'blob_column'
   if (DENIED_COLUMNS.get(table)?.has(String(column.name).toLowerCase())) return 'restricted_path'
+  if (UNINDEXED_SEARCH_COLUMNS.get(table)?.has(String(column.name).toLowerCase())) return 'unindexed_metadata'
   if (policy.searchable === false) return 'compatibility_metadata_only'
   if ((policy.exclude ?? []).some((name) => String(name).toLowerCase() === String(column.name).toLowerCase())) {
     return 'relationship_metadata'
@@ -1432,6 +1453,18 @@ export function synchronizeBusinessSearch(db, {
     FROM ${CHECKPOINT_TABLE} WHERE scope = 'full'
   `).get()
   const hasDirtyRows = Boolean(db.prepare(`SELECT 1 FROM ${DIRTY_TABLE} LIMIT 1`).get())
+  // 历史遗留：上一次中断的全量回填会在 checkpoint 上留下 queue_table/queued，
+  // worker 会把它当成「回填被中断」并重新排队整库（实测约 50 分钟一轮的循环）。
+  // 如果索引本身已经可用（有文档、没有 dirty、覆盖自校验通过），这里主动收敛回
+  // ready 并清掉队列，让 worker 不再续跑那份早已过期的队列。
+  if (hasDocuments && !hasDirtyRows && checkpoint && String(checkpoint.status) !== 'ready') {
+    const healed = getBusinessSearchCoverage(db, { persist: true, includeFields: true })
+    if (healed?.status === 'ready') {
+      checkpoint.status = 'ready'
+      checkpoint.queue_table = null
+      checkpoint.queue_cursor = null
+    }
+  }
   const resumableQueue = Boolean(
     checkpoint?.queue_table &&
     ['queued', 'indexing', 'failed'].includes(String(checkpoint.status))

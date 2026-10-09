@@ -225,7 +225,7 @@ function App() {
   const [selectedPositionIds, setSelectedPositionIds] = useState<Set<string>>(new Set());
 
   const [drawerMode, setDrawerMode] = useState<DrawerMode>(null);
-  const [drawerInitialTab, setDrawerInitialTab] = useState<DetailTab>("profile");
+  const [drawerInitialTab, setDrawerInitialTab] = useState<DetailTab>("attachment");
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const [candidateDetail, setCandidateDetail] = useState<CandidateDetail | null>(null);
   const [sensitiveLoaded, setSensitiveLoaded] = useState(false);
@@ -756,7 +756,8 @@ function App() {
     setDrawerMode(null);
   }
 
-  function openCandidate(candidate: Candidate, tab: DetailTab = "profile") {
+  // 默认落在「附件简历」页签（无简历附件的候选人由抽屉自动回落到「档案」）。
+  function openCandidate(candidate: Candidate, tab: DetailTab = "attachment") {
     setDrawerInitialTab(tab);
     setSensitiveLoaded(false);
     setSelectedCandidateId(candidate.id);
@@ -765,7 +766,7 @@ function App() {
     void loadCandidateDetail(candidate.id);
   }
 
-  async function openCandidateById(candidateId: string, tab: DetailTab = "profile") {
+  async function openCandidateById(candidateId: string, tab: DetailTab = "attachment") {
     const currentPageCandidate = candidates.find((candidate) => candidate.id === candidateId);
     if (currentPageCandidate) {
       openCandidate(currentPageCandidate, tab);
@@ -1658,7 +1659,7 @@ function App() {
             positions={positions}
             talentPools={talentPools}
             initialTab={toolPage === "resume-search" ? "resume-search" : toolPage === "attachment-parser" ? "attachment" : "chat"}
-            onOpenCandidateId={(candidateId, tab) => void openCandidateById(candidateId, tab ?? "profile")}
+          onOpenCandidateId={(candidateId, tab) => void openCandidateById(candidateId, tab ?? "attachment")}
             onCandidatesUpdated={() => void loadWorkspace(false)}
             onClose={closeToolPage}
             onHistoryOpenChange={(open) => setAssistantPanel(open ? "history" : "main")}

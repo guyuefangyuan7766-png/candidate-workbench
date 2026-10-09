@@ -7,7 +7,7 @@
     "embedding": 5000,
     "rerank": 5000
   },
-  "at": "2026-09-10T04:41:34.149Z",
+  "at": "2026-10-07T07:14:13.294Z",
   "node": "v24.18.0",
   "candidates": 80,
   "queries": 60,
@@ -41,23 +41,23 @@
     "Precision_at_10": 0.12499999999999999,
     "nDCG_at_10": 0.17935469408193871,
     "MRR": 0.19583333333333333,
-    "latency_p50_ms": 1.5350000000034925,
-    "latency_p95_ms": 10.009700000024168
+    "latency_p50_ms": 1.0736999999935506,
+    "latency_p95_ms": 15.458700000002864
   },
   "enhanced": {
     "Recall_at_50": 1,
     "Precision_at_10": 0.5066666666666666,
     "nDCG_at_10": 1,
     "MRR": 1,
-    "latency_p50_ms": 7414.8636000000115,
-    "latency_p95_ms": 24501.320600000006,
+    "latency_p50_ms": 5891.685899999997,
+    "latency_p95_ms": 17124.4138,
     "condition_accuracy": 1,
     "evidence_ownership_accuracy": 1,
-    "model_plan_success_rate": 0.7666666666666667
+    "model_plan_success_rate": 1
   },
-  "peak_rss_bytes": 91611136,
-  "database_bytes": 1089536,
-  "index_bytes": 990466,
+  "peak_rss_bytes": 89268224,
+  "database_bytes": 1093632,
+  "index_bytes": 1146385,
   "degradation_success_rate": 1,
   "failures": [
     {
@@ -77,7 +77,7 @@
       "pass": true
     }
   ],
-  "duration_ms": 317174.7083,
+  "duration_ms": 227316.5485,
   "rows": [
     {
       "id": "q-0",
@@ -157,7 +157,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 4.348300000000108
+        "ms": 5.785800000000108
       },
       "enhanced": {
         "recall50": 1,
@@ -165,7 +165,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 6891.678899999999,
+        "ms": 11877.1981,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -173,7 +173,7 @@
         "evidence_count": 8,
         "evidence_correct": 8
       },
-      "rss": 91611136
+      "rss": 79998976
     },
     {
       "id": "q-1",
@@ -206,30 +206,24 @@
         "minimum_should_match": 0,
         "must": [
           {
-            "kind": "all",
-            "scope": "candidate",
-            "children": [
-              {
-                "field": "years",
-                "kind": "filter",
-                "op": "gte",
-                "span": [
-                  1,
-                  4
-                ],
-                "value": 3
-              },
-              {
-                "field": "years",
-                "kind": "filter",
-                "op": "lte",
-                "span": [
-                  1,
-                  4
-                ],
-                "value": 5
-              }
-            ]
+            "field": "years",
+            "kind": "filter",
+            "op": "gte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 3
+          },
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "lte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 5
           },
           {
             "evidence_scope": "self",
@@ -259,7 +253,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 1.6170000000001892
+        "ms": 1.9558000000001812
       },
       "enhanced": {
         "recall50": 1,
@@ -267,7 +261,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 14000.8797,
+        "ms": 17124.4138,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -275,7 +269,7 @@
         "evidence_count": 6,
         "evidence_correct": 6
       },
-      "rss": 82468864
+      "rss": 80732160
     },
     {
       "id": "q-2",
@@ -339,7 +333,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 1.0322000000014668
+        "ms": 3.4130000000004657
       },
       "enhanced": {
         "recall50": 1,
@@ -347,7 +341,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 5211.9215,
+        "ms": 5809.196899999999,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -355,7 +349,7 @@
         "evidence_count": 12,
         "evidence_correct": 12
       },
-      "rss": 82190336
+      "rss": 82956288
     },
     {
       "id": "q-3",
@@ -431,7 +425,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 3.644899999999325
+        "ms": 2.9742000000005646
       },
       "enhanced": {
         "recall50": 1,
@@ -439,7 +433,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 5924.283099999999,
+        "ms": 6285.900600000001,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -447,7 +441,7 @@
         "evidence_count": 60,
         "evidence_correct": 60
       },
-      "rss": 84750336
+      "rss": 84185088
     },
     {
       "id": "q-4",
@@ -472,39 +466,37 @@
         ]
       },
       "actual_plan": {
-        "version": 1,
+        "minimum_should_match": 0,
         "must": [
           {
-            "kind": "term",
-            "text": "Unity",
-            "match": "concept",
             "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
             "span": [
               0,
               5
-            ]
+            ],
+            "text": "Unity"
           }
         ],
-        "should": [],
-        "minimum_should_match": 0,
         "must_not": [
           {
-            "kind": "term",
-            "text": "外包",
-            "match": "concept",
             "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
             "span": [
               8,
               10
-            ]
+            ],
+            "text": "外包"
           }
         ],
+        "should": [],
         "unresolved": [],
+        "version": 1,
         "metadata": {
-          "source": "rules",
-          "warnings": [
-            "model_planning_unavailable"
-          ],
+          "source": "model",
+          "warnings": [],
           "query": "Unity 不要外包",
           "schemaVersion": 1
         }
@@ -515,7 +507,7 @@
         "ndcg10": 0.44510108735750953,
         "mrr": 0.5,
         "zero_result_correct": null,
-        "ms": 17.52560000000085
+        "ms": 21.124400000000605
       },
       "enhanced": {
         "recall50": 1,
@@ -523,15 +515,15 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 7527.8079,
+        "ms": 6189.6624999999985,
         "condition_correct": true,
-        "plan_source": "rules",
-        "model_error": "search_planner_invalid",
+        "plan_source": "model",
+        "model_error": null,
         "degradation": [],
         "evidence_count": 30,
         "evidence_correct": 30
       },
-      "rss": 84254720
+      "rss": 84176896
     },
     {
       "id": "q-5",
@@ -579,7 +571,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 1.352599999998347
+        "ms": 1.777700000002369
       },
       "enhanced": {
         "recall50": 1,
@@ -587,7 +579,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 5700.673299999999,
+        "ms": 6665.389900000002,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -595,7 +587,7 @@
         "evidence_count": 30,
         "evidence_correct": 30
       },
-      "rss": 84414464
+      "rss": 85245952
     },
     {
       "id": "q-6",
@@ -659,7 +651,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 2.0473999999994703
+        "ms": 0.815999999998894
       },
       "enhanced": {
         "recall50": 1,
@@ -667,7 +659,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 15120.504,
+        "ms": 22576.183699999998,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -675,7 +667,7 @@
         "evidence_count": 4,
         "evidence_correct": 4
       },
-      "rss": 84807680
+      "rss": 85909504
     },
     {
       "id": "q-7",
@@ -707,7 +699,7 @@
             "op": "gte",
             "span": [
               1,
-              4
+              5
             ],
             "value": 0
           },
@@ -739,7 +731,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 1.7730999999985215
+        "ms": 0.9104000000006636
       },
       "enhanced": {
         "recall50": 1,
@@ -747,7 +739,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 5409.6692,
+        "ms": 7142.770500000002,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -755,7 +747,7 @@
         "evidence_count": 20,
         "evidence_correct": 20
       },
-      "rss": 84602880
+      "rss": 85585920
     },
     {
       "id": "q-8",
@@ -788,30 +780,24 @@
         "minimum_should_match": 0,
         "must": [
           {
-            "kind": "all",
-            "scope": "candidate",
-            "children": [
-              {
-                "field": "years",
-                "kind": "filter",
-                "op": "gte",
-                "span": [
-                  1,
-                  2
-                ],
-                "value": 0
-              },
-              {
-                "field": "years",
-                "kind": "filter",
-                "op": "lte",
-                "span": [
-                  3,
-                  4
-                ],
-                "value": 1
-              }
-            ]
+            "field": "years",
+            "kind": "filter",
+            "op": "gte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 0
+          },
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "lte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 1
           },
           {
             "evidence_scope": "self",
@@ -841,7 +827,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 2.508300000001327
+        "ms": 1.3398999999990338
       },
       "enhanced": {
         "recall50": 1,
@@ -849,7 +835,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 10388.192099999997,
+        "ms": 9257.135100000007,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -857,7 +843,7 @@
         "evidence_count": 8,
         "evidence_correct": 8
       },
-      "rss": 85368832
+      "rss": 85630976
     },
     {
       "id": "q-9",
@@ -881,38 +867,36 @@
         "must_not": []
       },
       "actual_plan": {
-        "version": 1,
+        "minimum_should_match": 0,
         "must": [
           {
-            "kind": "filter",
             "field": "years",
+            "kind": "filter",
             "op": "lte",
-            "value": 1,
             "span": [
               2,
               6
-            ]
+            ],
+            "value": 1
           },
           {
-            "kind": "term",
-            "text": "后端工程师",
-            "match": "concept",
             "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
             "span": [
               9,
               14
-            ]
+            ],
+            "text": "后端工程师"
           }
         ],
-        "should": [],
-        "minimum_should_match": 0,
         "must_not": [],
+        "should": [],
         "unresolved": [],
+        "version": 1,
         "metadata": {
-          "source": "rules",
-          "warnings": [
-            "model_planning_unavailable"
-          ],
+          "source": "model",
+          "warnings": [],
           "query": "请找1年以下经验的后端工程师",
           "schemaVersion": 1
         }
@@ -923,7 +907,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 2.0552999999999884
+        "ms": 3.3800999999948544
       },
       "enhanced": {
         "recall50": 1,
@@ -931,15 +915,15 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 30743.591000000008,
+        "ms": 5661.960699999996,
         "condition_correct": true,
-        "plan_source": "rules",
-        "model_error": "search_model_timeout",
+        "plan_source": "model",
+        "model_error": null,
         "degradation": [],
         "evidence_count": 8,
         "evidence_correct": 8
       },
-      "rss": 85086208
+      "rss": 86945792
     },
     {
       "id": "q-10",
@@ -963,38 +947,36 @@
         "must_not": []
       },
       "actual_plan": {
-        "version": 1,
+        "minimum_should_match": 0,
         "must": [
           {
-            "kind": "filter",
             "field": "years",
+            "kind": "filter",
             "op": "gte",
-            "value": 1,
             "span": [
               1,
               5
-            ]
+            ],
+            "value": 1
           },
           {
-            "kind": "term",
-            "text": "后端工程师",
-            "match": "concept",
             "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
             "span": [
               8,
               13
-            ]
+            ],
+            "text": "后端工程师"
           }
         ],
-        "should": [],
-        "minimum_should_match": 0,
         "must_not": [],
+        "should": [],
         "unresolved": [],
+        "version": 1,
         "metadata": {
-          "source": "rules",
-          "warnings": [
-            "model_planning_unavailable"
-          ],
+          "source": "model",
+          "warnings": [],
           "query": "找1年以上经验的后端工程师",
           "schemaVersion": 1
         }
@@ -1005,7 +987,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 1.1220000000030268
+        "ms": 1.6660999999949127
       },
       "enhanced": {
         "recall50": 1,
@@ -1013,15 +995,15 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 18123.3692,
+        "ms": 5137.508099999999,
         "condition_correct": true,
-        "plan_source": "rules",
-        "model_error": "search_planner_invalid",
+        "plan_source": "model",
+        "model_error": null,
         "degradation": [],
         "evidence_count": 16,
         "evidence_correct": 16
       },
-      "rss": 85401600
+      "rss": 84443136
     },
     {
       "id": "q-11",
@@ -1051,48 +1033,46 @@
         "must_not": []
       },
       "actual_plan": {
-        "version": 1,
+        "minimum_should_match": 0,
         "must": [
           {
-            "kind": "filter",
             "field": "years",
+            "kind": "filter",
             "op": "gte",
-            "value": 1,
             "span": [
               1,
               5
-            ]
+            ],
+            "value": 1
           },
           {
-            "kind": "filter",
             "field": "years",
+            "kind": "filter",
             "op": "lte",
-            "value": 2,
             "span": [
               1,
               5
-            ]
+            ],
+            "value": 2
           },
           {
-            "kind": "term",
-            "text": "后端工程师",
-            "match": "concept",
             "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
             "span": [
               8,
               13
-            ]
+            ],
+            "text": "后端工程师"
           }
         ],
-        "should": [],
-        "minimum_should_match": 0,
         "must_not": [],
+        "should": [],
         "unresolved": [],
+        "version": 1,
         "metadata": {
-          "source": "rules",
-          "warnings": [
-            "model_planning_unavailable"
-          ],
+          "source": "model",
+          "warnings": [],
           "query": "找1到2年经验的后端工程师",
           "schemaVersion": 1
         }
@@ -1103,7 +1083,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 0.7666000000026543
+        "ms": 0.7580000000016298
       },
       "enhanced": {
         "recall50": 1,
@@ -1111,15 +1091,15 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 8737.212699999996,
+        "ms": 5891.685899999997,
         "condition_correct": true,
-        "plan_source": "rules",
-        "model_error": "search_planner_invalid",
+        "plan_source": "model",
+        "model_error": null,
         "degradation": [],
         "evidence_count": 6,
         "evidence_correct": 6
       },
-      "rss": 85401600
+      "rss": 86650880
     },
     {
       "id": "q-12",
@@ -1151,7 +1131,7 @@
             "op": "lte",
             "span": [
               2,
-              5
+              6
             ],
             "value": 2
           },
@@ -1183,7 +1163,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 2.0280000000057044
+        "ms": 0.7728000000061002
       },
       "enhanced": {
         "recall50": 1,
@@ -1191,7 +1171,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 12285.730899999995,
+        "ms": 16893.253900000003,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -1199,7 +1179,7 @@
         "evidence_count": 10,
         "evidence_correct": 10
       },
-      "rss": 85237760
+      "rss": 86601728
     },
     {
       "id": "q-13",
@@ -1231,7 +1211,7 @@
             "op": "gte",
             "span": [
               1,
-              4
+              5
             ],
             "value": 2
           },
@@ -1263,7 +1243,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 1.7100000000064028
+        "ms": 2.650000000001455
       },
       "enhanced": {
         "recall50": 1,
@@ -1271,7 +1251,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 5219.150500000003,
+        "ms": 5318.8658,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -1279,7 +1259,7 @@
         "evidence_count": 12,
         "evidence_correct": 12
       },
-      "rss": 85303296
+      "rss": 86339584
     },
     {
       "id": "q-14",
@@ -1312,30 +1292,24 @@
         "minimum_should_match": 0,
         "must": [
           {
-            "kind": "all",
-            "scope": "candidate",
-            "children": [
-              {
-                "field": "years",
-                "kind": "filter",
-                "op": "gte",
-                "span": [
-                  1,
-                  4
-                ],
-                "value": 2
-              },
-              {
-                "field": "years",
-                "kind": "filter",
-                "op": "lte",
-                "span": [
-                  1,
-                  4
-                ],
-                "value": 3
-              }
-            ]
+            "field": "years",
+            "kind": "filter",
+            "op": "gte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 2
+          },
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "lte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 3
           },
           {
             "evidence_scope": "self",
@@ -1365,7 +1339,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 1.0764999999955762
+        "ms": 0.828800000002957
       },
       "enhanced": {
         "recall50": 1,
@@ -1373,7 +1347,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 14884.452099999995,
+        "ms": 5759.622499999998,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -1381,7 +1355,7 @@
         "evidence_count": 4,
         "evidence_correct": 4
       },
-      "rss": 85323776
+      "rss": 86032384
     },
     {
       "id": "q-15",
@@ -1408,30 +1382,24 @@
         "minimum_should_match": 0,
         "must": [
           {
-            "kind": "all",
-            "scope": "candidate",
-            "children": [
-              {
-                "field": "years",
-                "kind": "filter",
-                "op": "lte",
-                "span": [
-                  2,
-                  5
-                ],
-                "value": 3
-              },
-              {
-                "evidence_scope": "self",
-                "kind": "term",
-                "match": "concept",
-                "span": [
-                  9,
-                  14
-                ],
-                "text": "后端工程师"
-              }
-            ]
+            "field": "years",
+            "kind": "filter",
+            "op": "lte",
+            "span": [
+              2,
+              6
+            ],
+            "value": 3
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              9,
+              14
+            ],
+            "text": "后端工程师"
           }
         ],
         "must_not": [],
@@ -1451,7 +1419,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 0.8038999999989755
+        "ms": 2.2995000000082655
       },
       "enhanced": {
         "recall50": 1,
@@ -1459,7 +1427,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 13391.761599999998,
+        "ms": 5617.1408999999985,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -1467,7 +1435,7 @@
         "evidence_count": 12,
         "evidence_correct": 12
       },
-      "rss": 85606400
+      "rss": 86302720
     },
     {
       "id": "q-16",
@@ -1494,30 +1462,24 @@
         "minimum_should_match": 0,
         "must": [
           {
-            "kind": "all",
-            "scope": "candidate",
-            "children": [
-              {
-                "field": "years",
-                "kind": "filter",
-                "op": "gte",
-                "span": [
-                  1,
-                  4
-                ],
-                "value": 3
-              },
-              {
-                "evidence_scope": "self",
-                "kind": "term",
-                "match": "concept",
-                "span": [
-                  8,
-                  13
-                ],
-                "text": "后端工程师"
-              }
-            ]
+            "field": "years",
+            "kind": "filter",
+            "op": "gte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 3
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              8,
+              13
+            ],
+            "text": "后端工程师"
           }
         ],
         "must_not": [],
@@ -1537,7 +1499,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 0.9504000000015367
+        "ms": 0.6441999999951804
       },
       "enhanced": {
         "recall50": 1,
@@ -1545,7 +1507,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 7129.488700000002,
+        "ms": 8781.289699999994,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -1553,7 +1515,7 @@
         "evidence_count": 10,
         "evidence_correct": 10
       },
-      "rss": 85426176
+      "rss": 86675456
     },
     {
       "id": "q-17",
@@ -1591,7 +1553,7 @@
             "op": "gte",
             "span": [
               1,
-              4
+              5
             ],
             "value": 3
           },
@@ -1601,7 +1563,7 @@
             "op": "lte",
             "span": [
               1,
-              4
+              5
             ],
             "value": 4
           },
@@ -1633,7 +1595,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 1.3929000000061933
+        "ms": 0.6526999999914551
       },
       "enhanced": {
         "recall50": 1,
@@ -1641,7 +1603,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 24501.320600000006,
+        "ms": 5907.580600000001,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -1649,7 +1611,7 @@
         "evidence_count": 4,
         "evidence_correct": 4
       },
-      "rss": 85458944
+      "rss": 86552576
     },
     {
       "id": "q-18",
@@ -1676,30 +1638,24 @@
         "minimum_should_match": 0,
         "must": [
           {
-            "kind": "all",
-            "scope": "candidate",
-            "children": [
-              {
-                "field": "years",
-                "kind": "filter",
-                "op": "lte",
-                "span": [
-                  2,
-                  5
-                ],
-                "value": 4
-              },
-              {
-                "evidence_scope": "self",
-                "kind": "term",
-                "match": "concept",
-                "span": [
-                  9,
-                  14
-                ],
-                "text": "后端工程师"
-              }
-            ]
+            "field": "years",
+            "kind": "filter",
+            "op": "lte",
+            "span": [
+              2,
+              6
+            ],
+            "value": 4
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              9,
+              14
+            ],
+            "text": "后端工程师"
           }
         ],
         "must_not": [],
@@ -1719,7 +1675,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 0.8171000000002095
+        "ms": 0.8048999999882653
       },
       "enhanced": {
         "recall50": 1,
@@ -1727,7 +1683,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 6395.558600000004,
+        "ms": 7461.580300000001,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -1735,7 +1691,7 @@
         "evidence_count": 14,
         "evidence_correct": 14
       },
-      "rss": 85753856
+      "rss": 86745088
     },
     {
       "id": "q-19",
@@ -1767,7 +1723,7 @@
             "op": "gte",
             "span": [
               1,
-              7
+              5
             ],
             "value": 4
           },
@@ -1799,7 +1755,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 0.8221000000048662
+        "ms": 1.0777000000089174
       },
       "enhanced": {
         "recall50": 1,
@@ -1807,7 +1763,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 5531.340299999996,
+        "ms": 4961.069500000012,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -1815,7 +1771,7 @@
         "evidence_count": 8,
         "evidence_correct": 8
       },
-      "rss": 85708800
+      "rss": 87191552
     },
     {
       "id": "q-20",
@@ -1895,7 +1851,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 0.8289000000077067
+        "ms": 0.7477000000071712
       },
       "enhanced": {
         "recall50": 1,
@@ -1903,7 +1859,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 7533.800700000007,
+        "ms": 5402.683900000004,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -1911,7 +1867,7 @@
         "evidence_count": 4,
         "evidence_correct": 4
       },
-      "rss": 85692416
+      "rss": 86966272
     },
     {
       "id": "q-21",
@@ -1935,38 +1891,36 @@
         "must_not": []
       },
       "actual_plan": {
-        "version": 1,
+        "minimum_should_match": 0,
         "must": [
           {
-            "kind": "filter",
             "field": "years",
+            "kind": "filter",
             "op": "lte",
-            "value": 5,
             "span": [
               2,
               6
-            ]
+            ],
+            "value": 5
           },
           {
-            "kind": "term",
-            "text": "后端工程师",
-            "match": "concept",
             "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
             "span": [
               9,
               14
-            ]
+            ],
+            "text": "后端工程师"
           }
         ],
-        "should": [],
-        "minimum_should_match": 0,
         "must_not": [],
+        "should": [],
         "unresolved": [],
+        "version": 1,
         "metadata": {
-          "source": "rules",
-          "warnings": [
-            "model_planning_unavailable"
-          ],
+          "source": "model",
+          "warnings": [],
           "query": "请找5年以下经验的后端工程师",
           "schemaVersion": 1
         }
@@ -1977,7 +1931,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 1.897400000001653
+        "ms": 0.8300999999919441
       },
       "enhanced": {
         "recall50": 1,
@@ -1985,15 +1939,15 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 12600.214300000007,
+        "ms": 5425.4277,
         "condition_correct": true,
-        "plan_source": "rules",
-        "model_error": "search_planner_invalid",
+        "plan_source": "model",
+        "model_error": null,
         "degradation": [],
         "evidence_count": 16,
         "evidence_correct": 16
       },
-      "rss": 85671936
+      "rss": 86876160
     },
     {
       "id": "q-22",
@@ -2020,30 +1974,24 @@
         "minimum_should_match": 0,
         "must": [
           {
-            "kind": "all",
-            "scope": "candidate",
-            "children": [
-              {
-                "field": "years",
-                "kind": "filter",
-                "op": "gte",
-                "span": [
-                  1,
-                  4
-                ],
-                "value": 5
-              },
-              {
-                "evidence_scope": "self",
-                "kind": "term",
-                "match": "concept",
-                "span": [
-                  8,
-                  13
-                ],
-                "text": "后端工程师"
-              }
-            ]
+            "field": "years",
+            "kind": "filter",
+            "op": "gte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 5
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              8,
+              13
+            ],
+            "text": "后端工程师"
           }
         ],
         "must_not": [],
@@ -2063,7 +2011,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 0.7381999999925029
+        "ms": 2.519800000009127
       },
       "enhanced": {
         "recall50": 1,
@@ -2071,7 +2019,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 6005.844199999992,
+        "ms": 4907.077999999994,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -2079,7 +2027,7 @@
         "evidence_count": 6,
         "evidence_correct": 6
       },
-      "rss": 85889024
+      "rss": 86638592
     },
     {
       "id": "q-23",
@@ -2112,30 +2060,24 @@
         "minimum_should_match": 0,
         "must": [
           {
-            "kind": "all",
-            "scope": "candidate",
-            "children": [
-              {
-                "field": "years",
-                "kind": "filter",
-                "op": "gte",
-                "span": [
-                  1,
-                  4
-                ],
-                "value": 5
-              },
-              {
-                "field": "years",
-                "kind": "filter",
-                "op": "lte",
-                "span": [
-                  1,
-                  4
-                ],
-                "value": 6
-              }
-            ]
+            "field": "years",
+            "kind": "filter",
+            "op": "gte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 5
+          },
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "lte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 6
           },
           {
             "evidence_scope": "self",
@@ -2165,7 +2107,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 1.528200000000652
+        "ms": 2.8386000000027707
       },
       "enhanced": {
         "recall50": 1,
@@ -2173,7 +2115,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 10471.4899,
+        "ms": 8731.599600000001,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -2181,7 +2123,7 @@
         "evidence_count": 4,
         "evidence_correct": 4
       },
-      "rss": 86306816
+      "rss": 86835200
     },
     {
       "id": "q-24",
@@ -2213,7 +2155,7 @@
             "op": "lte",
             "span": [
               2,
-              8
+              6
             ],
             "value": 6
           },
@@ -2245,7 +2187,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 0.8358000000007451
+        "ms": 1.0736999999935506
       },
       "enhanced": {
         "recall50": 1,
@@ -2253,7 +2195,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 6662.610799999995,
+        "ms": 5201.4209999999875,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -2261,7 +2203,7 @@
         "evidence_count": 18,
         "evidence_correct": 18
       },
-      "rss": 85450752
+      "rss": 86962176
     },
     {
       "id": "q-25",
@@ -2288,30 +2230,24 @@
         "minimum_should_match": 0,
         "must": [
           {
-            "kind": "all",
-            "scope": "candidate",
-            "children": [
-              {
-                "field": "years",
-                "kind": "filter",
-                "op": "gte",
-                "span": [
-                  1,
-                  4
-                ],
-                "value": 6
-              },
-              {
-                "evidence_scope": "self",
-                "kind": "term",
-                "match": "concept",
-                "span": [
-                  8,
-                  13
-                ],
-                "text": "后端工程师"
-              }
-            ]
+            "field": "years",
+            "kind": "filter",
+            "op": "gte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 6
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              8,
+              13
+            ],
+            "text": "后端工程师"
           }
         ],
         "must_not": [],
@@ -2331,7 +2267,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 1.6714999999967404
+        "ms": 0.7217999999993481
       },
       "enhanced": {
         "recall50": 1,
@@ -2339,7 +2275,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 16169.19690000001,
+        "ms": 11415.02840000001,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -2347,7 +2283,7 @@
         "evidence_count": 4,
         "evidence_correct": 4
       },
-      "rss": 85975040
+      "rss": 87179264
     },
     {
       "id": "q-26",
@@ -2427,7 +2363,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 1.7888000000093598
+        "ms": 0.7937999999994645
       },
       "enhanced": {
         "recall50": 1,
@@ -2435,7 +2371,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 15863.356100000005,
+        "ms": 6558.010200000004,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -2443,7 +2379,7 @@
         "evidence_count": 4,
         "evidence_correct": 4
       },
-      "rss": 86007808
+      "rss": 87150592
     },
     {
       "id": "q-27",
@@ -2467,38 +2403,36 @@
         "must_not": []
       },
       "actual_plan": {
-        "version": 1,
+        "minimum_should_match": 0,
         "must": [
           {
-            "kind": "filter",
             "field": "years",
+            "kind": "filter",
             "op": "lte",
-            "value": 7,
             "span": [
               2,
               6
-            ]
+            ],
+            "value": 7
           },
           {
-            "kind": "term",
-            "text": "后端工程师",
-            "match": "concept",
             "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
             "span": [
               9,
               14
-            ]
+            ],
+            "text": "后端工程师"
           }
         ],
-        "should": [],
-        "minimum_should_match": 0,
         "must_not": [],
+        "should": [],
         "unresolved": [],
+        "version": 1,
         "metadata": {
-          "source": "rules",
-          "warnings": [
-            "model_planning_unavailable"
-          ],
+          "source": "model",
+          "warnings": [],
           "query": "请找7年以下经验的后端工程师",
           "schemaVersion": 1
         }
@@ -2509,7 +2443,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 0.7366999999794643
+        "ms": 0.9578999999939697
       },
       "enhanced": {
         "recall50": 1,
@@ -2517,15 +2451,15 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 10077.552599999995,
+        "ms": 6827.060499999992,
         "condition_correct": true,
-        "plan_source": "rules",
-        "model_error": "search_planner_invalid",
+        "plan_source": "model",
+        "model_error": null,
         "degradation": [],
         "evidence_count": 20,
         "evidence_correct": 20
       },
-      "rss": 85950464
+      "rss": 87568384
     },
     {
       "id": "q-28",
@@ -2552,30 +2486,24 @@
         "minimum_should_match": 0,
         "must": [
           {
-            "kind": "all",
-            "scope": "candidate",
-            "children": [
-              {
-                "field": "years",
-                "kind": "filter",
-                "op": "gte",
-                "span": [
-                  1,
-                  4
-                ],
-                "value": 7
-              },
-              {
-                "evidence_scope": "self",
-                "kind": "term",
-                "match": "concept",
-                "span": [
-                  8,
-                  13
-                ],
-                "text": "后端工程师"
-              }
-            ]
+            "field": "years",
+            "kind": "filter",
+            "op": "gte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 7
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              8,
+              13
+            ],
+            "text": "后端工程师"
           }
         ],
         "must_not": [],
@@ -2595,7 +2523,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 1.0443000000086613
+        "ms": 0.7569000000075903
       },
       "enhanced": {
         "recall50": 1,
@@ -2603,7 +2531,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 6257.770799999998,
+        "ms": 15244.501999999993,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -2611,7 +2539,7 @@
         "evidence_count": 2,
         "evidence_correct": 2
       },
-      "rss": 86151168
+      "rss": 87429120
     },
     {
       "id": "q-29",
@@ -2644,30 +2572,24 @@
         "minimum_should_match": 0,
         "must": [
           {
-            "kind": "all",
-            "scope": "candidate",
-            "children": [
-              {
-                "field": "years",
-                "kind": "filter",
-                "op": "gte",
-                "span": [
-                  1,
-                  4
-                ],
-                "value": 7
-              },
-              {
-                "field": "years",
-                "kind": "filter",
-                "op": "lte",
-                "span": [
-                  1,
-                  4
-                ],
-                "value": 8
-              }
-            ]
+            "field": "years",
+            "kind": "filter",
+            "op": "gte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 7
+          },
+          {
+            "field": "years",
+            "kind": "filter",
+            "op": "lte",
+            "span": [
+              1,
+              5
+            ],
+            "value": 8
           },
           {
             "evidence_scope": "self",
@@ -2697,7 +2619,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 1.0564000000013039
+        "ms": 0.8504000000102678
       },
       "enhanced": {
         "recall50": 1,
@@ -2705,7 +2627,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 19823.982799999998,
+        "ms": 4961.6454000000085,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -2713,7 +2635,7 @@
         "evidence_count": 2,
         "evidence_correct": 2
       },
-      "rss": 85794816
+      "rss": 86921216
     },
     {
       "id": "q-30",
@@ -2740,30 +2662,24 @@
         "minimum_should_match": 0,
         "must": [
           {
-            "kind": "all",
-            "scope": "candidate",
-            "children": [
-              {
-                "field": "current_location",
-                "kind": "filter",
-                "op": "eq",
-                "span": [
-                  0,
-                  2
-                ],
-                "value": "上海"
-              },
-              {
-                "evidence_scope": "self",
-                "kind": "term",
-                "match": "concept",
-                "span": [
-                  3,
-                  8
-                ],
-                "text": "Unity"
-              }
-            ]
+            "field": "current_location",
+            "kind": "filter",
+            "op": "eq",
+            "span": [
+              0,
+              2
+            ],
+            "value": "上海"
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              3,
+              8
+            ],
+            "text": "Unity"
           }
         ],
         "must_not": [],
@@ -2783,7 +2699,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 10.266499999997905
+        "ms": 15.458700000002864
       },
       "enhanced": {
         "recall50": 1,
@@ -2791,7 +2707,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 17107.563800000004,
+        "ms": 5464.163499999995,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -2799,7 +2715,7 @@
         "evidence_count": 16,
         "evidence_correct": 16
       },
-      "rss": 85938176
+      "rss": 86794240
     },
     {
       "id": "q-31",
@@ -2823,38 +2739,36 @@
         "must_not": []
       },
       "actual_plan": {
-        "version": 1,
+        "minimum_should_match": 0,
         "must": [
           {
-            "kind": "filter",
             "field": "current_location",
+            "kind": "filter",
             "op": "eq",
-            "value": "上海",
             "span": [
               0,
               2
-            ]
+            ],
+            "value": "上海"
           },
           {
-            "kind": "term",
-            "text": "Unreal",
-            "match": "concept",
             "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
             "span": [
               3,
               9
-            ]
+            ],
+            "text": "Unreal"
           }
         ],
-        "should": [],
-        "minimum_should_match": 0,
         "must_not": [],
+        "should": [],
         "unresolved": [],
+        "version": 1,
         "metadata": {
-          "source": "rules",
-          "warnings": [
-            "model_plan_constraints_changed"
-          ],
+          "source": "model",
+          "warnings": [],
           "query": "上海 Unreal",
           "schemaVersion": 1
         }
@@ -2865,7 +2779,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 5.298200000019278
+        "ms": 8.682300000000396
       },
       "enhanced": {
         "recall50": 1,
@@ -2873,15 +2787,15 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 5402.387000000017,
+        "ms": 6253.340000000011,
         "condition_correct": true,
-        "plan_source": "rules",
+        "plan_source": "model",
         "model_error": null,
         "degradation": [],
         "evidence_count": 4,
         "evidence_correct": 4
       },
-      "rss": 85975040
+      "rss": 86343680
     },
     {
       "id": "q-32",
@@ -2905,38 +2819,36 @@
         "must_not": []
       },
       "actual_plan": {
-        "version": 1,
+        "minimum_should_match": 0,
         "must": [
           {
-            "kind": "filter",
             "field": "current_location",
+            "kind": "filter",
             "op": "eq",
-            "value": "上海",
             "span": [
               0,
               2
-            ]
+            ],
+            "value": "上海"
           },
           {
-            "kind": "term",
-            "text": "后端工程师",
-            "match": "concept",
             "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
             "span": [
               3,
               8
-            ]
+            ],
+            "text": "后端工程师"
           }
         ],
-        "should": [],
-        "minimum_should_match": 0,
         "must_not": [],
+        "should": [],
         "unresolved": [],
+        "version": 1,
         "metadata": {
-          "source": "rules",
-          "warnings": [
-            "model_plan_constraints_changed"
-          ],
+          "source": "model",
+          "warnings": [],
           "query": "上海 后端工程师",
           "schemaVersion": 1
         }
@@ -2947,7 +2859,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 1.8735999999917112
+        "ms": 0.9366999999911059
       },
       "enhanced": {
         "recall50": 1,
@@ -2955,15 +2867,15 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 6110.11540000001,
+        "ms": 5028.326400000005,
         "condition_correct": true,
-        "plan_source": "rules",
+        "plan_source": "model",
         "model_error": null,
         "degradation": [],
         "evidence_count": 6,
         "evidence_correct": 6
       },
-      "rss": 86179840
+      "rss": 87724032
     },
     {
       "id": "q-33",
@@ -3027,7 +2939,7 @@
         "ndcg10": 0.33485807314974236,
         "mrr": 0.25,
         "zero_result_correct": null,
-        "ms": 9.255600000004051
+        "ms": 5.579999999987194
       },
       "enhanced": {
         "recall50": 1,
@@ -3035,7 +2947,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 7414.8636000000115,
+        "ms": 6312.356899999984,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -3043,7 +2955,7 @@
         "evidence_count": 9,
         "evidence_correct": 9
       },
-      "rss": 86269952
+      "rss": 87773184
     },
     {
       "id": "q-34",
@@ -3107,7 +3019,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 9.006500000017695
+        "ms": 7.243300000001909
       },
       "enhanced": {
         "recall50": 1,
@@ -3115,7 +3027,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 11962.489799999981,
+        "ms": 5785.189400000003,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -3123,7 +3035,7 @@
         "evidence_count": 17,
         "evidence_correct": 17
       },
-      "rss": 86003712
+      "rss": 86908928
     },
     {
       "id": "q-35",
@@ -3187,7 +3099,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 6.80460000000312
+        "ms": 2.6653000000223983
       },
       "enhanced": {
         "recall50": 1,
@@ -3195,7 +3107,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 6512.910700000008,
+        "ms": 13010.2163,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -3203,7 +3115,7 @@
         "evidence_count": 3,
         "evidence_correct": 3
       },
-      "rss": 86528000
+      "rss": 88383488
     },
     {
       "id": "q-36",
@@ -3267,7 +3179,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 1.5350000000034925
+        "ms": 0.8004000000073574
       },
       "enhanced": {
         "recall50": 1,
@@ -3275,7 +3187,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 6264.5196,
+        "ms": 4797.293399999995,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -3283,7 +3195,7 @@
         "evidence_count": 8,
         "evidence_correct": 8
       },
-      "rss": 86020096
+      "rss": 88113152
     },
     {
       "id": "q-37",
@@ -3307,38 +3219,36 @@
         "must_not": []
       },
       "actual_plan": {
-        "version": 1,
+        "minimum_should_match": 0,
         "must": [
           {
-            "kind": "filter",
             "field": "current_location",
+            "kind": "filter",
             "op": "eq",
-            "value": "北京",
             "span": [
               0,
               2
-            ]
+            ],
+            "value": "北京"
           },
           {
-            "kind": "term",
-            "text": "数值策划",
-            "match": "concept",
             "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
             "span": [
               3,
               7
-            ]
+            ],
+            "text": "数值策划"
           }
         ],
-        "should": [],
-        "minimum_should_match": 0,
         "must_not": [],
+        "should": [],
         "unresolved": [],
+        "version": 1,
         "metadata": {
-          "source": "rules",
-          "warnings": [
-            "model_planning_unavailable"
-          ],
+          "source": "model",
+          "warnings": [],
           "query": "北京 数值策划",
           "schemaVersion": 1
         }
@@ -3349,7 +3259,7 @@
         "ndcg10": 0.46441470256902223,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 9.309199999988778
+        "ms": 5.932499999995343
       },
       "enhanced": {
         "recall50": 1,
@@ -3357,15 +3267,15 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 5714.18220000001,
+        "ms": 10961.862900000007,
         "condition_correct": true,
-        "plan_source": "rules",
-        "model_error": "search_planner_invalid",
+        "plan_source": "model",
+        "model_error": null,
         "degradation": [],
         "evidence_count": 10,
         "evidence_correct": 10
       },
-      "rss": 86532096
+      "rss": 88690688
     },
     {
       "id": "q-38",
@@ -3392,30 +3302,24 @@
         "minimum_should_match": 0,
         "must": [
           {
-            "kind": "all",
-            "scope": "candidate",
-            "children": [
-              {
-                "field": "current_location",
-                "kind": "filter",
-                "op": "eq",
-                "span": [
-                  0,
-                  2
-                ],
-                "value": "杭州"
-              },
-              {
-                "evidence_scope": "self",
-                "kind": "term",
-                "match": "concept",
-                "span": [
-                  3,
-                  8
-                ],
-                "text": "Unity"
-              }
-            ]
+            "field": "current_location",
+            "kind": "filter",
+            "op": "eq",
+            "span": [
+              0,
+              2
+            ],
+            "value": "杭州"
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              3,
+              8
+            ],
+            "text": "Unity"
           }
         ],
         "must_not": [],
@@ -3435,7 +3339,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 8.566300000005867
+        "ms": 17.484599999996135
       },
       "enhanced": {
         "recall50": 1,
@@ -3443,7 +3347,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 6006.943099999975,
+        "ms": 5524.209600000002,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -3451,7 +3355,7 @@
         "evidence_count": 17,
         "evidence_correct": 17
       },
-      "rss": 87310336
+      "rss": 87760896
     },
     {
       "id": "q-39",
@@ -3515,7 +3419,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 4.038499999995111
+        "ms": 2.4580999999889173
       },
       "enhanced": {
         "recall50": 1,
@@ -3523,7 +3427,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 5234.472100000014,
+        "ms": 6242.390100000019,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -3531,7 +3435,7 @@
         "evidence_count": 3,
         "evidence_correct": 3
       },
-      "rss": 87437312
+      "rss": 88928256
     },
     {
       "id": "q-40",
@@ -3555,38 +3459,36 @@
         "must_not": []
       },
       "actual_plan": {
-        "version": 1,
+        "minimum_should_match": 0,
         "must": [
           {
-            "kind": "filter",
             "field": "current_location",
+            "kind": "filter",
             "op": "eq",
-            "value": "杭州",
             "span": [
               0,
               2
-            ]
+            ],
+            "value": "杭州"
           },
           {
-            "kind": "term",
-            "text": "后端工程师",
-            "match": "concept",
             "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
             "span": [
               3,
               8
-            ]
+            ],
+            "text": "后端工程师"
           }
         ],
-        "should": [],
-        "minimum_should_match": 0,
         "must_not": [],
+        "should": [],
         "unresolved": [],
+        "version": 1,
         "metadata": {
-          "source": "rules",
-          "warnings": [
-            "model_planning_unavailable"
-          ],
+          "source": "model",
+          "warnings": [],
           "query": "杭州 后端工程师",
           "schemaVersion": 1
         }
@@ -3597,7 +3499,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 1.2458000000042375
+        "ms": 1.0527000000001863
       },
       "enhanced": {
         "recall50": 1,
@@ -3605,15 +3507,15 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 5782.603799999983,
+        "ms": 4313.786400000012,
         "condition_correct": true,
-        "plan_source": "rules",
-        "model_error": "search_planner_invalid",
+        "plan_source": "model",
+        "model_error": null,
         "degradation": [],
         "evidence_count": 6,
         "evidence_correct": 6
       },
-      "rss": 87711744
+      "rss": 89268224
     },
     {
       "id": "q-41",
@@ -3640,30 +3542,24 @@
         "minimum_should_match": 0,
         "must": [
           {
-            "kind": "all",
-            "scope": "candidate",
-            "children": [
-              {
-                "field": "current_location",
-                "kind": "filter",
-                "op": "eq",
-                "span": [
-                  0,
-                  2
-                ],
-                "value": "杭州"
-              },
-              {
-                "evidence_scope": "self",
-                "kind": "term",
-                "match": "concept",
-                "span": [
-                  3,
-                  7
-                ],
-                "text": "数值策划"
-              }
-            ]
+            "field": "current_location",
+            "kind": "filter",
+            "op": "eq",
+            "span": [
+              0,
+              2
+            ],
+            "value": "杭州"
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              3,
+              7
+            ],
+            "text": "数值策划"
           }
         ],
         "must_not": [],
@@ -3683,7 +3579,7 @@
         "ndcg10": 0.6266432627014137,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 6.854599999991478
+        "ms": 13.702900000003865
       },
       "enhanced": {
         "recall50": 1,
@@ -3691,7 +3587,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 6668.868599999987,
+        "ms": 6060.241599999979,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -3699,7 +3595,7 @@
         "evidence_count": 11,
         "evidence_correct": 11
       },
-      "rss": 87601152
+      "rss": 88678400
     },
     {
       "id": "q-42",
@@ -3730,49 +3626,47 @@
         ]
       },
       "actual_plan": {
-        "version": 1,
+        "minimum_should_match": 0,
         "must": [
           {
-            "kind": "filter",
             "field": "current_location",
+            "kind": "filter",
             "op": "eq",
-            "value": "上海",
             "span": [
               0,
               2
-            ]
+            ],
+            "value": "上海"
           },
           {
-            "kind": "term",
-            "text": "Unity",
-            "match": "concept",
             "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
             "span": [
               3,
               8
-            ]
+            ],
+            "text": "Unity"
           }
         ],
-        "should": [],
-        "minimum_should_match": 0,
         "must_not": [
           {
-            "kind": "term",
-            "text": "外包",
-            "match": "concept",
             "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
             "span": [
               11,
               13
-            ]
+            ],
+            "text": "外包"
           }
         ],
+        "should": [],
         "unresolved": [],
+        "version": 1,
         "metadata": {
-          "source": "rules",
-          "warnings": [
-            "model_planning_unavailable"
-          ],
+          "source": "model",
+          "warnings": [],
           "query": "上海 Unity 不要外包",
           "schemaVersion": 1
         }
@@ -3783,7 +3677,7 @@
         "ndcg10": 0.9682087825918937,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 10.009700000024168
+        "ms": 7.034400000004098
       },
       "enhanced": {
         "recall50": 1,
@@ -3791,15 +3685,15 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 7163.345300000015,
+        "ms": 23044.330400000006,
         "condition_correct": true,
-        "plan_source": "rules",
-        "model_error": "search_planner_invalid",
+        "plan_source": "model",
+        "model_error": null,
         "degradation": [],
         "evidence_count": 10,
         "evidence_correct": 10
       },
-      "rss": 87613440
+      "rss": 86396928
     },
     {
       "id": "q-43",
@@ -3832,40 +3726,34 @@
         "minimum_should_match": 0,
         "must": [
           {
-            "kind": "all",
-            "scope": "candidate",
-            "children": [
-              {
-                "field": "current_location",
-                "kind": "filter",
-                "op": "eq",
-                "span": [
-                  3,
-                  5
-                ],
-                "value": "上海"
-              },
-              {
-                "evidence_scope": "self",
-                "kind": "term",
-                "match": "concept",
-                "span": [
-                  6,
-                  10
-                ],
-                "text": "游戏策划"
-              },
-              {
-                "evidence_scope": "self",
-                "kind": "term",
-                "match": "concept",
-                "span": [
-                  11,
-                  15
-                ],
-                "text": "战斗系统"
-              }
-            ]
+            "field": "current_location",
+            "kind": "filter",
+            "op": "eq",
+            "span": [
+              3,
+              5
+            ],
+            "value": "上海"
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              6,
+              10
+            ],
+            "text": "游戏策划"
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              11,
+              15
+            ],
+            "text": "战斗系统"
           }
         ],
         "must_not": [],
@@ -3885,7 +3773,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 1.3726999999780674
+        "ms": 2.3698999999905936
       },
       "enhanced": {
         "recall50": 1,
@@ -3893,7 +3781,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 16779.04250000001,
+        "ms": 5777.132599999983,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -3901,7 +3789,7 @@
         "evidence_count": 8,
         "evidence_correct": 8
       },
-      "rss": 87998464
+      "rss": 88100864
     },
     {
       "id": "q-44",
@@ -3932,49 +3820,47 @@
         ]
       },
       "actual_plan": {
-        "version": 1,
+        "minimum_should_match": 0,
         "must": [
           {
-            "kind": "filter",
             "field": "current_location",
+            "kind": "filter",
             "op": "eq",
-            "value": "北京",
             "span": [
               0,
               2
-            ]
+            ],
+            "value": "北京"
           },
           {
-            "kind": "term",
-            "text": "Unity",
-            "match": "concept",
             "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
             "span": [
               3,
               8
-            ]
+            ],
+            "text": "Unity"
           }
         ],
-        "should": [],
-        "minimum_should_match": 0,
         "must_not": [
           {
-            "kind": "term",
-            "text": "外包",
-            "match": "concept",
             "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
             "span": [
               11,
               13
-            ]
+            ],
+            "text": "外包"
           }
         ],
+        "should": [],
         "unresolved": [],
+        "version": 1,
         "metadata": {
-          "source": "rules",
-          "warnings": [
-            "model_planning_unavailable"
-          ],
+          "source": "model",
+          "warnings": [],
           "query": "北京 Unity 不要外包",
           "schemaVersion": 1
         }
@@ -3985,7 +3871,7 @@
         "ndcg10": 0.9682087825918937,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 9.048299999994924
+        "ms": 12.669200000003912
       },
       "enhanced": {
         "recall50": 1,
@@ -3993,15 +3879,15 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 11341.424400000018,
+        "ms": 5345.122999999992,
         "condition_correct": true,
-        "plan_source": "rules",
-        "model_error": "search_planner_invalid",
+        "plan_source": "model",
+        "model_error": null,
         "degradation": [],
         "evidence_count": 11,
         "evidence_correct": 11
       },
-      "rss": 87711744
+      "rss": 85868544
     },
     {
       "id": "q-45",
@@ -4081,7 +3967,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 1.2354000000050291
+        "ms": 1.0421999999962281
       },
       "enhanced": {
         "recall50": 1,
@@ -4089,7 +3975,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 6268.3984000000055,
+        "ms": 4812.3429999999935,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -4097,7 +3983,7 @@
         "evidence_count": 6,
         "evidence_correct": 6
       },
-      "rss": 89100288
+      "rss": 87724032
     },
     {
       "id": "q-46",
@@ -4128,49 +4014,47 @@
         ]
       },
       "actual_plan": {
-        "version": 1,
+        "minimum_should_match": 0,
         "must": [
           {
-            "kind": "filter",
             "field": "current_location",
+            "kind": "filter",
             "op": "eq",
-            "value": "杭州",
             "span": [
               0,
               2
-            ]
+            ],
+            "value": "杭州"
           },
           {
-            "kind": "term",
-            "text": "Unity",
-            "match": "concept",
             "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
             "span": [
               3,
               8
-            ]
+            ],
+            "text": "Unity"
           }
         ],
-        "should": [],
-        "minimum_should_match": 0,
         "must_not": [
           {
-            "kind": "term",
-            "text": "外包",
-            "match": "concept",
             "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
             "span": [
               11,
               13
-            ]
+            ],
+            "text": "外包"
           }
         ],
+        "should": [],
         "unresolved": [],
+        "version": 1,
         "metadata": {
-          "source": "rules",
-          "warnings": [
-            "model_planning_unavailable"
-          ],
+          "source": "model",
+          "warnings": [],
           "query": "杭州 Unity 不要外包",
           "schemaVersion": 1
         }
@@ -4181,7 +4065,7 @@
         "ndcg10": 0.9538469539548478,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 7.184300000022631
+        "ms": 14.748699999996461
       },
       "enhanced": {
         "recall50": 1,
@@ -4189,15 +4073,15 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 13298.125400000019,
+        "ms": 9811.501900000003,
         "condition_correct": true,
-        "plan_source": "rules",
-        "model_error": "search_planner_invalid",
+        "plan_source": "model",
+        "model_error": null,
         "degradation": [],
         "evidence_count": 9,
         "evidence_correct": 9
       },
-      "rss": 89133056
+      "rss": 88141824
     },
     {
       "id": "q-47",
@@ -4277,7 +4161,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 1.482799999997951
+        "ms": 1.7114000000001397
       },
       "enhanced": {
         "recall50": 1,
@@ -4285,7 +4169,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 10833.926199999987,
+        "ms": 7359.44809999998,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -4293,7 +4177,7 @@
         "evidence_count": 6,
         "evidence_correct": 6
       },
-      "rss": 89300992
+      "rss": 88170496
     },
     {
       "id": "q-48",
@@ -4320,30 +4204,24 @@
         "minimum_should_match": 0,
         "must": [
           {
-            "kind": "all",
-            "scope": "candidate",
-            "children": [
-              {
-                "field": "years",
-                "kind": "filter",
-                "op": "lt",
-                "span": [
-                  0,
-                  3
-                ],
-                "value": 1
-              },
-              {
-                "evidence_scope": "self",
-                "kind": "term",
-                "match": "concept",
-                "span": [
-                  7,
-                  12
-                ],
-                "text": "后端工程师"
-              }
-            ]
+            "field": "years",
+            "kind": "filter",
+            "op": "lt",
+            "span": [
+              0,
+              4
+            ],
+            "value": 1
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              7,
+              12
+            ],
+            "text": "后端工程师"
           }
         ],
         "must_not": [],
@@ -4363,7 +4241,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 0.81160000001546
+        "ms": 0.7317000000039116
       },
       "enhanced": {
         "recall50": 1,
@@ -4371,7 +4249,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 5877.186500000011,
+        "ms": 4791.755100000009,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -4379,7 +4257,7 @@
         "evidence_count": 4,
         "evidence_correct": 4
       },
-      "rss": 88879104
+      "rss": 87842816
     },
     {
       "id": "q-49",
@@ -4406,30 +4284,24 @@
         "minimum_should_match": 0,
         "must": [
           {
-            "kind": "all",
-            "scope": "candidate",
-            "children": [
-              {
-                "field": "years",
-                "kind": "filter",
-                "op": "gt",
-                "span": [
-                  0,
-                  3
-                ],
-                "value": 1
-              },
-              {
-                "evidence_scope": "self",
-                "kind": "term",
-                "match": "concept",
-                "span": [
-                  7,
-                  12
-                ],
-                "text": "后端工程师"
-              }
-            ]
+            "field": "years",
+            "kind": "filter",
+            "op": "gt",
+            "span": [
+              0,
+              4
+            ],
+            "value": 1
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              7,
+              12
+            ],
+            "text": "后端工程师"
           }
         ],
         "must_not": [],
@@ -4449,7 +4321,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 2.8421000000089407
+        "ms": 0.7013999999908265
       },
       "enhanced": {
         "recall50": 1,
@@ -4457,7 +4329,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 26053.30700000003,
+        "ms": 7100.405399999989,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -4465,7 +4337,7 @@
         "evidence_count": 12,
         "evidence_correct": 12
       },
-      "rss": 89100288
+      "rss": 88326144
     },
     {
       "id": "q-50",
@@ -4529,7 +4401,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 0.7766000000119675
+        "ms": 0.7735999999858905
       },
       "enhanced": {
         "recall50": 1,
@@ -4537,7 +4409,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 6574.797099999996,
+        "ms": 5493.845300000015,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -4545,7 +4417,7 @@
         "evidence_count": 8,
         "evidence_correct": 8
       },
-      "rss": 88870912
+      "rss": 88252416
     },
     {
       "id": "q-51",
@@ -4609,7 +4481,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 0.72620000000461
+        "ms": 0.7668000000121538
       },
       "enhanced": {
         "recall50": 1,
@@ -4617,7 +4489,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 11800.254000000015,
+        "ms": 7677.778300000005,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -4625,7 +4497,7 @@
         "evidence_count": 10,
         "evidence_correct": 10
       },
-      "rss": 88784896
+      "rss": 88875008
     },
     {
       "id": "q-52",
@@ -4652,30 +4524,24 @@
         "minimum_should_match": 0,
         "must": [
           {
-            "kind": "all",
-            "scope": "candidate",
-            "children": [
-              {
-                "field": "years",
-                "kind": "filter",
-                "op": "lt",
-                "span": [
-                  0,
-                  4
-                ],
-                "value": 3
-              },
-              {
-                "evidence_scope": "self",
-                "kind": "term",
-                "match": "concept",
-                "span": [
-                  7,
-                  12
-                ],
-                "text": "后端工程师"
-              }
-            ]
+            "field": "years",
+            "kind": "filter",
+            "op": "lt",
+            "span": [
+              0,
+              4
+            ],
+            "value": 3
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              7,
+              12
+            ],
+            "text": "后端工程师"
           }
         ],
         "must_not": [],
@@ -4695,7 +4561,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 1.0083000000449829
+        "ms": 0.9907999999995809
       },
       "enhanced": {
         "recall50": 1,
@@ -4703,7 +4569,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 6933.539300000004,
+        "ms": 5257.2261,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -4711,7 +4577,7 @@
         "evidence_count": 10,
         "evidence_correct": 10
       },
-      "rss": 88772608
+      "rss": 88293376
     },
     {
       "id": "q-53",
@@ -4775,7 +4641,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 1.679500000027474
+        "ms": 0.7560999999986961
       },
       "enhanced": {
         "recall50": 1,
@@ -4783,7 +4649,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 6260.423200000019,
+        "ms": 5097.797099999996,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -4791,7 +4657,7 @@
         "evidence_count": 8,
         "evidence_correct": 8
       },
-      "rss": 89083904
+      "rss": 88727552
     },
     {
       "id": "q-54",
@@ -4855,7 +4721,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 1.4244000000180677
+        "ms": 0.9752999999909662
       },
       "enhanced": {
         "recall50": 1,
@@ -4863,7 +4729,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 4976.687099999981,
+        "ms": 5044.145300000004,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -4871,7 +4737,7 @@
         "evidence_count": 12,
         "evidence_correct": 12
       },
-      "rss": 89149440
+      "rss": 88313856
     },
     {
       "id": "q-55",
@@ -4898,30 +4764,24 @@
         "minimum_should_match": 0,
         "must": [
           {
-            "kind": "all",
-            "scope": "candidate",
-            "children": [
-              {
-                "field": "years",
-                "kind": "filter",
-                "op": "gt",
-                "span": [
-                  0,
-                  3
-                ],
-                "value": 4
-              },
-              {
-                "evidence_scope": "self",
-                "kind": "term",
-                "match": "concept",
-                "span": [
-                  7,
-                  12
-                ],
-                "text": "后端工程师"
-              }
-            ]
+            "field": "years",
+            "kind": "filter",
+            "op": "gt",
+            "span": [
+              0,
+              4
+            ],
+            "value": 4
+          },
+          {
+            "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
+            "span": [
+              7,
+              12
+            ],
+            "text": "后端工程师"
           }
         ],
         "must_not": [],
@@ -4941,7 +4801,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 0.690100000007078
+        "ms": 1.1436999999859836
       },
       "enhanced": {
         "recall50": 1,
@@ -4949,7 +4809,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 17794.973899999983,
+        "ms": 5537.180699999997,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -4957,7 +4817,7 @@
         "evidence_count": 6,
         "evidence_correct": 6
       },
-      "rss": 88944640
+      "rss": 88637440
     },
     {
       "id": "q-56",
@@ -4989,7 +4849,7 @@
             "op": "lt",
             "span": [
               0,
-              3
+              4
             ],
             "value": 5
           },
@@ -5021,7 +4881,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 0.8317999999853782
+        "ms": 0.7833000000100583
       },
       "enhanced": {
         "recall50": 1,
@@ -5029,7 +4889,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 5006.828600000008,
+        "ms": 4103.345000000001,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -5037,7 +4897,7 @@
         "evidence_count": 14,
         "evidence_correct": 14
       },
-      "rss": 89485312
+      "rss": 88440832
     },
     {
       "id": "q-57",
@@ -5061,38 +4921,36 @@
         "must_not": []
       },
       "actual_plan": {
-        "version": 1,
+        "minimum_should_match": 0,
         "must": [
           {
-            "kind": "filter",
             "field": "years",
+            "kind": "filter",
             "op": "gt",
-            "value": 5,
             "span": [
               0,
               4
-            ]
+            ],
+            "value": 5
           },
           {
-            "kind": "term",
-            "text": "后端工程师",
-            "match": "concept",
             "evidence_scope": "self",
+            "kind": "term",
+            "match": "concept",
             "span": [
               7,
               12
-            ]
+            ],
+            "text": "后端工程师"
           }
         ],
-        "should": [],
-        "minimum_should_match": 0,
         "must_not": [],
+        "should": [],
         "unresolved": [],
+        "version": 1,
         "metadata": {
-          "source": "rules",
-          "warnings": [
-            "model_planning_unavailable"
-          ],
+          "source": "model",
+          "warnings": [],
           "query": "超过5年经验的后端工程师",
           "schemaVersion": 1
         }
@@ -5103,7 +4961,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 1.803600000042934
+        "ms": 0.658400000014808
       },
       "enhanced": {
         "recall50": 1,
@@ -5111,15 +4969,15 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 15380.147899999982,
+        "ms": 5709.5309000000125,
         "condition_correct": true,
-        "plan_source": "rules",
-        "model_error": "search_planner_invalid",
+        "plan_source": "model",
+        "model_error": null,
         "degradation": [],
         "evidence_count": 4,
         "evidence_correct": 4
       },
-      "rss": 89350144
+      "rss": 88432640
     },
     {
       "id": "q-58",
@@ -5151,7 +5009,7 @@
             "op": "lt",
             "span": [
               0,
-              3
+              4
             ],
             "value": 6
           },
@@ -5183,7 +5041,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 1.0372999999672174
+        "ms": 0.7356999999901745
       },
       "enhanced": {
         "recall50": 1,
@@ -5191,7 +5049,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 17775.394299999985,
+        "ms": 5721.409199999995,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -5199,7 +5057,7 @@
         "evidence_count": 16,
         "evidence_correct": 16
       },
-      "rss": 89133056
+      "rss": 88915968
     },
     {
       "id": "q-59",
@@ -5231,7 +5089,7 @@
             "op": "gt",
             "span": [
               0,
-              3
+              4
             ],
             "value": 6
           },
@@ -5263,7 +5121,7 @@
         "ndcg10": 0,
         "mrr": 0,
         "zero_result_correct": null,
-        "ms": 0.9917000000132248
+        "ms": 0.8408000000054017
       },
       "enhanced": {
         "recall50": 1,
@@ -5271,7 +5129,7 @@
         "ndcg10": 1,
         "mrr": 1,
         "zero_result_correct": null,
-        "ms": 5579.518700000015,
+        "ms": 6029.120599999995,
         "condition_correct": true,
         "plan_source": "model",
         "model_error": null,
@@ -5279,7 +5137,7 @@
         "evidence_count": 2,
         "evidence_correct": 2
       },
-      "rss": 89337856
+      "rss": 88674304
     }
   ]
 }

@@ -292,6 +292,11 @@ const hasState = `EXISTS (
     SELECT 1 FROM candidate_resume_parse_state st
     WHERE st.candidate_id = a.candidate_id AND st.parser = '${PARSER_NAME}'
   )`
+// 收尾兜底重试（PHASE3_FORCE_RETRY=1）：忽略 6 小时冷却，把还剩重试次数的人
+// 立刻放回队列，用于主队列跑空后的最后一轮扫尾；3 次上限照旧生效。
+const retryEligible = process.env.PHASE3_FORCE_RETRY === '1'
+  ? 'st.attempts >= 3'
+  : `(st.attempts >= 3 OR st.last_at > strftime('%Y-%m-%dT%H:%M:%fZ','now','-6 hours'))`
 const needsParse = `NOT EXISTS (
     SELECT 1 FROM candidate_resume_parse_state st
     WHERE st.candidate_id = a.candidate_id AND st.parser = '${PARSER_NAME}'
@@ -300,7 +305,7 @@ const needsParse = `NOT EXISTS (
         st.outcome IN ('parsed','no_content')
         OR (
           st.outcome = 'failed'
-          AND (st.attempts >= 3 OR st.last_at > strftime('%Y-%m-%dT%H:%M:%fZ','now','-6 hours'))
+          AND ${retryEligible}
         )
       )
   )`

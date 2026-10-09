@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive,
   BookOpen,
@@ -57,7 +57,8 @@ import { ResumePreviewPane } from "./ResumePreviewPane";
 import { CandidateForm } from "./CandidateForm";
 
 export type DrawerMode = "detail" | "create" | "edit" | null;
-export type DetailTab = "profile" | "resume" | "assessment" | "activity" | "advanced";
+// 「附件简历」独立成页签并排在「档案」之前；"resume" 仍是结构化履历，两者不要混。
+export type DetailTab = "attachment" | "profile" | "resume" | "assessment" | "activity" | "advanced";
 
 interface CandidateDrawerProps {
   mode: DrawerMode;
@@ -318,7 +319,7 @@ export function CandidateDrawer({
   onCandidateUpdated,
   onCandidateCreated,
   pendingProfileSave = false,
-  initialTab = "profile",
+  initialTab = "attachment",
 }: CandidateDrawerProps) {
   const [tab, setTab] = useState<DetailTab>(initialTab);
   const [noteText, setNoteText] = useState("");
@@ -360,6 +361,26 @@ export function CandidateDrawer({
       cancelled = true;
     };
   }, [candidate?.id, mode]);
+
+  // 只有原始/标准简历才能进「附件简历」页签（头像等其它附件不算）。
+  const hasResumeAttachment = useMemo(
+    () => resumeAttachments.some((item) => item.attachment_type === "resume_origin" || item.attachment_type === "resume"),
+    [resumeAttachments],
+  );
+  // 首屏若落在「附件简历」但这位候选人没有简历附件，自动回落到「档案」；
+  // 用户一旦手动点过页签就不再干预（避免抢走用户的选择）。
+  const tabPickedRef = useRef(false);
+  const selectTab = (next: DetailTab) => {
+    tabPickedRef.current = true;
+    setTab(next);
+  };
+  useEffect(() => {
+    tabPickedRef.current = false;
+  }, [candidate?.id, mode, initialTab]);
+  useEffect(() => {
+    if (tabPickedRef.current || attachmentsLoading) return;
+    if (tab === "attachment" && !hasResumeAttachment) setTab("profile");
+  }, [tab, attachmentsLoading, hasResumeAttachment]);
 
   const availablePositions = useMemo(() => {
     const linkedIds = new Set(candidate?.positions.map((position) => position.id) ?? []);
@@ -486,9 +507,9 @@ export function CandidateDrawer({
   return (
     <div className="tw-drawer-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !busy && onClose()}>
       <aside
-        className={`tw-drawer${mode === "detail"
-          ? (resumeAttachments.length ? " tw-drawer-resume" : "")
-          : " tw-drawer-wide"}`}
+        // 详情抽屉对所有候选人使用同一宽度（不再随"有没有简历附件"变化），
+        // 保证每个人的页面结构一致。
+        className={`tw-drawer${mode === "detail" ? " tw-drawer-detail" : " tw-drawer-wide"}`}
         role="dialog"
         aria-modal="true"
         aria-label={title}
@@ -562,25 +583,30 @@ export function CandidateDrawer({
               <X size={19} />
             </button>
             <div className="tw-drawer-tabs" role="tablist" aria-label="候选人信息">
-              <button className={tab === "profile" ? "active" : ""} type="button" role="tab" aria-selected={tab === "profile"} onClick={() => setTab("profile")}>
+              <button className={tab === "attachment" ? "active" : ""} type="button" role="tab" aria-selected={tab === "attachment"} onClick={() => selectTab("attachment")}>
+                附件简历
+              </button>
+              <button className={tab === "profile" ? "active" : ""} type="button" role="tab" aria-selected={tab === "profile"} onClick={() => selectTab("profile")}>
                 档案
               </button>
-              <button className={tab === "resume" ? "active" : ""} type="button" role="tab" aria-selected={tab === "resume"} onClick={() => setTab("resume")}>
+              <button className={tab === "resume" ? "active" : ""} type="button" role="tab" aria-selected={tab === "resume"} onClick={() => selectTab("resume")}>
                 履历
               </button>
-              <button className={tab === "assessment" ? "active" : ""} type="button" role="tab" aria-selected={tab === "assessment"} onClick={() => setTab("assessment")}>
+              <button className={tab === "assessment" ? "active" : ""} type="button" role="tab" aria-selected={tab === "assessment"} onClick={() => selectTab("assessment")}>
                 历史评估
               </button>
-              <button className={tab === "activity" ? "active" : ""} type="button" role="tab" aria-selected={tab === "activity"} onClick={() => setTab("activity")}>
+              <button className={tab === "activity" ? "active" : ""} type="button" role="tab" aria-selected={tab === "activity"} onClick={() => selectTab("activity")}>
                 备注与动态
               </button>
-              <button className={tab === "advanced" ? "active" : ""} type="button" role="tab" aria-selected={tab === "advanced"} onClick={() => setTab("advanced")}>
+              <button className={tab === "advanced" ? "active" : ""} type="button" role="tab" aria-selected={tab === "advanced"} onClick={() => selectTab("advanced")}>
                 高级信息
               </button>
-            </div>            <div className={`tw-drawer-body${resumeAttachments.length ? " tw-drawer-body-split" : ""}`}>
-              {resumeAttachments.length ? (
+            </div>
+            <div className={`tw-drawer-body${tab === "attachment" ? " tw-drawer-body-attachment" : ""}`}>
+              {tab === "attachment" && (
                 <ResumePreviewPane attachments={resumeAttachments} loading={attachmentsLoading} error={attachmentsError} />
-              ) : null}
+              )}
+              {tab !== "attachment" && (
               <div className="tw-detail-content">
               {tab === "profile" && (
                 <div className="tw-drawer-sections">
@@ -1055,6 +1081,7 @@ export function CandidateDrawer({
                 </div>
               )}
             </div>
+              )}
             </div>
             <footer className="tw-drawer-foot">
               {candidate.archived_at ? (

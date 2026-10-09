@@ -2,7 +2,10 @@ import { createHash } from 'node:crypto'
 import { DatabaseSync } from 'node:sqlite'
 
 export const MAX_SOURCE_ROWS = 400
-export const SAFE_SECTIONS = ['education', 'education_experience', 'experience', 'work_experience', 'work', 'project', 'project_experience', 'internship', 'skill', 'skills']
+// 口径 B（2026-10-07 定档，见 docs/VECTOR_HYBRID_PLAN.md §3.1）：原 5 类 + 阶段 3 模型解析出的 7 类。
+export const SAFE_SECTIONS = ['education', 'education_experience', 'experience', 'work_experience', 'work', 'project', 'project_experience', 'internship', 'skill', 'skills', 'award', 'certificate', 'campus', 'language', 'management', 'publication', 'training']
+// `other` 只收模型解析写出的「附加信息」，不收导入器生成的「来源索引 / 身份与证件 / 附加资料与素材」。
+export const PARSED_OTHER_SECTION_WHERE = "s.section_type = 'other' AND s.source_record_id LIKE 'origin-section-parse-v1:%'"
 const placeholders = values => values.map(() => '?').join(',')
 const fail = () => { const error = new Error('Source page exceeds bounded limit'); error.code = 'search_vector_source_budget'; throw error }
 export function materialSourceHash(document) {
@@ -15,9 +18,9 @@ export function materialSourceHash(document) {
 // driving from candidates scans the whole table to find the requested ids instead
 // of looking those ids up directly by primary key.
 const SOURCES = [
-  { prefix: 'attachment:', id: 'a.id', candidate: 'a.candidate_id', type: 'attachment', from: 'candidate_attachments a CROSS JOIN candidates c ON c.id=a.candidate_id', select: "a.candidate_id,'attachment' AS source_type,a.id AS source_id,'Resume attachment' AS title,'extracted_text' AS field,a.extracted_text AS content,a.updated_at AS revision", content: 'a.extracted_text', revision: "a.updated_at || '|' || length(coalesce(a.original_filename,'')) || '|' || length(coalesce(a.extracted_text,''))", where: "c.archived_at IS NULL AND a.parse_status='parsed' AND a.attachment_type='resume'", params: [] },
+  { prefix: 'attachment:', id: 'a.id', candidate: 'a.candidate_id', type: 'attachment', from: 'candidate_attachments a CROSS JOIN candidates c ON c.id=a.candidate_id', select: "a.candidate_id,'attachment' AS source_type,a.id AS source_id,'Resume attachment' AS title,'extracted_text' AS field,a.extracted_text AS content,a.updated_at AS revision", content: 'a.extracted_text', revision: "a.updated_at || '|' || length(coalesce(a.original_filename,'')) || '|' || length(coalesce(a.extracted_text,''))", where: "c.archived_at IS NULL AND a.parse_status='parsed' AND a.attachment_type IN ('resume','resume_origin')", params: [] },
   { prefix: 'candidate:', id: 'c.id', candidate: 'c.id', type: 'candidate', from: 'candidates c', select: "c.id AS candidate_id,'candidate' AS source_type,c.id AS source_id,'Profile' AS title,'profile' AS field,coalesce(c.current_title,'') || char(10) || coalesce(c.current_company,'') || char(10) || coalesce(c.self_summary,'') || char(10) || CASE WHEN json_valid(c.tags) AND json_type(c.tags)='array' THEN coalesce((SELECT group_concat(value, char(10)) FROM json_each(c.tags) WHERE type='text'),'') ELSE '' END AS content,c.updated_at AS revision", content: 'content', revision: "c.updated_at || '|' || length(coalesce(c.current_title,'')) || '|' || length(coalesce(c.current_company,'')) || '|' || length(coalesce(c.self_summary,'')) || '|' || length(coalesce(c.tags,''))", where: 'c.archived_at IS NULL', params: [] },
-  { prefix: 'section:', id: 's.id', candidate: 's.candidate_id', type: 'profile_section', from: 'candidate_profile_sections s CROSS JOIN candidates c ON c.id=s.candidate_id', select: "s.candidate_id,'profile_section' AS source_type,s.id AS source_id,coalesce(s.title,s.section_type) AS title,'content' AS field,s.content,s.updated_at AS revision", content: 's.content', revision: "s.updated_at || '|' || length(coalesce(s.title,'')) || '|' || length(coalesce(s.content,''))", where: `c.archived_at IS NULL AND s.archived_at IS NULL AND s.sensitivity <> 'high' AND s.section_type IN (${placeholders(SAFE_SECTIONS)})`, params: SAFE_SECTIONS }
+  { prefix: 'section:', id: 's.id', candidate: 's.candidate_id', type: 'profile_section', from: 'candidate_profile_sections s CROSS JOIN candidates c ON c.id=s.candidate_id', select: "s.candidate_id,'profile_section' AS source_type,s.id AS source_id,coalesce(s.title,s.section_type) AS title,'content' AS field,s.content,s.updated_at AS revision", content: 's.content', revision: "s.updated_at || '|' || length(coalesce(s.title,'')) || '|' || length(coalesce(s.content,''))", where: `c.archived_at IS NULL AND s.archived_at IS NULL AND s.sensitivity <> 'high' AND (s.section_type IN (${placeholders(SAFE_SECTIONS)}) OR (${PARSED_OTHER_SECTION_WHERE}))`, params: SAFE_SECTIONS }
 ]
 
 // Maintenance only needs to know *whether* a document changed, so this projection

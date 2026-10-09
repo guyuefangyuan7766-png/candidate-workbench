@@ -2,6 +2,87 @@
 
 格式参考 Keep a Changelog，版本号遵循语义化版本。
 
+## 增量同步修复 + 索引收缩 + 部署准备 - 2026-10-08（应用 0.7.0）
+
+### 修复
+
+- **增量导入字段口径**：`scripts/import-incremental.mjs` 的 `profileValueMap` 原来取北森
+  `entry.value`（内部代码），把新同步候选人的 `highest_school`/`education`/`gender` 写成了
+  `10294`/`1`/`0` 这类代码（本次 245 人中 218 人学校、204 人学历受影响）。现改为与全量导入器
+  一致的 `text` 优先，并新增 `--refresh-since <ISO>` 按导入时间窗重跑修复；本次已把 245 人全部修正。
+- **PDF 文本提取崩溃**：并发下 pdfjs/原生层偶发 `0xC0000005`（exit `-1073741819`）。
+  文本提取路径现在跳过头像渲染（不加载原生 canvas）、worker 结果返回后给 2 秒优雅退出窗口、
+  worker 栈 4→8 MB；`persist-attachment-text.mjs` 默认并发 6→3 并对崩溃类失败重试 3 次。
+  本次 4 份曾失败的 PDF 全部写入成功（`failed=0`）。
+- **业务索引 worker 不收敛**（已知故障，2026-10-07 记录）：`business-search-worker.js` 现在显式
+  `allowBackfill:false`，不再续跑历史整库回填队列；`synchronizeBusinessSearch` 增加自愈分支，
+  在"有文档 + 无 dirty + 覆盖自校验通过"时把 checkpoint 拉回 `ready` 并清空队列。
+  新增契约测试 `background sync converges a stale backfill queue instead of re-running it`。
+- 顺带修正 `isReadonlyBusinessColumn`：`candidate_attachments.storage_path` 现在按策略返回 false
+  （原用例一直失败）。
+
+### 变更
+
+- **业务索引收缩**：`server/business-search.js` 新增 `UNINDEXED_SEARCH_COLUMNS`，不再索引
+  `source_record_id`/`sort_order`/`section_type`/`sha256`/`parse_status`/`parser_version`/
+  `source_system`/`source_name`/`record_type`/`source`/`mime_type` 以及 `structured_data.*`、
+  `raw_payload.*` 两棵快照树。实测 `search_documents_v2` 从 **25,326,858 行降到 5,560,863 行（22%）**。
+- 新增 `scripts/rebuild-business-search.mjs`（丢表重建）与 `scripts/shrink-business-search.mjs`
+  （保留行 + 集合式重建 FTS，较快），以及 `scripts/converge-business-search.mjs`（停服收敛 dirty→ready）。
+- 新增 `scripts/deployment-manifest.mjs`（生成/比对本地与服务器逐文件 SHA256）与
+  `docs/SERVER_UPLOAD_CHECKLIST.md`（按 C 盘项目口径的上传清单）。
+- 新增 `scripts/self-test-api.mjs`：一键跑主要只读接口 + 一轮 AI 助手问答，报告落
+  `data/self-test-report.json`。
+- 检索预算持久化为 `SEARCH_QUERY_BUDGET_MS=120000`（`data/search-runtime.json`）。
+
+### 兼容性
+
+- 主库 schema 未变；业务索引为派生数据，可由新增脚本随时重建。
+- 被排除字段不再进入 Agent 全字段检索（产品确认后执行）。
+
+## 增量同步首次实跑（工具链修复）- 2026-10-08（应用 0.6.1）
+
+### 修复
+
+- **增量同步补上 profiles 分片下载**：`scripts/incremental-sync.mjs` 之前只拉 `scope=resumes` 分片，
+  而 `scripts/import-incremental.mjs` 必须有 `<relativeDir>/profile.json` 才会写库——照旧跑会把
+  新增/变化的人**全部静默跳过**（只标记消失的人）。现在 profiles 与 resumes 各自分片下载、各自断点续传。
+- **导入端路径对齐分片 zip 的真实布局**：档案基目录改为 `data/incremental/profiles`（+ `relativeDir/profile.json`），
+  简历改为 `data/incremental/resumes/<relativeDir>/resumes/standard.pdf` 与
+  `<relativeDir>/resumes/origin/origin.pdf`；dry-run 新增 `profilesResolvable / profilesMissing` 计数。
+- **下载分片改为按差集定位**：线上 agent 的分片口径是「按 applicantId 排序后连续切片」
+  （2026-10-08 用下载到的 `_meta.json` 抽样反推确认：applicantId 序命中 39/40、candidateId 序 0/40；
+  worker 源码里的 candidateId 写法与线上行为不一致）。applicantId 是随机 UUID，差集在片间均匀散布，
+  所以档案走 `--profiles-full` 全量 32 片（0.74 GB），简历按 2048 片定位到约 235 片（约 5.5 GB，
+  整份快照是 47 GB）；`--targeted` / `--only` / `--profiles-full` 三个开关控制粒度。
+- **重试分支缺 `break`**：每个分片明明成功也会重跑三遍；修掉后按分片 5 路并发，实测约 3.3 片/分钟。
+- 子进程统一 `windowsHide: true`（CLI、tar、管道驱动）。
+
+### 兼容性
+
+- 只改脚本与文档：无数据库 schema、接口或前端改动；`package.json` 版本 `0.6.0 → 0.6.1`。
+
+## 附件简历独立页签 - 2026-10-08（应用 0.6.0）
+
+### 变更
+
+- **详情抽屉新增「附件简历」页签，排在「档案」之前。** 原始/标准简历预览不再作为左栏常驻，
+  只在「附件简历」页签内单栏铺满；打开抽屉默认落在该页签，没有简历附件的候选人自动回落到「档案」，
+  用户手动点过页签后不再干预。助手与检索入口点「履历」仍进结构化履历页签，行为不变。
+- **抽屉宽度对所有人统一**：详情模式固定 `min(1000px, 90vw)`（原先"有附件的 1360px / 无附件的 500px"
+  会随候选人变化），保证不同候选人的页面结构一致，也不会在 1280/1440 屏上占满整屏。
+- **简历预览新增「隐藏边框」开关。** 一次性去掉容器描边、圆角与内边距，并关闭浏览器 PDF
+  查看器自带的深色工具条与缩略图栏（`#toolbar=0&navpanes=0`，切换时重挂载 iframe 才会生效）；
+  偏好保存在浏览器本地（`tw-resume-frameless`），刷新后仍生效。
+- **预览框贴合简历页自然宽度并居中**（A4 在 100% 缩放下约 794px）：浏览器 PDF 查看器的深色背景
+  不再出现在页面两侧，工具条与预览框同宽对齐。简历保持原始比例，不做拉伸或"适应宽度"缩放；
+  HTML/图片等非 A4 页面共用同一容器宽度。窄屏（≤1279px）下按可用宽度收缩，框高 62vh。
+
+### 兼容性
+
+- 仅前端布局与浏览器本地偏好：无数据库 schema、接口、索引或数据改动；`package.json` 版本 `0.5.0 → 0.6.0`。
+- 源码契约测试 `tests/backend/candidate-drawer-attachment-tab.test.mjs` 固定页签顺序、单栏渲染与开关行为。
+
 ## 人才资产副本 - 2026-09-24
 
 ### 新增

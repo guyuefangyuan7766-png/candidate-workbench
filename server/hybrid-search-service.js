@@ -325,7 +325,10 @@ export class HybridSearchService {
     this.recycling = Promise.resolve()
     this.lastStatus = { model: { remote_enabled: options.remoteEnabled === true }, vector: { available: false, generation: null } }
     this.maxQueued = Number.isInteger(options.maxQueued) && options.maxQueued >= 0 ? Math.min(options.maxQueued, 32) : 8
-    this.timeoutMs = Math.min(30_000, Math.max(1, Number(options.requestTimeoutMs) || 30_000))
+    // 单次检索预算：默认仍是 30 秒，但允许调用方放宽到 120 秒。
+    // 正式库规模下（145 万向量 / 2,519 万行 FTS）「Python 服务端开发」这类高频宽泛词
+    // 实测会打满 30 秒并返回 504，需要更大的预算才能完成（2026-10-08 实测）。
+    this.timeoutMs = Math.min(120_000, Math.max(1, Number(options.requestTimeoutMs) || 30_000))
     this.warmupTimeoutMs = Math.min(120000, Math.max(1, Number(options.warmupTimeoutMs) || 120000))
     // Worker startup opens the vector generation and the resume database, which is
     // I/O bound and unrelated to how fast a query can run. It gets its own bounded

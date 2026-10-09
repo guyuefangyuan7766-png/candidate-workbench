@@ -38,7 +38,10 @@ try {
   db.exec('PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000; PRAGMA journal_mode = WAL;')
   const result = synchronizeBusinessSearch(db, {
     batchSize: workerData.batchSize,
-    maxBatches: workerData.maxBatches ?? 1
+    maxBatches: workerData.maxBatches ?? 1,
+    // 后台维护只做增量：绝不允许它续跑历史遗留的全量回填队列，
+    // 否则会形成「整库 190 万行、约 50 分钟一轮」的循环并占满 CPU/SQLite。
+    allowBackfill: false
   })
   parentPort.postMessage({
     ok: true,

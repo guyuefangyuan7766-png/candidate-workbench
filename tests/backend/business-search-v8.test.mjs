@@ -28,7 +28,8 @@ import {
   migrateBusinessSearch,
   queueBusinessSearchBackfill,
   searchAllRecords,
-  searchBusinessCandidates
+  searchBusinessCandidates,
+  synchronizeBusinessSearch
 } from '../../server/business-search.js'
 
 const databases = []
@@ -162,7 +163,7 @@ test('V8 business search migration is additive, idempotent and preserves the leg
   assert.deepEqual(db.prepare(`PRAGMA table_xinfo(candidates)`).all().map((column) => column.name), candidateColumns)
 })
 
-test('backfill indexes searchable business fields including numbers, dates, external IDs and nested raw payload paths', () => {
+test('backfill indexes searchable business fields and keeps raw payload snapshot trees out', () => {
   const db = anonymousDatabase()
   const candidate = insertCandidate(db, {
     name: 'Anonymous Full Field Candidate',
@@ -204,12 +205,13 @@ test('backfill indexes searchable business fields including numbers, dates, exte
   assert.equal(candidateFields.get('candidates.age'), '38')
   assert.equal(candidateFields.get('candidates.source_record_id'), 'APPLICANT-ANON-017')
 
+  // §11.4 索引收缩：raw_payload 是流水线快照，不再展开成 JSON 叶子文档。
   const nested = db.prepare(`
     SELECT content FROM ${BUSINESS_SEARCH_INTERNALS.documentsTable}
     WHERE source_table = 'candidate_source_records' AND source_row_id = ?
       AND field_path = 'candidate_source_records.raw_payload.identity.legacy_code'
   `).get(sourceId)
-  assert.equal(nested.content, 'NESTED-CODE-771')
+  assert.equal(nested, undefined)
 
   const sensitiveHit = searchBusinessCandidates(db, normalizeResumeSearch({ keywords: ['13800000017'] }))
   assert.deepEqual(sensitiveHit.items.map((item) => item.candidate_id), [candidate.id])
@@ -217,14 +219,10 @@ test('backfill indexes searchable business fields including numbers, dates, exte
   assert.equal(sensitiveHit.items[0].evidence[0].snippet.text, '13800000017')
 
   const nestedHit = searchAllRecords(db, { keywords: ['NESTED-CODE-771'] })
-  assert.ok(nestedHit.items.some((item) => item.entity_type === 'candidate_source_record' && item.entity_id === sourceId))
-  assert.ok(nestedHit.items.flatMap((item) => item.evidence).some((item) => (
-    item.field_path === 'candidate_source_records.raw_payload.identity.legacy_code' &&
-    item.matched_terms.includes('NESTED-CODE-771')
-  )))
+  assert.equal(nestedHit.pagination.total, 0)
 })
 
-test('compact policy omits technical columns and deduplicates equivalent JSON leaves without losing exact structured search', () => {
+test('compact policy omits technical columns and raw payload snapshot trees while keeping typed field search', () => {
   const db = anonymousDatabase()
   const candidate = insertCandidate(db, {
     name: 'Anonymous compact candidate',
@@ -248,18 +246,8 @@ test('compact policy omits technical columns and deduplicates equivalent JSON le
   assert.equal(Number(db.prepare(`
     SELECT COUNT(*) AS count FROM search_documents_v2
     WHERE source_table = 'candidate_source_records' AND source_row_id = ?
-      AND normalized_content = 'repeatedjsonmarkerv8'
-  `).get(sourceId).count), 1)
-  assert.equal(db.prepare(`
-    SELECT field_path FROM search_documents_v2
-    WHERE source_table = 'candidate_source_records' AND source_row_id = ?
-      AND normalized_content = 'repeatedjsonmarkerv8'
-  `).get(sourceId).field_path, 'candidate_source_records.raw_payload.a_primary_status')
-  assert.equal(Number(db.prepare(`
-    SELECT COUNT(*) AS count FROM search_documents_v2
-    WHERE source_table = 'candidate_source_records' AND source_row_id = ?
-      AND field_path = 'candidate_source_records.raw_payload.source_system'
-  `).get(sourceId).count), 0)
+      AND field_path LIKE 'candidate_source_records.raw_payload%'
+  `).get(sourceId).count), 0, 'raw_payload 快照树不进索引')
 
   const exact = searchAllRecords(db, {
     keywords: ['VISIBLE-SOURCE-ID-V8'],
@@ -267,9 +255,7 @@ test('compact policy omits technical columns and deduplicates equivalent JSON le
   })
   assert.deepEqual(exact.items.map((item) => item.entity_id), [candidate.id])
   const repeated = searchAllRecords(db, { keywords: ['RepeatedJsonMarkerV8'] })
-  assert.ok(repeated.items.flatMap((item) => item.evidence).some((item) => (
-    item.field_path === 'candidate_source_records.raw_payload.a_primary_status'
-  )))
+  assert.equal(repeated.pagination.total, 0)
 })
 
 test('single-field refresh writes only changed postings and replay is a no-op', () => {
@@ -481,16 +467,21 @@ test('long JSON values are deterministically segmented without truncation and ba
   const db = anonymousDatabase()
   const candidate = insertCandidate(db, { name: 'Anonymous Long Resume Candidate' })
   const biography = `${'界'.repeat(8_250)} terminal-anchor-v8`
-  const sourceId = addSourceRecord(db, candidate.id, { profile: { biography } })
+  // raw_payload 已按 §11.4 移出索引，这里改用仍在索引里的 activities.metadata 验证长值分段。
+  const activityId = randomUUID()
+  db.prepare(`
+    INSERT INTO activities(id, candidate_id, type, description, metadata, created_at)
+    VALUES(?,?,?,?,?,?)
+  `).run(activityId, candidate.id, 'resume_note', 'Long JSON activity', JSON.stringify({ profile: { biography } }), now())
 
   backfillBusinessSearch(db, { batchSize: 50 })
   const segments = db.prepare(`
     SELECT document_id, segment_index, segment_count, char_start, char_end, content
     FROM ${BUSINESS_SEARCH_INTERNALS.documentsTable}
-    WHERE source_table = 'candidate_source_records' AND source_row_id = ?
-      AND field_path = 'candidate_source_records.raw_payload.profile.biography'
+    WHERE source_table = 'activities' AND source_row_id = ?
+      AND field_path = 'activities.metadata.profile.biography'
     ORDER BY segment_index
-  `).all(sourceId)
+  `).all(activityId)
   assert.equal(segments.length, 3)
   assert.deepEqual(segments.map((segment) => Number(segment.segment_index)), [0, 1, 2])
   assert.deepEqual(segments.map((segment) => Number(segment.char_start)), [0, 4_000, 8_000])
@@ -503,16 +494,16 @@ test('long JSON values are deterministically segmented without truncation and ba
   const second = backfillBusinessSearch(db, { batchSize: 50 })
   const secondIds = db.prepare(`
     SELECT document_id FROM ${BUSINESS_SEARCH_INTERNALS.documentsTable}
-    WHERE source_table = 'candidate_source_records' AND source_row_id = ?
-      AND field_path = 'candidate_source_records.raw_payload.profile.biography'
+    WHERE source_table = 'activities' AND source_row_id = ?
+      AND field_path = 'activities.metadata.profile.biography'
     ORDER BY segment_index
-  `).all(sourceId).map((row) => row.document_id)
+  `).all(activityId).map((row) => row.document_id)
   assert.equal(second.coverage.status, 'ready')
   assert.equal(Number(db.prepare(`SELECT COUNT(*) AS count FROM ${BUSINESS_SEARCH_INTERNALS.documentsTable}`).get().count), firstCount)
   assert.deepEqual(secondIds, firstIds)
 
   const hit = searchAllRecords(db, { keywords: ['terminal-anchor-v8'] })
-  assert.ok(hit.items.some((item) => item.entity_id === sourceId))
+  assert.ok(hit.items.some((item) => item.entity_id === activityId))
   assert.ok(hit.items.flatMap((item) => item.evidence).some((item) => item.segment.index === 2))
 })
 
@@ -956,4 +947,73 @@ test('ready guard fails fast while an anonymous index is still building', () => 
       && error.status === 503
   )
   assert.equal(Number(db.prepare(`SELECT COUNT(*) AS count FROM ${BUSINESS_SEARCH_INTERNALS.dirtyTable}`).get().count), dirtyBefore)
+})
+
+// 契约：后台 worker 不能把历史遗留的「中断回填队列」当成待办重新跑整库，
+// 而是要在索引本身可用时主动收敛回 ready 并清空队列（2026-10-07/08 实测的 50 分钟循环）。
+test('background sync converges a stale backfill queue instead of re-running it', () => {
+  const db = anonymousDatabase()
+  migrateBusinessSearch(db)
+  insertCandidate(db, { name: 'Anonymous Stale Queue Candidate', current_title: 'StaleQueueMarkerV8' })
+  backfillBusinessSearch(db)
+
+  const documentsBefore = Number(db.prepare(`SELECT COUNT(*) AS count FROM ${BUSINESS_SEARCH_INTERNALS.documentsTable}`).get().count)
+  assert.ok(documentsBefore > 0)
+
+  // 模拟被中断的全量回填残留：queued + queue_table + 整库量级 queued_rows。
+  db.prepare(`
+    UPDATE ${BUSINESS_SEARCH_INTERNALS.checkpointTable}
+    SET status = 'queued', queue_table = 'candidate_profile_sections', queue_cursor = NULL,
+        queued_rows = 1914482, processed_rows = 0
+    WHERE scope = 'full'
+  `).run()
+
+  const result = synchronizeBusinessSearch(db, { batchSize: 500, maxBatches: 1, allowBackfill: false })
+  assert.equal(result.processed_rows, 0, 'worker 不得续跑整库回填')
+
+  const checkpoint = db.prepare(`
+    SELECT status, queue_table, queue_cursor
+    FROM ${BUSINESS_SEARCH_INTERNALS.checkpointTable} WHERE scope = 'full'
+  `).get()
+  assert.equal(checkpoint.status, 'ready')
+  assert.equal(checkpoint.queue_table, null)
+  assert.equal(checkpoint.queue_cursor, null)
+
+  const documentsAfter = Number(db.prepare(`SELECT COUNT(*) AS count FROM ${BUSINESS_SEARCH_INTERNALS.documentsTable}`).get().count)
+  assert.equal(documentsAfter, documentsBefore, '收敛不应重建文档')
+})
+
+// 契约：流水线元数据列与 structured_data / raw_payload 快照树不进索引（§11.4 索引收缩方案）。
+test('pipeline metadata columns and JSON snapshot trees stay out of the business index', () => {
+  const db = anonymousDatabase()
+  migrateBusinessSearch(db)
+  const candidate = insertCandidate(db, { name: 'Anonymous Metadata Candidate', current_title: 'METADATA-TITLE-MARKER-V8' })
+  const timestamp = now()
+  db.prepare(`
+    INSERT INTO candidate_profile_sections(
+      id, candidate_id, section_type, title, content, structured_data, sort_order,
+      sensitivity, source_record_id, created_at, updated_at
+    ) VALUES(?,?,?,?,?,?,?,?,?,?,?)
+  `).run(
+    randomUUID(), candidate.id, 'internship', 'SECTION-TITLE-MARKER-V8',
+    'SECTION-BODY-MARKER-V8', JSON.stringify({ evidence: 'SECTION-SNAPSHOT-MARKER-V8' }),
+    0, 'internal', 'SECTION-SOURCE-MARKER-V8', timestamp, timestamp
+  )
+  backfillBusinessSearch(db)
+
+  const catalog = getBusinessSearchFieldCatalog(db)
+  const sectionCatalog = catalog.tables.find((table) => table.table === 'candidate_profile_sections')
+  const structured = sectionCatalog.columns.find((column) => column.name === 'structured_data')
+  assert.equal(structured.indexed, false)
+  assert.equal(structured.exclusion_reason, 'unindexed_metadata')
+
+  const countPath = (fieldPath) => Number(db.prepare(`
+    SELECT COUNT(*) AS count FROM ${BUSINESS_SEARCH_INTERNALS.documentsTable} WHERE field_path = ?
+  `).get(fieldPath).count)
+  assert.equal(countPath('candidate_profile_sections.structured_data.evidence'), 0)
+  assert.equal(countPath('candidate_profile_sections.sort_order'), 0)
+  assert.equal(countPath('candidate_profile_sections.source_record_id'), 0)
+
+  assert.ok(searchAllRecords(db, { keywords: ['SECTION-BODY-MARKER-V8'] }).items.length > 0, '正文仍可检索')
+  assert.equal(searchAllRecords(db, { keywords: ['SECTION-SNAPSHOT-MARKER-V8'] }).pagination.total, 0, '快照树不再可检索')
 })

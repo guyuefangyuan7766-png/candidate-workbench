@@ -1,5 +1,33 @@
 # 测试说明
 
+## 2026-10-08 全功能自测（应用 0.7.0，含 AI 助手）
+
+### 范围与方式
+
+服务以停服维护窗口之外的单机模式启动（`127.0.0.1:4173`，`AUTH_ENABLED=false`），
+用新增的 `scripts/self-test-api.mjs` 打一遍主要只读接口 + 一轮真实 AI 助手问答；
+原始结果：`docs/evidence/self-test-2026-10-08.json`。
+
+### 结果（32/32 通过）
+
+| 类别 | 检查 | 结果 |
+| --- | --- | --- |
+| 基础 | `/api/health`、`/api/dashboard` | 200 / ok |
+| 候选人 | 列表、详情、附件、备注、动态、职位关系 | 全部 200 且非空 |
+| 组织 | 职位列表、人才库列表、候选人 facets | 全部 200 |
+| 附件 | `candidate_attachments` 正文接口 | 200 |
+| 检索 | `/api/resume-search/status`、真实查询「数值策划」 | `loaded/current=true`、`usearch-hnsw-cos-f16`、`hybrid_reranked`、5 条命中、3.2 s（同一查询此前 8–9 s / 70 s 的历史值见 §11.4） |
+| **AI 助手** | 建会话 → 提问 → 任务轮询 → 取回答 | 任务 `completed`；回答非空；**实际调用 3 个只读工具**（`get_schema_catalog`/`query_talent_pools`/`execute_readonly_query`），模型 `deepseek/deepseek-flash`，单轮 5.9 s |
+
+### 同批修复的验证
+
+| 项 | 证据 |
+| --- | --- |
+| 增量导入字段口径 | 245 人重跑后 `highest_school` 数字代码 218→0、`education` 204→0；抽样学校/学历恢复中文 |
+| PDF 文本提取崩溃 | 4 份此前崩溃的 PDF 重跑 `written=4 / failed=0`；串行 12/12 成功 |
+| worker 收敛 | 新增契约测试通过；四个相关测试文件 41/41 |
+| 业务索引收缩 | `search_documents_v2` 25,326,858 → 5,560,867 行；FTS 同步；覆盖 121/121 ready；主库 39.8 GiB → 17.46 GiB（VACUUM） |
+
 ## 2026-09-21 LDAP 认证与受控监听（应用 0.6.0 / schema V13）
 
 ### 测试边界

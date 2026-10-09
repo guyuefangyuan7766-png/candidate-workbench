@@ -1,0 +1,294 @@
+{
+  "base": "http://127.0.0.1:4173",
+  "started_at": "2026-10-08T11:20:39.390Z",
+  "elapsed_ms": 12752,
+  "total": 32,
+  "passed": 32,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "health",
+      "method": "GET",
+      "path": "/api/health",
+      "ok": true,
+      "status": 200,
+      "ms": 34,
+      "detail": null,
+      "bytes": 82
+    },
+    {
+      "name": "health.status=ok",
+      "ok": true,
+      "status": "assert",
+      "ms": 0,
+      "detail": null
+    },
+    {
+      "name": "dashboard",
+      "method": "GET",
+      "path": "/api/dashboard",
+      "ok": true,
+      "status": 200,
+      "ms": 1968,
+      "detail": null,
+      "bytes": 14556
+    },
+    {
+      "name": "dashboard 有统计字段",
+      "ok": true,
+      "status": "assert",
+      "ms": 0,
+      "detail": null
+    },
+    {
+      "name": "candidates.list",
+      "method": "GET",
+      "path": "/api/candidates?page_size=5",
+      "ok": true,
+      "status": 200,
+      "ms": 6,
+      "detail": null,
+      "bytes": 8791
+    },
+    {
+      "name": "candidates 列表非空",
+      "ok": true,
+      "status": "assert",
+      "ms": 0,
+      "detail": null
+    },
+    {
+      "name": "candidates.facets",
+      "method": "GET",
+      "path": "/api/candidates/facets",
+      "ok": true,
+      "status": 200,
+      "ms": 161,
+      "detail": null,
+      "bytes": 141558
+    },
+    {
+      "name": "positions.list",
+      "method": "GET",
+      "path": "/api/positions?page_size=5",
+      "ok": true,
+      "status": 200,
+      "ms": 11,
+      "detail": null,
+      "bytes": 5275
+    },
+    {
+      "name": "talent-pools.list",
+      "method": "GET",
+      "path": "/api/talent-pools",
+      "ok": true,
+      "status": 200,
+      "ms": 351,
+      "detail": null,
+      "bytes": 21369
+    },
+    {
+      "name": "candidate.detail",
+      "method": "GET",
+      "path": "/api/candidates/c5ce2d97-2044-49f0-be6a-4272618d0494",
+      "ok": true,
+      "status": 200,
+      "ms": 6,
+      "detail": null,
+      "bytes": 18464
+    },
+    {
+      "name": "候选人详情返回主体",
+      "ok": true,
+      "status": "assert",
+      "ms": 0,
+      "detail": null
+    },
+    {
+      "name": "candidate.attachments",
+      "method": "GET",
+      "path": "/api/candidates/c5ce2d97-2044-49f0-be6a-4272618d0494/attachments",
+      "ok": true,
+      "status": 200,
+      "ms": 12,
+      "detail": null,
+      "bytes": 2234
+    },
+    {
+      "name": "candidate.notes",
+      "method": "GET",
+      "path": "/api/candidates/c5ce2d97-2044-49f0-be6a-4272618d0494/notes",
+      "ok": true,
+      "status": 200,
+      "ms": 9,
+      "detail": null,
+      "bytes": 11
+    },
+    {
+      "name": "candidate.activities",
+      "method": "GET",
+      "path": "/api/candidates/c5ce2d97-2044-49f0-be6a-4272618d0494/activities",
+      "ok": true,
+      "status": 200,
+      "ms": 2,
+      "detail": null,
+      "bytes": 11
+    },
+    {
+      "name": "candidate.positions",
+      "method": "GET",
+      "path": "/api/candidates/c5ce2d97-2044-49f0-be6a-4272618d0494/positions",
+      "ok": true,
+      "status": 200,
+      "ms": 3,
+      "detail": null,
+      "bytes": 22
+    },
+    {
+      "name": "attachment.text",
+      "method": "GET",
+      "path": "/api/attachments/db1790c8-66fd-49d0-93f9-c266af0d1cb5/text",
+      "ok": true,
+      "status": 200,
+      "ms": 3,
+      "detail": null,
+      "bytes": 562
+    },
+    {
+      "name": "resume-search.status",
+      "method": "GET",
+      "path": "/api/resume-search/status",
+      "ok": true,
+      "status": 200,
+      "ms": 256,
+      "detail": null,
+      "bytes": 943
+    },
+    {
+      "name": "向量索引 loaded/current",
+      "ok": true,
+      "status": "assert",
+      "ms": 0,
+      "detail": null
+    },
+    {
+      "name": "向量算法为 f16",
+      "ok": true,
+      "status": "assert",
+      "ms": 0,
+      "detail": null
+    },
+    {
+      "name": "resume-search.query",
+      "method": "POST",
+      "path": "/api/resume-search",
+      "ok": true,
+      "status": 200,
+      "ms": 3168,
+      "detail": null,
+      "bytes": 25104
+    },
+    {
+      "name": "检索返回条数",
+      "ok": true,
+      "status": "assert",
+      "ms": 0,
+      "detail": null
+    },
+    {
+      "name": "检索排序为 hybrid_reranked/rrf",
+      "ok": true,
+      "status": "assert",
+      "ms": 0,
+      "detail": null
+    },
+    {
+      "name": "agent.status",
+      "method": "GET",
+      "path": "/api/agent/status",
+      "ok": true,
+      "status": 200,
+      "ms": 3,
+      "detail": null,
+      "bytes": 1508
+    },
+    {
+      "name": "AI 助手已配置",
+      "ok": true,
+      "status": "assert",
+      "ms": 0,
+      "detail": null
+    },
+    {
+      "name": "agent.session.create",
+      "method": "POST",
+      "path": "/api/agent/sessions",
+      "ok": true,
+      "status": 201,
+      "ms": 8,
+      "detail": null,
+      "bytes": 218
+    },
+    {
+      "name": "会话创建返回 id",
+      "ok": true,
+      "status": "assert",
+      "ms": 0,
+      "detail": null
+    },
+    {
+      "name": "agent.ask",
+      "method": "POST",
+      "path": "/api/agent/sessions/62646117-ef62-452a-a969-5138b5f95e5f/messages",
+      "ok": true,
+      "status": 202,
+      "ms": 664,
+      "detail": null,
+      "bytes": 1442
+    },
+    {
+      "name": "agent.task.poll",
+      "method": "GET",
+      "path": "/api/agent/tasks/032abebe-b604-4335-9570-b7926471f514",
+      "ok": true,
+      "status": 200,
+      "ms": 4,
+      "detail": null,
+      "bytes": 35214
+    },
+    {
+      "name": "agent.task.poll",
+      "method": "GET",
+      "path": "/api/agent/tasks/032abebe-b604-4335-9570-b7926471f514",
+      "ok": true,
+      "status": 200,
+      "ms": 6,
+      "detail": null,
+      "bytes": 37036
+    },
+    {
+      "name": "agent.messages",
+      "method": "GET",
+      "path": "/api/agent/sessions/62646117-ef62-452a-a969-5138b5f95e5f/messages",
+      "ok": true,
+      "status": 200,
+      "ms": 3,
+      "detail": null,
+      "bytes": 1239
+    },
+    {
+      "name": "AI 助手返回回答",
+      "ok": true,
+      "status": "assert",
+      "ms": 0,
+      "detail": null
+    },
+    {
+      "name": "AI 助手用了只读工具",
+      "ok": true,
+      "status": "assert",
+      "ms": 0,
+      "detail": null
+    }
+  ]
+}

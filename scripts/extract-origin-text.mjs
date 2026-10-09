@@ -57,7 +57,8 @@ try {
   else if (mimeType === 'text/plain') { text = buffer.toString('utf8'); method = 'plain' }
   else {
     const file = { buffer, originalname: storagePath.split(/[\\/]/).pop(), mimetype: mimeType }
-    const parsed = await parseAttachment(file, validateAttachmentFile(file))
+    // 纯文本路径不需要头像：跳过原生 canvas 渲染（并发下会 0xC0000005 崩进程）。
+    const parsed = await parseAttachment(file, validateAttachmentFile(file), { skipAvatarExtraction: true })
     text = parsed?.records?.map((record) => record?.values?.raw_text ?? '').filter(Boolean).join('\n') ?? ''
     method = `attachment_parser:${parsed?.format ?? 'pdf'}`
   }

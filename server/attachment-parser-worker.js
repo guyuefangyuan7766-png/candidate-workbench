@@ -970,12 +970,19 @@ async function main() {
   else if (['xlsx', 'xlsm', 'xls', 'csv'].includes(format)) parsed = await parseSpreadsheet(buffer, format, limits)
   else throw parserError('unsupported_attachment_type', '不支持该附件格式', 415)
 
-  try {
-    const avatarResults = await extractAttachmentAvatarResults(buffer, format, parsed)
-    parsed.avatar_transfers = avatarResults.map(serializeAttachmentAvatarResult)
-  } catch {
-    // Avatar extraction is optional and must not hide otherwise valid resume text.
+  if (workerData.skipAvatarExtraction === true) {
+    // 纯文本提取（persist-attachment-text / extract-origin-text）不需要头像。
+    // 头像走原生 canvas 渲染页面，实测并发时会以 0xC0000005 崩掉整个进程，
+    // 文本路径直接跳过这段原生渲染。
     parsed.avatar_transfers = []
+  } else {
+    try {
+      const avatarResults = await extractAttachmentAvatarResults(buffer, format, parsed)
+      parsed.avatar_transfers = avatarResults.map(serializeAttachmentAvatarResult)
+    } catch {
+      // Avatar extraction is optional and must not hide otherwise valid resume text.
+      parsed.avatar_transfers = []
+    }
   }
   return parsed
 }

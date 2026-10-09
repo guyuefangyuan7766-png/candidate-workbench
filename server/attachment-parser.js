@@ -336,6 +336,7 @@ export function parseAttachment(file, validated, limits = ATTACHMENT_LIMITS, opt
           limits: effectiveLimits,
           renderVisualPages: options?.renderVisualPages === true,
           allowTextlessPdf: options?.allowTextlessPdf === true,
+          skipAvatarExtraction: options?.skipAvatarExtraction === true,
           testVisualStageDelays
         },
         transferList: [transferable],
@@ -343,7 +344,9 @@ export function parseAttachment(file, validated, limits = ATTACHMENT_LIMITS, opt
           maxOldGenerationSizeMb: 256,
           maxYoungGenerationSizeMb: 64,
           codeRangeSizeMb: 32,
-          stackSizeMb: 4
+          // 4 MB 栈在畸形/深层 PDF 上会栈溢出成原生 0xC0000005（并发下更容易命中）；
+          // 8 MB 对单进程内存影响很小，换来解析稳定性。
+          stackSizeMb: 8
         },
         // Parser workers do not need host debug/test flags. An empty allowlist
         // also prevents Node-only flags that are invalid inside Worker threads.
@@ -372,9 +375,15 @@ export function parseAttachment(file, validated, limits = ATTACHMENT_LIMITS, opt
     timer.unref()
 
     worker.once('message', (message) => {
-      // Deadline races can leave an uncancellable native encode promise pending.
-      // The result is complete, so end the isolated worker instead of retaining it.
-      worker.terminate().catch(() => {})
+      // 结果已经拿到，但 worker 里可能还有未收尾的原生编码/字体释放动作。
+      // 立即 terminate() 会在这些原生调用中途拆线程，实测并发下会出现
+      // 0xC0000005（ACCESS_VIOLATION，进程级崩溃，try/catch 拦不住）。
+      // 这里给一个宽限期让它自己退出；只有迟迟不退才强制终止。
+      const shutdownGrace = setTimeout(() => {
+        worker.terminate().catch(() => {})
+      }, 2000)
+      shutdownGrace.unref?.()
+      worker.once('exit', () => clearTimeout(shutdownGrace))
       if (message?.ok) {
         const result = message.result
         const avatarTransfers = Array.isArray(result?.avatar_transfers) ? result.avatar_transfers : []

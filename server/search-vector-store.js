@@ -42,7 +42,12 @@ function normalizedVector(value, dimensions) {
 }
 const toBlob = value => Buffer.from(value.buffer, value.byteOffset, value.byteLength);
 const fromBlob = value => { const copy = Uint8Array.from(value); return new Float32Array(copy.buffer); };
-const makeIndex = dimensions => new Index({ metric: 'cos', quantization: 'f32', dimensions, connectivity: 16, expansion_add: 128, expansion_search: 128 });
+// 量化用 f16 而非 f32：Windows 上 usearch 2.26.2 的只读 mmap 走 `GetFileSize()`
+// （32 位 API），文件 ≥4 GiB 会取到错误长度并报 "vectors matrix exceeds file size"。
+// 本项目 1,454,325×1024 维在 f32 下约 6.2 GB（已实测两次发布失败），f16 下约 3.2 GB，
+// 既绕过该缺陷，也把读取端内存减半；单位向量半精度误差 ~1e-3，对召回可忽略。
+// 修改此处必须同步改动下面的发布校验子进程。
+const makeIndex = dimensions => new Index({ metric: 'cos', quantization: 'f16', dimensions, connectivity: 16, expansion_add: 128, expansion_search: 128 });
 function safeFile(directory, relative) {
   if (typeof relative !== 'string' || path.isAbsolute(relative)) fail('search_vector_corrupt', 'Invalid index manifest');
   const file = path.resolve(directory, relative); const root = path.resolve(directory) + path.sep;
@@ -221,13 +226,41 @@ export function createVectorStore({ directory, dimensions = 1024, model = 'text-
     if (index) index.save(nativeFile);
     else if (manifest) fs.copyFileSync(safeFile(directory, manifest.index_file), indexFile);
     else ensureIndex().save(nativeFile);
+    // 发布前自愈：清理没有任何 chunk 引用的孤儿 fact（它们同时存在于 facts 与索引，
+    // 属于历史遗留的死重），并同步从索引里移除，保证 size()==facts。
+    try {
+      const orphanKeys = db.prepare('SELECT key FROM facts WHERE NOT EXISTS (SELECT 1 FROM chunks c WHERE c.fact_key = facts.key)').all().map((row) => Number(row.key));
+      if (orphanKeys.length) {
+        for (const orphanKey of orphanKeys) { try { index?.remove(BigInt(orphanKey)); } catch { /* 索引里可能本就没有该键 */ } }
+        db.prepare(`DELETE FROM facts WHERE key IN (${orphanKeys.map(() => '?').join(',')})`).run(...orphanKeys);
+      }
+    } catch { /* 自愈失败不影响后续校验：校验会如实报错 */ }
+    // 保存后释放内存里的 HNSW 图（150 万向量 ≈ 6.5 GB），减少发布阶段的内存压力；
+    // 后续若还需写入，ensureIndex() 会从已发布的 manifest 重新加载。
+    index = null;
     db.exec('DELETE FROM embeddings WHERE content_hash NOT IN (SELECT content_hash FROM facts); PRAGMA optimize;');
     const chunkCount = count('chunks'); const factCount = count('facts'); const documentCount = count('documents');
     db.close(); db = null;
-    // The binding has no unmap/close method. A disposable verifier releases its
-    // Windows mapping deterministically and avoids a second full heap index.
-    const verification = spawnSync(process.execPath, ['--input-type=module', '-e', `import { Index } from ${JSON.stringify(import.meta.resolve('usearch'))}; const index = new Index({dimensions:Number(process.argv[2]),metric:'cos',quantization:'f32'}); index.view(process.argv[1]); if(Number(index.size())!==Number(process.argv[3]))process.exitCode=1;`, nativeFile, String(dimensions), String(factCount)], { windowsHide: true, timeout: 60000, stdio: 'ignore' });
-    if (verification.status !== 0 || verification.error) fail('search_vector_corrupt', 'Invalid staged index count');
+    // 校验已落盘的索引文件：必须用一次性子进程（绑定没有 unmap/close，同进程 mmap
+    // 会让测试和运维无法删除该目录）。失败时把 expected/actual 落盘到
+    // publication-check.json，避免再出现「只知失败、不知差多少」。
+    const writePublicationCheck = (value) => {
+      try { fs.writeFileSync(path.join(directory, 'publication-check.json'), `${JSON.stringify({ at: new Date().toISOString(), ...value }, null, 2)}\n`); } catch { /* 诊断写入失败不影响发布判定 */ }
+    };
+    const verification = spawnSync(process.execPath, ['--input-type=module', '-e', `import { Index } from ${JSON.stringify(import.meta.resolve('usearch'))}; const index = new Index({dimensions:Number(process.argv[2]),metric:'cos',quantization:'f16'}); index.view(process.argv[1]); console.log(JSON.stringify({ size: Number(index.size()) }));`, nativeFile, String(dimensions)], { windowsHide: true, timeout: 600000, encoding: 'utf8' });
+    let verifiedVectors = null;
+    try { verifiedVectors = Number(JSON.parse(String(verification.stdout ?? '').trim().split('\n').filter(Boolean).pop()).size); } catch { verifiedVectors = null; }
+    if (verification.status !== 0 || verification.error || verifiedVectors !== factCount) {
+      writePublicationCheck({
+        result: verification.status === 0 ? 'count_mismatch' : 'verifier_failed',
+        expected_facts: factCount, verified_vectors: verifiedVectors,
+        exit_status: verification.status ?? null, signal: verification.signal ?? null, error: verification.error?.code ?? null,
+        stderr: String(verification.stderr ?? '').slice(0, 300),
+        chunks: chunkCount, documents: documentCount
+      });
+      fail('search_vector_corrupt', `Invalid staged index count: saved ${verifiedVectors} vs facts ${factCount}`);
+    }
+    writePublicationCheck({ result: 'ok', expected_facts: factCount, verified_vectors: verifiedVectors, chunks: chunkCount, documents: documentCount });
     const next = { version: 2, generation: path.basename(workingDirectory), previous_generation: manifest?.generation ?? null, embedding_space_id: space, model, dimensions, chunk_version: chunkVersion, chunks: chunkCount, vectors: factCount, documents: documentCount, database_file: `${path.basename(workingDirectory)}/vectors.sqlite`, index_file: `${path.basename(workingDirectory)}/vectors.usearch`, index_bytes: fs.statSync(indexFile).size, index_sha256: fileHash(indexFile), database_sha256: fileHash(path.join(workingDirectory, 'vectors.sqlite')), created_at: new Date().toISOString() };
     const temporary = path.join(directory, `manifest-${crypto.randomUUID()}.tmp`);
     fs.writeFileSync(temporary, JSON.stringify(next));
@@ -392,7 +425,7 @@ export function createVectorStore({ directory, dimensions = 1024, model = 'text-
   function listDocumentsForIds(ids) { return db && ids.length ? new Map(db.prepare(`SELECT document_id,source_hash,${revisionSelect()} FROM documents WHERE document_id IN (${placeholders(ids)})`).all(...ids).map(row => [row.document_id, row])) : new Map(); }
   function status() {
     assertCurrent();
-    return { chunks: !workingDirectory && manifest ? manifest.chunks : count('chunks'), vectors: !workingDirectory && manifest ? manifest.vectors : count('facts'), documents: !workingDirectory && manifest?.documents !== undefined ? manifest.documents : count('documents'), dimensions, model, embedding_space_id: space, generation, index_ready: Boolean(manifest), read_only: readOnly, memory_mapped: readOnly && memoryMap, algorithm: 'usearch-hnsw-cos-f32', max_ann_vectors: maxAnnVectors };
+    return { chunks: !workingDirectory && manifest ? manifest.chunks : count('chunks'), vectors: !workingDirectory && manifest ? manifest.vectors : count('facts'), documents: !workingDirectory && manifest?.documents !== undefined ? manifest.documents : count('documents'), dimensions, model, embedding_space_id: space, generation, index_ready: Boolean(manifest), read_only: readOnly, memory_mapped: readOnly && memoryMap, algorithm: 'usearch-hnsw-cos-f16', max_ann_vectors: maxAnnVectors };
   }
   return {
     upsertChunks, removeDocuments, search, searchQualifiedFacts, searchAnn, readFactChunks, status, commit, refresh, assertCurrent, listDocuments, recordDocuments,

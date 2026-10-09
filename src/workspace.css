@@ -2643,14 +2643,18 @@
   white-space: nowrap;
 }
 
-/* 简历预览（第十五轮）：详情抽屉改为左右两栏，左侧原始简历、右侧档案内容 */
-.tw-drawer-resume { --tw-drawer: min(1360px, 96vw); }
-.tw-drawer-body-split {
-  display: grid;
-  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
-  gap: 18px;
-  align-items: start;
+/* 简历预览（第十五轮）→ 附件简历独立页签（第十六轮）：
+   预览不再常驻左栏，只在「附件简历」页签内展示；简历保持原始比例、不拉伸铺满；
+   工具栏可切换隐藏边框。 */
+/* 详情抽屉统一宽度：与是否有简历附件无关，避免不同候选人结构不一致。
+   1000px 足以容纳 794px 的简历页 + 内边距，又不会在 1280/1440 屏上占满整屏。 */
+.tw-drawer-detail { --tw-drawer: min(1000px, 90vw); }
+.tw-drawer-body-attachment { padding: 0; }
+.tw-drawer-body-attachment .tw-resume-pane {
+  position: static;
+  padding: 14px 18px 18px;
 }
+.tw-drawer-body-attachment .tw-resume-pane.is-frameless { padding: 0; }
 .tw-detail-content { min-width: 0; }
 .tw-resume-pane {
   position: sticky;
@@ -2691,6 +2695,23 @@
 }
 .tw-resume-frame iframe { width: 100%; height: 100%; border: 0; display: block; background: var(--tw-white); }
 .tw-resume-frame img { width: 100%; height: 100%; object-fit: contain; display: block; background: var(--tw-surface); }
+/* 隐藏边框：去掉容器描边/圆角与页面内边距，让简历直接铺满页签。 */
+.tw-resume-pane.is-frameless .tw-resume-frame {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+/* 附件页签沿用原有的自适应框（占满可用宽度、高度跟可视区），
+   不对简历页写死比例：简历多为 A4，但同一容器还要容纳 HTML/图片等其它页面。 */
+/* 选项 B（2026-10-08 用户选定）：预览框与工具条贴合简历页在 100% 缩放下的自然宽度
+   （A4 = 210mm ≈ 794px @96dpi）并居中——页面两侧不再出现浏览器 PDF 查看器的深色背景。
+   非 A4 页面（HTML/图片）走同一容器宽度，属已知近似。 */
+.tw-drawer-body-attachment .tw-resume-toolbar,
+.tw-drawer-body-attachment .tw-resume-frame {
+  width: min(100%, 794px);
+  margin-left: auto;
+  margin-right: auto;
+}
 .tw-resume-text {
   margin: 0;
   padding: 14px;
@@ -2715,8 +2736,8 @@
   font-size: 13px;
 }
 @media (max-width: 1279px) {
-  .tw-drawer-resume { --tw-drawer: 100vw; }
-  .tw-drawer-body-split { grid-template-columns: 1fr; }
-  .tw-resume-pane { position: static; }
+  .tw-drawer-detail { --tw-drawer: 100vw; }
+  .tw-drawer-body-attachment .tw-resume-pane { padding: 10px 12px 12px; }
+  .tw-drawer-body-attachment .tw-resume-pane.is-frameless { padding: 0; }
   .tw-resume-frame { height: 62vh; min-height: 360px; }
 }

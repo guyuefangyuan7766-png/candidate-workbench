@@ -32,10 +32,16 @@ const PARSER_VERSION = 'origin-section-parse-v1'
 const MAX_ATTACHMENT_BYTES = 15_728_640
 
 const apply = process.argv.includes('--apply')
+// 只补简历附件：导入过一次之后差集会归零，但分片下载可能晚于导入完成，
+// 这时用 --refresh-resumes --apply 按 manifest 的 sha256 对比本地附件，补/换简历文件。
+const refreshResumes = process.argv.includes('--refresh-resumes')
+// 字段口径修复后按导入时间窗重跑一批候选人（例如修 SchoolName/EducationLevel 被写成代码的问题）。
+const refreshSinceIndex = process.argv.indexOf('--refresh-since')
+const refreshSince = refreshSinceIndex >= 0 ? String(process.argv[refreshSinceIndex + 1] ?? '').trim() : ''
 const options = {
   index: resolve(MANIFEST_DIR, 'asset-candidates.jsonl'),
   profilesDirs: [
-    resolve(INCREMENTAL_PROFILES_DIR, 'candidates'),
+    INCREMENTAL_PROFILES_DIR,
     resolve(MANIFEST_DIR, 'profiles'),
     resolve(DATA, 'incremental', 'delta-fixture', 'profiles')
   ]
@@ -55,8 +61,10 @@ function profileValueMap(entries) {
   const map = new Map()
   for (const entry of Array.isArray(entries) ? entries : []) {
     const name = toText(entry?.name)
-    if (!name) continue
-    map.set(name, toText(entry?.value) || toText(entry?.text))
+    if (!name || name === '_id') continue
+    // 与 import-talent-asset.mjs 的 textOf 对齐：优先 text（显示名），
+    // 否则 SchoolName/EducationLevel/Gender 这类字段会写成北森内部代码（10335 / 1 / 0）。
+    map.set(name, toText(entry?.text) || toText(entry?.value))
   }
   return map
 }
@@ -184,18 +192,47 @@ for await (const line of reader) {
 }
 const removed = [...localIndex.keys()].filter((id) => !incoming.has(id))
 
+// --refresh-since：按 candidate_asset_index.imported_at 选出一批已入库的人，按新口径重跑导入。
+const refreshRows = []
+if (refreshSince) {
+  const wanted = new Set(db.prepare(`
+    SELECT c.source_record_id AS candidateId
+    FROM candidate_asset_index i JOIN candidates c ON c.id = i.candidate_id
+    WHERE i.imported_at >= ?
+  `).all(refreshSince).map((row) => String(row.candidateId)))
+  const refreshReader = createInterface({ input: createReadStream(options.index, { encoding: 'utf8' }), crlfDelay: Infinity })
+  for await (const line of refreshReader) {
+    const text = line.trim()
+    if (!text) continue
+    const row = JSON.parse(text)
+    if (wanted.has(String(row.candidateId))) refreshRows.push(row)
+  }
+}
+
 const summary = {
   mode: apply ? 'apply' : 'dry-run',
   index: options.index,
   added: added.length,
   changed: changed.length,
+  refreshRows: refreshRows.length,
   same,
   unkeyable,
   removed: removed.length,
   details: []
 }
 
+function resolveProfilePath(row) {
+  const relativeDir = toText(row.relativeDir)
+  if (!relativeDir) return null
+  return options.profilesDirs
+    .map((base) => join(base, relativeDir, 'profile.json'))
+    .find((candidatePath) => existsSync(candidatePath)) ?? null
+}
+
 if (!apply) {
+  const pendingRows = [...added, ...changed]
+  summary.profilesResolvable = pendingRows.filter((row) => resolveProfilePath(row)).length
+  summary.profilesMissing = pendingRows.length - summary.profilesResolvable
   summary.details = [...added.slice(0, 10).map((row) => ({ kind: 'added', candidateId: row.candidateId, relativeDir: row.relativeDir })),
     ...changed.slice(0, 10).map((row) => ({ kind: 'changed', candidateId: row.candidateId, relativeDir: row.relativeDir }))]
   console.log(JSON.stringify(summary, null, 1))
@@ -278,49 +315,140 @@ function detectMime(buffer, fallbackExtension) {
   return { mime: 'application/octet-stream', extension: fallbackExtension || 'bin' }
 }
 
-function importResumeFiles(candidateId, relativeDir, timestamp) {
-  const candidates = [
-    { type: 'resume', path: join(RESUMES_DIR, 'candidates', relativeDir, 'resume-standard.pdf'), filename: 'standard.pdf' },
-    { type: 'resume_origin', path: join(RESUMES_DIR, 'candidates', relativeDir, 'origin.pdf'), filename: 'origin.pdf' }
+// 分片 zip 里的路径：candidates/<xx>/<xx>/<id>/resumes/standard.pdf 与
+// candidates/<xx>/<xx>/<id>/resumes/origin/origin.pdf（relativeDir 已含 candidates/）。
+function resumeSpecs(relativeDir) {
+  return [
+    { type: 'resume', path: join(RESUMES_DIR, relativeDir, 'resumes', 'standard.pdf'), filename: 'standard.pdf' },
+    { type: 'resume_origin', path: join(RESUMES_DIR, relativeDir, 'resumes', 'origin', 'origin.pdf'), filename: 'origin.pdf' }
   ]
-  const imported = []
-  for (const item of candidates) {
-    if (!existsSync(item.path)) continue
-    if (statSync(item.path).size > MAX_ATTACHMENT_BYTES) continue
-    const existing = statements.findAttachment.get(candidateId, item.type)
-    const buffer = readFileSync(item.path)
-    const sha256 = createHash('sha256').update(buffer).digest('hex')
-    if (existing) {
-      // 内容没变就跳过；变了就替换——否则本地永远留着旧简历，
-      // 重新解析拿到的还是旧内容（增量链路的必要一环）。
-      if (existing.sha256 === sha256) continue
-      statements.deleteAttachment.run(existing.id)
-      if (!Number(statements.countByPath.get(existing.storage_path).n) && existsSync(existing.storage_path)) {
-        try { unlinkSync(existing.storage_path) } catch {}
-      }
+}
+
+// 返回 'inserted' / 'replaced' / 'same' / 'too_large' / null（文件不存在）。
+function importResumeFile(candidateId, spec, timestamp) {
+  if (!existsSync(spec.path)) return null
+  if (statSync(spec.path).size > MAX_ATTACHMENT_BYTES) return 'too_large'
+  const existing = statements.findAttachment.get(candidateId, spec.type)
+  const buffer = readFileSync(spec.path)
+  const sha256 = createHash('sha256').update(buffer).digest('hex')
+  if (existing) {
+    // 内容没变就跳过；变了就替换——否则本地永远留着旧简历，
+    // 重新解析拿到的还是旧内容（增量链路的必要一环）。
+    if (existing.sha256 === sha256) return 'same'
+    statements.deleteAttachment.run(existing.id)
+    if (!Number(statements.countByPath.get(existing.storage_path).n) && existsSync(existing.storage_path)) {
+      try { unlinkSync(existing.storage_path) } catch {}
     }
-    const detected = detectMime(buffer, 'pdf')
-    const target = join(ATTACHMENT_DIR, `${randomUUID()}.${detected.extension}`)
-    writeFileSync(target, buffer)
-    statements.insertAttachment.run(
-      randomUUID(), candidateId, item.filename, target, detected.mime,
-      buffer.length, sha256, item.type, timestamp, timestamp
-    )
-    imported.push(existing ? `${item.type}:replaced` : item.type)
+  }
+  const detected = detectMime(buffer, 'pdf')
+  const target = join(ATTACHMENT_DIR, `${randomUUID()}.${detected.extension}`)
+  writeFileSync(target, buffer)
+  statements.insertAttachment.run(
+    randomUUID(), candidateId, spec.filename, target, detected.mime,
+    buffer.length, sha256, spec.type, timestamp, timestamp
+  )
+  return existing ? 'replaced' : 'inserted'
+}
+
+function importResumeFiles(candidateId, relativeDir, timestamp) {
+  const imported = []
+  for (const spec of resumeSpecs(relativeDir)) {
+    const result = importResumeFile(candidateId, spec, timestamp)
+    if (result === 'inserted' || result === 'replaced') imported.push(`${spec.type}:${result}`)
   }
   return imported
+}
+
+// ── 简历附件补录（--refresh-resumes --apply）───────────────────────────────
+// 场景：profiles 先到、简历分片后到，导入已经跑过一轮，差集归零，
+// 此时按 manifest 的 asset-files.jsonl 与本地 candidate_attachments.sha256
+// 对比，只补/换「缺的或指纹变了」的简历文件，不动候选人档案与区块。
+if (refreshResumes) {
+  const wanted = new Map()
+  const fileReader = createInterface({ input: createReadStream(resolve(MANIFEST_DIR, 'asset-files.jsonl'), { encoding: 'utf8' }), crlfDelay: Infinity })
+  for await (const line of fileReader) {
+    const text = line.trim()
+    if (!text) continue
+    const file = JSON.parse(text)
+    if (file.kind !== 'resume-standard' && file.kind !== 'resume-origin') continue
+    const current = wanted.get(file.applicantId) ?? {}
+    current[file.kind === 'resume-standard' ? 'standard' : 'origin'] = toText(file.sha256)
+    wanted.set(file.applicantId, current)
+  }
+
+  const localAttachments = new Map()
+  for (const row of db.prepare(`
+    SELECT c.source_record_id AS candidateId, a.attachment_type AS type, a.sha256 AS sha
+    FROM candidate_attachments a JOIN candidates c ON c.id = a.candidate_id
+    WHERE a.attachment_type IN ('resume', 'resume_origin')
+  `).all()) {
+    localAttachments.set(`${row.candidateId}|${row.type}`, row.sha)
+  }
+  // 附件表用内部候选人 id（candidates.id），manifest 用北森 candidateId，两者要分开。
+  const internalIds = new Map(db.prepare("SELECT id, source_record_id FROM candidates WHERE source_system = 'beisen'").all().map((row) => [String(row.source_record_id), row.id]))
+
+  const plan = []
+  let alreadySame = 0
+  let fileMissing = 0
+  const indexReader = createInterface({ input: createReadStream(options.index, { encoding: 'utf8' }), crlfDelay: Infinity })
+  for await (const line of indexReader) {
+    const text = line.trim()
+    if (!text) continue
+    const row = JSON.parse(text)
+    const candidateId = toText(row.candidateId)
+    const relativeDir = toText(row.relativeDir)
+    if (!candidateId || !relativeDir) continue
+    const internalId = internalIds.get(candidateId)
+    if (!internalId) continue
+    const files = wanted.get(toText(row.applicantId)) ?? {}
+    for (const spec of resumeSpecs(relativeDir)) {
+      const want = spec.type === 'resume' ? files.standard : files.origin
+      if (!want) continue
+      if (localAttachments.get(`${candidateId}|${spec.type}`) === want) { alreadySame += 1; continue }
+      if (!existsSync(spec.path)) { fileMissing += 1; continue }
+      plan.push({ candidateId: internalId, spec })
+    }
+  }
+
+  summary.mode = 'refresh-resumes'
+  summary.refresh = { planned: plan.length, alreadySame, fileMissing }
+  if (!plan.length) {
+    console.log(JSON.stringify(summary, null, 1))
+    db.close()
+    process.exit(0)
+  }
+
+  let inserted = 0
+  let replaced = 0
+  let tooLarge = 0
+  const timestamp = new Date().toISOString()
+  db.exec('BEGIN IMMEDIATE')
+  try {
+    for (const item of plan) {
+      const result = importResumeFile(item.candidateId, item.spec, timestamp)
+      if (result === 'inserted') inserted += 1
+      else if (result === 'replaced') replaced += 1
+      else if (result === 'too_large') tooLarge += 1
+    }
+    db.exec('COMMIT')
+  } catch (error) {
+    try { db.exec('ROLLBACK') } catch {}
+    throw error
+  }
+  summary.refresh.inserted = inserted
+  summary.refresh.replaced = replaced
+  summary.refresh.tooLarge = tooLarge
+  console.log(JSON.stringify(summary, null, 1))
+  db.close()
+  process.exit(0)
 }
 
 let processed = 0
 db.exec('BEGIN IMMEDIATE')
 try {
-  for (const row of [...added, ...changed]) {
+  for (const row of (refreshRows.length ? refreshRows : [...added, ...changed])) {
     const relativeDir = toText(row.relativeDir)
-    const profilePath = relativeDir
-      ? options.profilesDirs
-          .map((base) => join(base, relativeDir, 'profile.json'))
-          .find((candidatePath) => existsSync(candidatePath))
-      : null
+    const profilePath = resolveProfilePath(row)
     if (!profilePath) {
       summary.details.push({ kind: 'skipped', candidateId: row.candidateId, reason: 'profile_missing' })
       continue
@@ -391,6 +519,22 @@ try {
 }
 
 summary.processed = processed
+// 消失态（2026-10-08 定档 B）：上游新索引里没有的 applicantId 只标记 is_deleted=1，
+// **不写 archived_at、不删候选人、不删附件**，因此他们仍然出现在检索结果里。
+// 再次出现在索引里的候选人会在上面的 upsert 里用 row.isDeleted 覆盖回 0。
+if (removed.length && !refreshRows.length) {
+  const markDeleted = db.prepare('UPDATE candidate_asset_index SET is_deleted = 1 WHERE applicant_id = ?')
+  db.exec('BEGIN IMMEDIATE')
+  try {
+    for (const applicantId of removed) markDeleted.run(String(applicantId))
+    db.exec('COMMIT')
+  } catch (error) {
+    try { db.exec('ROLLBACK') } catch {}
+    throw error
+  }
+  summary.removedMarked = removed.length
+  summary.details.push({ kind: 'removed_marked', applicantIds: removed.slice(0, 50), truncated: removed.length > 50 })
+}
 summary.profilesDirPresent = existsSync(join(MANIFEST_DIR, 'profiles'))
 summary.resumesDirPresent = existsSync(join(RESUMES_DIR, 'candidates'))
 writeFileSync(resolve(DATA, 'incremental-import-report.json'), `${JSON.stringify(summary, null, 2)}\n`)

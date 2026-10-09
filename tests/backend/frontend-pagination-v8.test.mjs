@@ -77,7 +77,8 @@ test('candidate grouped view groups the current server page without scanning the
 test('candidate filters use the complete lookup catalog while Agent opens candidates by ID', () => {
   assert.match(app, /positions=\{positionLookup\}/)
   assert.match(candidatesView, /\.\.\.positions\.map\(\(position\) => \(\{ value: position\.id, label: position\.archived_at \? `\$\{position\.title\}（已归档）` : position\.title \}\)\)/)
-  assert.match(app, /async function openCandidateById\(candidateId: string, tab: DetailTab = "profile"\)/)
-  assert.match(app, /<AssistantDrawer[\s\S]*onOpenCandidateId=\{\(candidateId, tab\) => void openCandidateById\(candidateId, tab \?\? "profile"\)\}/)
+  // 第十六轮：抽屉默认落在「附件简历」页签（无简历附件时由抽屉回落到「档案」）。
+  assert.match(app, /async function openCandidateById\(candidateId: string, tab: DetailTab = "attachment"\)/)
+  assert.match(app, /<AssistantDrawer[\s\S]*onOpenCandidateId=\{\(candidateId, tab\) => void openCandidateById\(candidateId, tab \?\? "attachment"\)\}/)
   assert.doesNotMatch(app, /<AssistantDrawer[^>]*onOpenCandidate=/)
 })

@@ -213,13 +213,17 @@ test('early planning failure settles prestarted embedding before the caller obse
   } finally { await service.close() }
 }))
 
-test('query deadline defaults to 30 seconds and caps larger requests at the same budget', async () => {
+test('query deadline defaults to 30 seconds and caps larger requests at 120 seconds', async () => {
   const defaultBudget = new HybridSearchService({ db: {} })
   const longerRequest = new HybridSearchService({ db: {}, requestTimeoutMs: 60_000 })
+  const beyondCap = new HybridSearchService({ db: {}, requestTimeoutMs: 600_000 })
   try {
     assert.equal(defaultBudget.status().worker.query_budget_ms, 30_000)
-    assert.equal(longerRequest.status().worker.query_budget_ms, 30_000)
+    // 正式库规模下高频宽泛词会打满 30 秒（2026-10-08 实测），上限放宽到 120 秒；
+    // 仍然是显式有界预算，不接受无限等待。
+    assert.equal(longerRequest.status().worker.query_budget_ms, 60_000)
+    assert.equal(beyondCap.status().worker.query_budget_ms, 120_000)
   } finally {
-    await Promise.all([defaultBudget.close(), longerRequest.close()])
+    await Promise.all([defaultBudget.close(), longerRequest.close(), beyondCap.close()])
   }
 })

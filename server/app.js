@@ -379,7 +379,11 @@ export function createApp(options = {}) {
     remoteEnabled: options.searchRemoteEnabled ?? process.env.SEARCH_REMOTE_ENABLED === 'true',
     modelConfig: options.searchModelConfig,
     vectorDirectory: options.searchVectorDirectory ?? process.env.SEARCH_VECTOR_DIRECTORY,
-    dimensions: Number(process.env.SEARCH_EMBEDDING_DIMENSIONS ?? 1024)
+    dimensions: Number(process.env.SEARCH_EMBEDDING_DIMENSIONS ?? 1024),
+    // 单次检索预算（毫秒）：默认仍是 30 秒（保持既有设计），可用 SEARCH_QUERY_BUDGET_MS
+    // 放宽到最多 120 秒——正式库规模下「Python 服务端开发」这类高频宽泛词会打满 30 秒。
+    // 见 docs/VECTOR_HYBRID_PLAN.md §11.3。
+    requestTimeoutMs: Number(process.env.SEARCH_QUERY_BUDGET_MS ?? 30_000)
   })
   const vectorDirectory = options.searchVectorDirectory ?? process.env.SEARCH_VECTOR_DIRECTORY
   const remoteSearchEnabled = options.searchRemoteEnabled ?? process.env.SEARCH_REMOTE_ENABLED === 'true'

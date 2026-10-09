@@ -38,10 +38,10 @@ const SELF_DOCS_BRANCH_CANDIDATE = `SELECT d.document_id, d.row_id, c.id candida
   FROM candidate_resume_documents d JOIN candidates c ON d.source_type='candidate' AND d.candidate_id=c.id`
 const SELF_DOCS_BRANCH_SECTION = `SELECT d.document_id,d.row_id,s.candidate_id,'profile_section',s.id,s.section_type,coalesce(s.title,''),coalesce(s.content,'')
   FROM candidate_resume_documents d JOIN candidate_profile_sections s ON d.source_type='profile_section' AND d.source_id=s.id
-  WHERE s.archived_at IS NULL AND s.section_type IN ('education','education_experience','experience','work_experience','work','project','project_experience','internship','skill','skills')`
+  WHERE s.archived_at IS NULL AND (s.section_type IN ('education','education_experience','experience','work_experience','work','project','project_experience','internship','skill','skills','award','certificate','campus','language','management','publication','training') OR (s.section_type = 'other' AND s.source_record_id LIKE 'origin-section-parse-v1:%'))`
 const SELF_DOCS_BRANCH_ATTACHMENT = `SELECT d.document_id,d.row_id,a.candidate_id,'attachment',a.id,'attachment',a.original_filename,a.extracted_text
   FROM candidate_resume_documents d JOIN candidate_attachments a ON d.source_type='attachment' AND d.source_id=a.id
-  WHERE a.parse_status='parsed' AND a.attachment_type='resume'`
+  WHERE a.parse_status='parsed' AND a.attachment_type IN ('resume','resume_origin')`
 const SELF_DOCS_BRANCHES = [
   SELF_DOCS_BRANCH_CANDIDATE,
   SELF_DOCS_BRANCH_SECTION,
