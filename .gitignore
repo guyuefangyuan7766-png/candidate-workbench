@@ -21,3 +21,6 @@ outputs/**/*.xlsx
 .codex-tmp/
 tmp/
 .playwright-cli/
+
+# Large inspection dumps (GitHub 100 MB per-file limit)
+outputs/failed-candidates-20260828/*.ndjson
