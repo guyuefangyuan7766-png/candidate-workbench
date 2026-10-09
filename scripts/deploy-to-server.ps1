@@ -71,6 +71,21 @@ if (-not (Test-Path -LiteralPath $SourceRoot)) { throw "SourceRoot not found: $S
 $sourceCode = Join-Path $SourceRoot '.'
 if (-not (Test-Path -LiteralPath (Join-Path $SourceRoot 'package.json'))) { throw "package.json missing under $SourceRoot" }
 
+# Pre-flight: the release REPLACES the data directory, and LDAP auth needs the server's own
+# auth-allowlist.txt / auth.db. They are not part of the source tree, so refuse to start
+# unless the existing data directory still holds the allowlist while AUTH_ENABLED=true.
+if (-not $SkipData) {
+  $authEnabled = @(
+    [Environment]::GetEnvironmentVariable('AUTH_ENABLED', 'Machine'),
+    [Environment]::GetEnvironmentVariable('AUTH_ENABLED', 'User')
+  ) -contains 'true'
+  $existingAllowlist = Join-Path $DataTarget 'auth-allowlist.txt'
+  if ($authEnabled -and -not (Test-Path -LiteralPath $existingAllowlist)) {
+    throw "AUTH_ENABLED=true but $existingAllowlist was not found. Refusing to replace the data directory: the release must keep the server's existing auth-allowlist.txt / auth.db. Restore the file (or set -SkipData) and rerun."
+  }
+  if ($authEnabled) { Write-Step "auth pre-flight ok: will carry over $existingAllowlist" }
+}
+
 Stop-App
 
 # 1. code
