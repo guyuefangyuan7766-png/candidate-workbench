@@ -21,6 +21,7 @@ param(
   [string]$CodeTarget = 'C:\apps\talent-workbench',
   [string]$DataTarget = 'C:\talent-data',
   [switch]$SkipData,
+  [switch]$IncludeArchive,
   [switch]$SkipInstall,
   [switch]$SkipBuild,
   [switch]$DryRun
@@ -119,6 +120,13 @@ if (-not $SkipData) {
     Invoke-External 'robocopy' @($from, (Join-Path $DataTarget $dir), '/MIR', '/R:2', '/W:2', '/NP', '/NFL', '/NDL') | Out-Null
   }
 
+  # Deployment artifacts (code/data manifests, RDP template) so the server can verify the copy.
+  $deploySource = Join-Path $sourceData 'deploy'
+  if (Test-Path -LiteralPath $deploySource) {
+    Write-Step 'copying deploy manifests (data-manifest.json / local-manifest.json)'
+    Invoke-External 'robocopy' @($deploySource, (Join-Path $DataTarget 'deploy'), '/E', '/R:2', '/W:2', '/NP', '/NFL', '/NDL') | Out-Null
+  }
+
   # Auth state is NOT part of the source tree: auth-allowlist.txt and auth.db live in the
   # server data directory. Carry them over from the backup, or nobody can log in while
   # AUTH_ENABLED=true.
@@ -131,8 +139,33 @@ if (-not $SkipData) {
       }
     }
   }
+
+  # Full data handover: also carry the source snapshot and the incremental cache.
+  # They are NOT required to run the app, but they are part of the project's data set.
+  if ($IncludeArchive) {
+    foreach ($dir in @('asset-export', 'incremental')) {
+      $from = Join-Path $sourceData $dir
+      if (-not (Test-Path -LiteralPath $from)) { Write-Host ("    skip missing archive {0}" -f $dir); continue }
+      Write-Step ("copying archive {0} (robocopy /MIR)" -f $dir)
+      Invoke-External 'robocopy' @($from, (Join-Path $DataTarget $dir), '/MIR', '/R:2', '/W:2', '/NP', '/NFL', '/NDL') | Out-Null
+    }
+  }
 } else {
   Write-Step 'SkipData set: leaving existing data directory untouched'
+}
+
+# 2b. data junction: the app itself resolves attachments from the DB directory, but the
+# maintenance scripts (import-incremental / run-phase3 / persist-attachment-text /
+# pack-incremental) resolve "<code>\data\..." . Point that at the real data directory.
+if (-not $SkipData) {
+  $codeData = Join-Path $CodeTarget 'data'
+  $dataDirExists = Test-Path -LiteralPath $DataTarget
+  if (-not $DryRun -and $dataDirExists -and -not (Test-Path -LiteralPath $codeData)) {
+    Write-Step ("creating junction {0} -> {1}" -f $codeData, $DataTarget)
+    cmd /c mklink /J "$codeData" "$DataTarget" | Out-Null
+  } elseif ($DryRun -and $dataDirExists) {
+    Write-Step ("plan: mklink /J `"{0}`" `"{1}`"" -f $codeData, $DataTarget)
+  }
 }
 
 # 3. dependencies + build
