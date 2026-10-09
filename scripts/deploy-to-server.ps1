@@ -157,15 +157,14 @@ if (-not $SkipData) {
 # 2b. data junction: the app itself resolves attachments from the DB directory, but the
 # maintenance scripts (import-incremental / run-phase3 / persist-attachment-text /
 # pack-incremental) resolve "<code>\data\..." . Point that at the real data directory.
-if (-not $SkipData) {
-  $codeData = Join-Path $CodeTarget 'data'
-  $dataDirExists = Test-Path -LiteralPath $DataTarget
-  if (-not $DryRun -and $dataDirExists -and -not (Test-Path -LiteralPath $codeData)) {
-    Write-Step ("creating junction {0} -> {1}" -f $codeData, $DataTarget)
-    cmd /c mklink /J "$codeData" "$DataTarget" | Out-Null
-  } elseif ($DryRun -and $dataDirExists) {
-    Write-Step ("plan: mklink /J `"{0}`" `"{1}`"" -f $codeData, $DataTarget)
-  }
+# This runs even with -SkipData (archive-based deployments place the data by hand).
+$codeData = Join-Path $CodeTarget 'data'
+$dataDirExists = Test-Path -LiteralPath $DataTarget
+if (-not $DryRun -and $dataDirExists -and -not (Test-Path -LiteralPath $codeData)) {
+  Write-Step ("creating junction {0} -> {1}" -f $codeData, $DataTarget)
+  cmd /c mklink /J "$codeData" "$DataTarget" | Out-Null
+} elseif ($DryRun -and $dataDirExists) {
+  Write-Step ("plan: mklink /J `"{0}`" `"{1}`"" -f $codeData, $DataTarget)
 }
 
 # 3. dependencies + build

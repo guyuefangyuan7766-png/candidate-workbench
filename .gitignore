@@ -22,5 +22,8 @@ outputs/**/*.xlsx
 tmp/
 .playwright-cli/
 
+# Packaged data archives for the IT handover (tens of GB, never commit)
+transfer/
+
 # Large inspection dumps (GitHub 100 MB per-file limit)
 outputs/failed-candidates-20260828/*.ndjson

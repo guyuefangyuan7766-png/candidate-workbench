@@ -17,6 +17,34 @@
 | 数据内容 | 代码（595 文件）、主库 17.46 GiB、向量索引 27.66 GB、附件 49.79 GiB、原始快照 47.88 GB、增量缓存 17.64 GB 等 |
 | 清单 | 共享内 `data\deploy\data-manifest.json`（条目级文件数/字节数 + 主库 SHA256）、`data\deploy\local-manifest.json`（代码 SHA256） |
 
+### 1.1 已打包的数据（推荐按包复制，避免 80 万个散文件）
+
+共享内 `transfer\` 目录已用 **store 模式（只打包、不压缩）** 生成 5 个 zip，复制与校验都比散文件快得多：
+
+| 包 | 内容 | 大小 |
+| --- | --- | ---: |
+| `01-database.zip` | `recruitment.db`(+`-wal`/`-shm`)、`search-runtime.json`、`deploy\`（清单） | 17.46 GiB |
+| `02-vectors.zip` | `search-vectors\`（f16 向量索引，**不要用 f32 重建**） | 27.66 GB |
+| `03-attachments.zip` | `private\`（附件） | 49.79 GiB |
+| `04-archive.zip` | `asset-export\` + `incremental\`（留档数据，可选） | 65.52 GiB |
+| `05-reports.zip` | 解析/评测报告（可选） | 0.13 GiB |
+
+（同目录下 `README.txt` 是给 IT 的提取说明，`pack.log` 是打包记录。）
+
+**在服务器上提取**（Windows 自带 `tar`，解压目标是 `C:\talent-data`，包内就是该目录的相对结构）：
+
+```powershell
+tar -xf 01-database.zip   -C C:\talent-data
+tar -xf 02-vectors.zip    -C C:\talent-data
+tar -xf 03-attachments.zip -C C:\talent-data
+tar -xf 04-archive.zip    -C C:\talent-data    # 可选
+tar -xf 05-reports.zip    -C C:\talent-data    # 可选
+```
+
+> 注意：`deploy-to-server.ps1` 默认是从共享目录直接 robocopy 数据；如果改用这些 zip，
+> 就按 `transfer\README.txt` 里的步骤手工提取，再跑脚本时加 `-SkipData` 只部署代码
+> （脚本不会再动数据目录，认证文件也保持原样）。
+
 ---
 
 ## 2. 连通性自测（在服务器上执行）

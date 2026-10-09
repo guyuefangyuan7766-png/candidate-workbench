@@ -104,7 +104,23 @@ node scripts/data-inventory.mjs --verify C:\talent-data\deploy\data-manifest.jso
 
 核对项：条目文件数、字节数、`recruitment.db` 与 `search-runtime.json` 的 SHA256。
 
-### 3.3 数据口径（不要破坏的约定）
+### 3.3 打包交接（推荐：避免 80 万个散文件）
+
+项目根目录 `transfer\` 下已生成 **store 模式（只打包、不压缩）** 的 5 个 zip（合计约 161 GB），
+随共享一起交给 IT（`\\<开发机>\talent-workbench\transfer\`）：
+
+| 包 | 内容 | 大小 |
+| --- | --- | ---: |
+| `01-database.zip` | 主库三件套 + `search-runtime.json` + `deploy\`（清单） | 17.46 GiB |
+| `02-vectors.zip` | `search-vectors\`（f16） | 27.66 GB |
+| `03-attachments.zip` | `private\`（附件） | 49.86 GB |
+| `04-archive.zip` | `asset-export\` + `incremental\`（留档，可选） | 66.01 GB |
+| `05-reports.zip` | 报告（可选） | 0.13 GB |
+
+服务器侧提取与部署步骤见 `transfer\README.txt`（含一条命令的代码部署：`deploy-to-server.ps1 -SkipData`）。
+提取后用 `data-inventory.mjs --verify` 校验，再启动服务。
+
+### 3.4 数据口径（不要破坏的约定）
 
 1. **消失的候选人只标记不删除**：`candidate_asset_index.is_deleted = 1`，档案/附件保留，重新出现自动回 0。
 2. **附件永久保留**：不提供"批量删除附件"的运维入口。
