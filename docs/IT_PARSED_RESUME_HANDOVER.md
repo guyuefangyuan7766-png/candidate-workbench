@@ -331,6 +331,77 @@ Get-FileHash parsed-sections.jsonl, origin-text.jsonl, manifest.json -Algorithm 
 | 9 | 安全 | 全流程公司内网；无 Token / 签名 URL / 物理路径写进产物 |
 | 10 | 回滚演练 | 切回旧 `kav_*` / 旧数据目录后 agent 正常运行 |
 
+### 8.1 执行后逐阶段确认（命令 + 期望结果）
+
+**阶段 1：取包与完整性**
+
+```powershell
+net use \\192.168.190.58\talent-workbench /user:wd\cboy *
+copy "\\192.168.190.58\talent-workbench\transfer\06-parsed-resume.zip" D:\
+mkdir D:\parsed-resume
+tar -xf D:\06-parsed-resume.zip -C D:\parsed-resume
+cd D:\parsed-resume\parsed-resume-20261010
+
+# 1) 校验和：三个 SHA256 必须与 checksums.sha256 完全一致
+Get-FileHash parsed-sections.jsonl, origin-text.jsonl, manifest.json -Algorithm SHA256
+#    期望：f81c8a58…c6edab / 537de25c…230ba1 / 5946e46e…db6c585（见 §6.4 表）
+
+# 2) 行数
+(Get-Content parsed-sections.jsonl -ReadCount 0).Count   # 期望 69642
+(Get-Content origin-text.jsonl  -ReadCount 0).Count     # 期望 69629
+
+# 3) 抽样 JSON 可解析
+Get-Content parsed-sections.jsonl -TotalCount 3 | ForEach-Object { $_ | ConvertFrom-Json | Out-Null; "ok" }
+Get-Content origin-text.jsonl  -TotalCount 3 | ForEach-Object { $_ | ConvertFrom-Json | Out-Null; "ok" }
+```
+
+**阶段 2：合并进资产源**
+
+- 抽取 5 个 `applicant_id`，确认资产源对应目录下出现 `parsed/sections.json` / `parsed/origin-text.txt`，内容与包一致；
+- 覆盖率检查：包内 69,642 个 `applicant_id` 应 100% 能在资产目录集合中找到（无新增孤儿）；
+- 抽样 20 人与原件 PDF 对照：区块标题/字段一致，无编造、无覆盖北森原有字段。
+
+**阶段 3：发布新资产版本**
+
+- 新 `kav_*` 进入 **Ready**；留档 `revision.json` 的 `generationId` / `treeHash` / `entryCount`；
+- 旧 `kav_*` 仍在（证明可回滚）。
+
+**阶段 4：消费端验证（WDCloud 人才库）**
+
+- 用 `talent-pool-agent` **新开一个任务**（旧任务固定在旧版本，不会热切换）；
+- 提问依赖解析文本才能回答的内容（例如某候选人的自我评价 / 求职意向）；
+- 成功标准：任务 `succeeded`；回答中出现解析内容；任务详情里 `assetId=ka_talent_pool_files`、
+  `assetVersionId` 是新 `kav_*`、`observedAt` 为本次时间；**无** `ASSET_ACCESS_DENIED` / `ASSET_STALE` /
+  `ASSET_VERSION_UNAVAILABLE` / `ASSET_BACKEND_UNAVAILABLE`。
+
+**阶段 5（可选：仅当 IT 同时部署了工作台）**
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:4173/api/health            # 期望 200
+Invoke-RestMethod http://127.0.0.1:4173/api/resume-search/status
+# 期望 hybrid.vector.available=true && loaded=true && current=true；degradation 不含 vector_unavailable / vector_not_ready
+node scripts/self-test-api.mjs                                # 期望 32/32 通过
+```
+
+### 8.2 成功的最小闭环与失败判定
+
+判定"这次操作成功"的最小闭环（4 条必须全满足）：
+
+1. **校验和一致**：三个 SHA256 与 `checksums.sha256` 完全一致；
+2. **数量一致**：行数 69,642 / 69,629，`missing_applicant_id=0`；
+3. **版本 Ready**：新 `kav_*` 已 Ready 且有 revision 留档；
+4. **消费可读**：新开的 agent 任务能读到 `parsed/` 内容且无 `ASSET_*` 错误。
+
+任一条不满足即判失败，按下表处理：
+
+| 现象 | 处理 |
+| --- | --- |
+| 校验和不一致 / 行数不符 | 重新从共享复制（不要合并半包）；报错时附 `Get-FileHash` 输出 |
+| 合并后资产 Revision 未变化 | 检查是否提交到了错误的资产源分支 / 未触发 Probe-Build |
+| 新版本长期非 Ready | 查资产 Build 日志（Probe/Build 阶段），不要用旧版本硬顶 |
+| Agent 报 `ASSET_*` | 按 WDCloud Shared Assets 错误表处理（授权 / 版本 / Backend / freshness） |
+| 需要回滚 | 切回旧 `kav_*`，让消费方**新开任务**重跑；旧版本一直保留 |
+
 ---
 
 ## 9. 安全与合规
