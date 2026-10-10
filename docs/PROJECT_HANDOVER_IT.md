@@ -14,6 +14,7 @@
 > 配套文档（都在本仓库 `docs/`）：
 > - 发布交接单（首次上线）：`docs/SERVER_RELEASE_HANDOVER_IT.md`
 > - 上传清单（开发侧）：`docs/SERVER_UPLOAD_CHECKLIST.md`
+> - 解析补全简历文本交接（标准简历字段不全 + 大模型补全结果如何交给 IT）：`docs/IT_PARSED_RESUME_HANDOVER.md`
 > - 变更记录：`CHANGELOG.md`；测试记录：`docs/TESTING.md`
 > - 数据清单（校验用）：`data/deploy/data-manifest.json`
 > - 代码清单（校验用）：`data/deploy/local-manifest.json`
@@ -106,7 +107,7 @@ node scripts/data-inventory.mjs --verify C:\talent-data\deploy\data-manifest.jso
 
 ### 3.3 打包交接（推荐：避免 80 万个散文件）
 
-项目根目录 `transfer\` 下已生成 **store 模式（只打包、不压缩）** 的 5 个 zip（合计约 161 GB），
+项目根目录 `transfer\` 下已生成 **store 模式（只打包、不压缩）** 的 6 个 zip（合计约 162 GB），
 随共享一起交给 IT（`\\<开发机>\talent-workbench\transfer\`）：
 
 | 包 | 内容 | 大小 |
@@ -116,6 +117,7 @@ node scripts/data-inventory.mjs --verify C:\talent-data\deploy\data-manifest.jso
 | `03-attachments.zip` | `private\`（附件） | 49.86 GB |
 | `04-archive.zip` | `asset-export\` + `incremental\`（留档，可选） | 66.01 GB |
 | `05-reports.zip` | 报告（可选） | 0.13 GB |
+| `06-parsed-resume.zip` | 解析补全简历文本包（给人才资产 / WDCloud 共享资产，**不放入 `C:\talent-data`**） | 840.9 MB |
 
 服务器侧提取与部署步骤见 `transfer\README.txt`（含一条命令的代码部署：`deploy-to-server.ps1 -SkipData`）。
 提取后用 `data-inventory.mjs --verify` 校验，再启动服务。

@@ -19,7 +19,7 @@
 
 ### 1.1 已打包的数据（推荐按包复制，避免 80 万个散文件）
 
-共享内 `transfer\` 目录已用 **store 模式（只打包、不压缩）** 生成 5 个 zip，复制与校验都比散文件快得多：
+共享内 `transfer\` 目录已用 **store 模式（只打包、不压缩）** 生成 6 个 zip，复制与校验都比散文件快得多：
 
 | 包 | 内容 | 大小 |
 | --- | --- | ---: |
@@ -28,8 +28,13 @@
 | `03-attachments.zip` | `private\`（附件） | 49.79 GiB |
 | `04-archive.zip` | `asset-export\` + `incremental\`（留档数据，可选） | 65.52 GiB |
 | `05-reports.zip` | 解析/评测报告（可选） | 0.13 GiB |
+| `06-parsed-resume.zip` | **解析补全简历文本包**（`parsed-sections.jsonl` + `origin-text.jsonl` + `manifest.json` + `checksums.sha256`；**不要解到 `C:\talent-data`**，是给人才资产 / WDCloud 共享资产用的） | 840.9 MB |
 
 （同目录下 `README.txt` 是给 IT 的提取说明，`pack.log` 是打包记录。）
+
+> `06-parsed-resume.zip` 的用途、字段定义、合并到 WDCloud 人才库资产（`ka_talent_pool_files`）的步骤与
+> 验收清单，见 `docs/IT_PARSED_RESUME_HANDOVER.md`；散文件目录为
+> `transfer\parsed-resume-20261010\`（69,642 + 69,629 行，SHA256 见包内 `checksums.sha256`）。
 
 **在服务器上提取**（Windows 自带 `tar`，解压目标是 `C:\talent-data`，包内就是该目录的相对结构）：
 
