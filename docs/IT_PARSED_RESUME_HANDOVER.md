@@ -368,11 +368,34 @@ Get-Content origin-text.jsonl  -TotalCount 3 | ForEach-Object { $_ | ConvertFrom
 
 **阶段 4：消费端验证（WDCloud 人才库）**
 
-- 用 `talent-pool-agent` **新开一个任务**（旧任务固定在旧版本，不会热切换）；
-- 提问依赖解析文本才能回答的内容（例如某候选人的自我评价 / 求职意向）；
-- 成功标准：任务 `succeeded`；回答中出现解析内容；任务详情里 `assetId=ka_talent_pool_files`、
-  `assetVersionId` 是新 `kav_*`、`observedAt` 为本次时间；**无** `ASSET_ACCESS_DENIED` / `ASSET_STALE` /
-  `ASSET_VERSION_UNAVAILABLE` / `ASSET_BACKEND_UNAVAILABLE`。
+入口：`https://cloud.wooduan.ai/agents/talent-pool-agent`（"人才库"）。
+**必须新开任务**——任务在创建时固定资产版本，旧任务不会热切换，这是最常见的"验证不生效"原因。
+
+直接粘贴这条核验提问（不需要别的输入）：
+
+```text
+请执行一次资产核验：1) 报告当前挂载的人才库资产 _revision/revision.json 的 generationId、entryCount、
+treeHash；2) 抽查任意一个候选人目录，列出其全部条目，确认是否存在 parsed/ 子目录
+（parsed/sections.json 或 parsed/origin-text.txt）；只报告你实际读到的事实，不要猜测。
+```
+
+判定"第 6 项通过"要同时满足：
+
+1. 任务状态 **succeeded**（任务详情页 `https://cloud.wooduan.ai/tasks/<taskRunId>`）；
+2. 回答里报出的 `generationId` / `entryCount` 是**合并后的新版本**（与合并前基线不同，见下）；
+3. 抽查目录（或抽样 5 个任意 `candidates/<2>/<2>/<applicantId>`）能读到 `parsed/`；
+4. 任务详情无 `ASSET_ACCESS_DENIED` / `ASSET_STALE` / `ASSET_VERSION_UNAVAILABLE` / `ASSET_BACKEND_UNAVAILABLE`。
+
+**合并前基线（2026-10-10 18:07 实测，任务 `task-dd33b17c-7fcd-409b-9f0c-bc7b9a8eabb3`，succeeded）**：
+
+| 项 | 基线值（合并前） | 合并后期望 |
+| --- | --- | --- |
+| `generationId` | `fsgen-bef5a041-1cf7-4edb-9c3b-b4bd712419d7` | 变为新值 |
+| `entryCount` | 356,714 | 上升（若 parsed 按文件并入，约 +139,271：69,642 个 sections.json + 69,629 个 origin-text.txt） |
+| `parsed/` 目录 | 0 / 119,143 个候选目录 | 抽样能读到 `parsed/sections.json` / `parsed/origin-text.txt` |
+
+> 若合并方式是把解析内容并入 `profile.json`（而非独立 `parsed/` 目录），第 3 条改为：
+> 让 agent 读出某候选人的 `parsedResume` 字段内容，且与包内该候选人的 sections 一致。
 
 **阶段 5（可选：仅当 IT 同时部署了工作台）**
 
