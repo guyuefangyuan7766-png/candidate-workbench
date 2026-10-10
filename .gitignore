@@ -21,3 +21,6 @@ outputs/**/*.xlsx
 .codex-tmp/
 tmp/
 .playwright-cli/
+
+# Local raw cookie debug output (never commit)
+.raw-cookie-output.txt
